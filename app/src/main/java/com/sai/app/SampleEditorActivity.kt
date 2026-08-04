@@ -55,9 +55,13 @@ class SampleEditorActivity : ComponentActivity() {
 
         original = try {
             WavIO.read(bytes)
-        } catch (e: Exception) {
-            toastAndFinish("Unsupported audio file (only 16-bit PCM WAV for now): ${e.message}")
-            return
+        } catch (wavError: Exception) {
+            try {
+                AudioDecoder.decode(contentResolver, uri)
+            } catch (decodeError: Exception) {
+                toastAndFinish("Unsupported audio file: ${decodeError.message}")
+                return
+            }
         }
 
         setContentView(buildUi())
