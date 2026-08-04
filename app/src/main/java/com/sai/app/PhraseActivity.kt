@@ -124,6 +124,8 @@ class PhraseActivity : ComponentActivity() {
             addView(samplerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             addView(dividerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
             addView(stepSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            isLongClickable = true
+            setOnLongClickListener { showNav(); true }
         }
 
         applyViewMode()

@@ -21,7 +21,7 @@ import com.sai.core.tracker.Phrase
 
 class MainActivity : ComponentActivity() {
 
-    private enum class ViewMode { SPLIT, SAMPLER_FULL, TRACKER_FULL }
+    private enum class ViewMode { SPLIT, SAMPLER_FULL, SYNTH_FULL, TRACKER_FULL }
 
     private lateinit var library: SampleLibrary
     private lateinit var project: TrackerProject
@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var sampleListContainer: LinearLayout
     private lateinit var samplerSectionWrapper: LinearLayout
 
+    private lateinit var synthPanel: SynthPanelView
+    private lateinit var synthSectionWrapper: LinearLayout
+
     private lateinit var songRows: LinearLayout
     private lateinit var bpmLabel: TextView
     private lateinit var playButton: Button
@@ -42,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var trackerSectionWrapper: LinearLayout
 
     private lateinit var dividerView: View
+    private lateinit var dividerView2: View
 
     private var viewMode = ViewMode.SPLIT
     private var highlightedPosition = -1
@@ -63,6 +67,24 @@ class MainActivity : ComponentActivity() {
         if (uri != null) {
             AppBackground.setImage(this, uri)
             AppBackground.apply(this, rootView)
+        }
+    }
+
+    private val openSynthSample = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: SecurityException) {
+                // Grant couldn't be persisted; the sample still works this session.
+            }
+            val name = SampleLoader.queryDisplayName(contentResolver, uri)
+            library.add(listOf(SampleEntry(uri, name)))
+            try {
+                synthPanel.load(SampleLoader.decode(contentResolver, uri), name)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Couldn't load that file: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            refreshSampleList()
         }
     }
 
@@ -114,8 +136,10 @@ class MainActivity : ComponentActivity() {
         }
 
         samplerSectionWrapper = buildSamplerSection()
+        synthSectionWrapper = buildSynthSection()
         trackerSectionWrapper = buildTrackerSection()
         dividerView = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
+        dividerView2 = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
 
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -124,7 +148,11 @@ class MainActivity : ComponentActivity() {
             addView(headerRow)
             addView(samplerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             addView(dividerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
+            addView(synthSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(dividerView2, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
             addView(trackerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            isLongClickable = true
+            setOnLongClickListener { showNav(); true }
         }
 
         applyViewMode()
@@ -139,6 +167,16 @@ class MainActivity : ComponentActivity() {
             setTextColor(AppTheme.accentColor(this@MainActivity))
             textSize = 16f
         }
+        val addButton = Button(this).apply {
+            text = "+"
+            setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
+        }
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(addButton)
+        }
 
         samplerPanel = SamplerPanelView(this).apply {
             onSaveSlices = { sourceName, slices ->
@@ -152,7 +190,7 @@ class MainActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(title)
+            addView(titleRow)
             addView(samplerPanel)
             addView(
                 ScrollView(this@MainActivity).apply { addView(sampleListContainer) },
@@ -161,11 +199,53 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun buildSynthSection(): LinearLayout {
+        val title = TextView(this).apply {
+            text = "SYNTH"
+            setTextColor(AppTheme.accentColor(this@MainActivity))
+            textSize = 16f
+        }
+        val addButton = Button(this).apply {
+            text = "+"
+            setOnClickListener { openSynthSample.launch(arrayOf("audio/*")) }
+        }
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(addButton)
+        }
+
+        synthPanel = SynthPanelView(this).apply {
+            onSaveToLibrary = { sourceName, wav ->
+                val saved = SliceExporter.saveToLibrary(this@MainActivity, sourceName, listOf(wav))
+                Toast.makeText(this@MainActivity, "Saved ${saved.size} to your sample library", Toast.LENGTH_LONG).show()
+                refreshSampleList()
+            }
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(titleRow)
+            addView(synthPanel)
+        }
+    }
+
     private fun buildTrackerSection(): LinearLayout {
         val title = TextView(this).apply {
             text = "TRACKER"
             setTextColor(AppTheme.accentColor(this@MainActivity))
             textSize = 16f
+        }
+        val addButton = Button(this).apply {
+            text = "+"
+            setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
+        }
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(addButton)
         }
 
         val density = resources.displayMetrics.density
@@ -205,7 +285,7 @@ class MainActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(title)
+            addView(titleRow)
             addView(transport)
             addView(header)
             addView(
@@ -233,16 +313,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyViewMode() {
-        val samplerVisible = viewMode != ViewMode.TRACKER_FULL
-        val trackerVisible = viewMode != ViewMode.SAMPLER_FULL
         val split = viewMode == ViewMode.SPLIT
+        val samplerVisible = split || viewMode == ViewMode.SAMPLER_FULL
+        val synthVisible = split || viewMode == ViewMode.SYNTH_FULL
+        val trackerVisible = split || viewMode == ViewMode.TRACKER_FULL
 
         samplerSectionWrapper.visibility = if (samplerVisible) View.VISIBLE else View.GONE
+        synthSectionWrapper.visibility = if (synthVisible) View.VISIBLE else View.GONE
         trackerSectionWrapper.visibility = if (trackerVisible) View.VISIBLE else View.GONE
         dividerView.visibility = if (split) View.VISIBLE else View.GONE
+        dividerView2.visibility = if (split) View.VISIBLE else View.GONE
 
         if (samplerVisible) {
             samplerSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        if (synthVisible) {
+            synthSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         if (trackerVisible) {
             trackerSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
@@ -563,11 +649,12 @@ class MainActivity : ComponentActivity() {
     private fun showExpand() {
         AlertDialog.Builder(this)
             .setTitle("Expand")
-            .setItems(arrayOf("Sampler Full Screen", "Tracker Full Screen", "Split View")) { _, which ->
+            .setItems(arrayOf("Sampler Full Screen", "Synth Full Screen", "Tracker Full Screen", "Split View")) { _, which ->
                 when (which) {
                     0 -> { viewMode = ViewMode.SAMPLER_FULL; applyViewMode() }
-                    1 -> { viewMode = ViewMode.TRACKER_FULL; applyViewMode() }
-                    2 -> showSplitView()
+                    1 -> { viewMode = ViewMode.SYNTH_FULL; applyViewMode() }
+                    2 -> { viewMode = ViewMode.TRACKER_FULL; applyViewMode() }
+                    3 -> showSplitView()
                 }
             }
             .show()
