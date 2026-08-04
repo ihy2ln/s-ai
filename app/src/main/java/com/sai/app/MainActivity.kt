@@ -25,6 +25,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         library = SampleLibrary(this)
 
+        val trackerButton = Button(this).apply {
+            text = "Open Tracker"
+            setOnClickListener { startActivity(Intent(this@MainActivity, SongActivity::class.java)) }
+        }
+
         val importButton = Button(this).apply {
             text = "Import Samples"
             setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
@@ -36,6 +41,7 @@ class MainActivity : ComponentActivity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(Color.BLACK)
+                addView(trackerButton)
                 addView(importButton)
                 addView(
                     ScrollView(this@MainActivity).apply { addView(listContainer) },
