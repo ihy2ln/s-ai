@@ -32,7 +32,7 @@ class SoundLibraryActivity : ComponentActivity() {
 
         val title = TextView(this).apply {
             text = "SOUNDS"
-            setTextColor(Color.CYAN)
+            setTextColor(AppTheme.accentColor(this@SoundLibraryActivity))
             typeface = Typeface.MONOSPACE
             textSize = 20f
         }

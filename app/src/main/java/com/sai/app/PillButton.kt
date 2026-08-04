@@ -6,14 +6,16 @@ import android.widget.Button
 import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
 
-/** A rounded, semi-transparent (60%) single-letter action button used in single-line headers. */
+/** A rounded, semi-transparent single-letter action button used in single-line headers; opacity follows AppTheme. */
 object PillButton {
     fun create(context: Context, letter: String, onClick: () -> Unit): Button {
         val density = context.resources.displayMetrics.density
         return Button(context).apply {
             text = letter
             setTextColor(Color.WHITE)
-            background = ContextCompat.getDrawable(context, R.drawable.pill_button_bg)
+            background = ContextCompat.getDrawable(context, R.drawable.pill_button_bg)?.mutate()?.apply {
+                alpha = AppTheme.opacityAlpha(context)
+            }
             minWidth = (44 * density).toInt()
             minHeight = 0
             setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())

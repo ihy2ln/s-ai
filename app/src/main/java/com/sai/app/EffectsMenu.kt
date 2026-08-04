@@ -36,19 +36,25 @@ object EffectsMenu {
     }
 
     private fun showFilterDialog(context: Context, panel: SamplerPanelView) {
+        var lowCut = 20f
+        var highCut = 20000f
         var cutoff = 8000f
         var resonance = 0.2f
         var drive = 0f
+        var pitch = 0f
 
         val knobs = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
+            addView(Knob.labeled(context, "LOW CUT", 20f, 2000f, lowCut, { "%.0fHz".format(it) }) { lowCut = it })
+            addView(Knob.labeled(context, "HIGH CUT", 1000f, 20000f, highCut, { "%.0fHz".format(it) }) { highCut = it })
             addView(Knob.labeled(context, "CUTOFF", 200f, 18000f, cutoff, { "%.0fHz".format(it) }) { cutoff = it })
             addView(Knob.labeled(context, "RES", 0f, 1f, resonance, { "%.2f".format(it) }) { resonance = it })
             addView(Knob.labeled(context, "CRUNCH", 0f, 1f, drive, { "%.2f".format(it) }) { drive = it })
+            addView(Knob.labeled(context, "PITCH", -24f, 24f, pitch, { "%+.0fst".format(it) }) { pitch = it })
         }
 
         effectDialog(context, "Synth / Filter", knobs, panel,
-            process = { wav -> Filter.apply(wav, cutoff.toDouble(), resonance.toDouble(), drive.toDouble()) })
+            process = { wav -> Filter.apply(wav, lowCut.toDouble(), highCut.toDouble(), cutoff.toDouble(), resonance.toDouble(), drive.toDouble(), pitch.toDouble()) })
     }
 
     private fun showCompressorDialog(context: Context, panel: SamplerPanelView) {
@@ -88,19 +94,25 @@ object EffectsMenu {
     }
 
     private fun showEqualizerDialog(context: Context, panel: SamplerPanelView) {
-        var low = 0f
-        var mid = 0f
-        var high = 0f
+        val bandGains = FloatArray(Equalizer.BAND_FREQS_HZ.size)
+        var lowCut = 20f
+        var midCut = 0f
+        var highCut = 20000f
 
         val knobs = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(Knob.labeled(context, "LOW", -15f, 15f, low, { "%.0fdB".format(it) }) { low = it })
-            addView(Knob.labeled(context, "MID", -15f, 15f, mid, { "%.0fdB".format(it) }) { mid = it })
-            addView(Knob.labeled(context, "HIGH", -15f, 15f, high, { "%.0fdB".format(it) }) { high = it })
+            addView(Knob.labeled(context, "LOW CUT", 20f, 2000f, lowCut, { "%.0fHz".format(it) }) { lowCut = it })
+            for (i in Equalizer.BAND_FREQS_HZ.indices) {
+                val freq = Equalizer.BAND_FREQS_HZ[i]
+                val label = if (freq >= 1000) "%.1fk".format(freq / 1000) else "%.0f".format(freq)
+                addView(Knob.labeled(context, label, -15f, 15f, bandGains[i], { "%.0fdB".format(it) }) { bandGains[i] = it })
+            }
+            addView(Knob.labeled(context, "MID CUT", 0f, 8000f, midCut, { if (it < 21f) "off" else "%.0fHz".format(it) }) { midCut = it })
+            addView(Knob.labeled(context, "HIGH CUT", 1000f, 20000f, highCut, { "%.0fHz".format(it) }) { highCut = it })
         }
 
         effectDialog(context, "Equalizer", knobs, panel,
-            process = { wav -> Equalizer.apply(wav, low.toDouble(), mid.toDouble(), high.toDouble()) })
+            process = { wav -> Equalizer.apply(wav, DoubleArray(bandGains.size) { i -> bandGains[i].toDouble() }, lowCut.toDouble(), midCut.toDouble(), highCut.toDouble()) })
     }
 
     /** Shared dialog chrome: a row of knobs plus Preview (non-destructive) / Apply (bakes into the loaded sample) / Close. */

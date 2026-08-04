@@ -32,7 +32,7 @@ class Knob(context: Context, private val min: Float, private val max: Float) : V
         style = Paint.Style.STROKE
         strokeWidth = 8f
         strokeCap = Paint.Cap.ROUND
-        color = Color.rgb(255, 140, 40)
+        color = AppTheme.accentColor(context)
     }
     private val pointerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -122,7 +122,7 @@ class Knob(context: Context, private val min: Float, private val max: Float) : V
                 setPadding((6 * density).toInt(), 0, (6 * density).toInt(), 0)
                 addView(TextView(context).apply {
                     text = label
-                    setTextColor(Color.CYAN)
+                    setTextColor(AppTheme.accentColor(context))
                     textSize = 11f
                     gravity = android.view.Gravity.CENTER
                 })

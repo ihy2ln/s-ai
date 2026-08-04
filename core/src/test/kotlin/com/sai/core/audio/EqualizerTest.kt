@@ -6,28 +6,54 @@ import kotlin.test.assertTrue
 
 class EqualizerTest {
 
+    private fun flatBands() = DoubleArray(Equalizer.BAND_FREQS_HZ.size)
+
     @Test
     fun `equalizer preserves length`() {
         val wav = sineWav(frames = 2000)
-        val eqd = Equalizer.apply(wav, lowGainDb = 4.0, midGainDb = -3.0, highGainDb = 6.0)
+        val eqd = Equalizer.apply(wav, flatBands(), lowCutHz = 20.0, midCutHz = 0.0, highCutHz = 20000.0)
         assertEquals(wav.samples.size, eqd.samples.size)
     }
 
     @Test
     fun `silence stays silent through the equalizer`() {
         val silence = Wav(44100, 1, ShortArray(500))
-        val eqd = Equalizer.apply(silence, lowGainDb = 10.0, midGainDb = -10.0, highGainDb = 8.0)
+        val bands = DoubleArray(Equalizer.BAND_FREQS_HZ.size) { 8.0 }
+        val eqd = Equalizer.apply(silence, bands, lowCutHz = 100.0, midCutHz = 1000.0, highCutHz = 8000.0)
         assertTrue(eqd.samples.all { it == 0.toShort() })
     }
 
     @Test
-    fun `boosting a band raises its energy relative to flat`() {
-        val bass = sineWav(freqHz = 100.0, frames = 4410, amplitude = 0.3)
-        val flat = Equalizer.apply(bass, lowGainDb = 0.0, midGainDb = 0.0, highGainDb = 0.0)
-        val boosted = Equalizer.apply(bass, lowGainDb = 12.0, midGainDb = 0.0, highGainDb = 0.0)
+    fun `requires one gain per band`() {
+        val wav = sineWav(frames = 100)
+        var threw = false
+        try {
+            Equalizer.apply(wav, DoubleArray(3), lowCutHz = 20.0, midCutHz = 0.0, highCutHz = 20000.0)
+        } catch (e: IllegalArgumentException) {
+            threw = true
+        }
+        assertTrue(threw, "a mismatched band-gain array should be rejected")
+    }
 
-        fun rms(samples: ShortArray): Double = kotlin.math.sqrt(samples.map { (it.toDouble()) * it }.average())
+    @Test
+    fun `boosting the lowest band raises energy of a low-frequency tone`() {
+        val bass = sineWav(freqHz = 60.0, frames = 4410, amplitude = 0.3)
+        val flat = Equalizer.apply(bass, flatBands(), lowCutHz = 20.0, midCutHz = 0.0, highCutHz = 20000.0)
+        val boosted = Equalizer.apply(bass, flatBands().also { it[0] = 12.0 }, lowCutHz = 20.0, midCutHz = 0.0, highCutHz = 20000.0)
 
-        assertTrue(rms(boosted.samples) > rms(flat.samples), "boosting the low shelf should raise energy of a low-frequency tone")
+        fun rms(samples: ShortArray): Double = kotlin.math.sqrt(samples.map { it.toDouble() * it }.average())
+
+        assertTrue(rms(boosted.samples) > rms(flat.samples), "boosting the lowest band should raise energy of a 60Hz tone")
+    }
+
+    @Test
+    fun `high cut reduces energy of a high-frequency tone`() {
+        val treble = sineWav(freqHz = 8000.0, frames = 4410, amplitude = 0.3)
+        val uncut = Equalizer.apply(treble, flatBands(), lowCutHz = 20.0, midCutHz = 0.0, highCutHz = 20000.0)
+        val cut = Equalizer.apply(treble, flatBands(), lowCutHz = 20.0, midCutHz = 0.0, highCutHz = 1000.0)
+
+        fun rms(samples: ShortArray): Double = kotlin.math.sqrt(samples.map { it.toDouble() * it }.average())
+
+        assertTrue(rms(cut.samples) < rms(uncut.samples), "a 1kHz high-cut should attenuate an 8kHz tone")
     }
 }

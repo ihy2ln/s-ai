@@ -14,16 +14,19 @@ import androidx.activity.ComponentActivity
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
-/** An FL-Studio-style boolean step grid: one row per track/instrument, 16 steps, tap to toggle a hit on or off. */
+/** An FL-Studio-style boolean step grid: one row per track/instrument, tap-and-drag across
+ *  steps to paint a run of hits on or off, with a zoom control to fit more rows on screen. */
 class StepSequencerActivity : ComponentActivity() {
 
     private lateinit var project: TrackerProject
     private lateinit var library: SampleLibrary
     private lateinit var rootView: LinearLayout
     private lateinit var positionLabel: TextView
+    private lateinit var zoomLabel: TextView
     private lateinit var rowsContainer: LinearLayout
 
     private var position = 0
+    private var rowHeightDp = 32f
     private val rowInstrument = mutableMapOf<Int, Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,7 +45,7 @@ class StepSequencerActivity : ComponentActivity() {
 
         val title = TextView(this).apply {
             text = "STEP SEQUENCER"
-            setTextColor(Color.CYAN)
+            setTextColor(AppTheme.accentColor(this@StepSequencerActivity))
             typeface = Typeface.MONOSPACE
             textSize = 18f
         }
@@ -53,20 +56,33 @@ class StepSequencerActivity : ComponentActivity() {
             addView(PillButton.create(this@StepSequencerActivity, "N") { onBackPressedDispatcher.onBackPressed() })
         }
 
-        val prevButton = Button(this).apply { text = "<" ; setOnClickListener { movePosition(-1) } }
-        val nextButton = Button(this).apply { text = ">" ; setOnClickListener { movePosition(1) } }
+        val prevButton = Button(this).apply { text = "<"; setOnClickListener { movePosition(-1) } }
+        val nextButton = Button(this).apply { text = ">"; setOnClickListener { movePosition(1) } }
         positionLabel = TextView(this).apply {
             setTextColor(Color.WHITE)
             typeface = Typeface.MONOSPACE
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams((80 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams((60 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
         }
-        val positionRow = LinearLayout(this).apply {
+
+        val zoomOutButton = Button(this).apply { text = "-"; setOnClickListener { changeZoom(-6f) } }
+        val zoomInButton = Button(this).apply { text = "+"; setOnClickListener { changeZoom(6f) } }
+        zoomLabel = TextView(this).apply {
+            text = "Zoom"
+            setTextColor(Color.rgb(140, 150, 160))
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams((70 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        val controlsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(prevButton)
             addView(positionLabel)
             addView(nextButton)
+            addView(zoomLabel)
+            addView(zoomOutButton)
+            addView(zoomInButton)
         }
 
         rowsContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -76,7 +92,7 @@ class StepSequencerActivity : ComponentActivity() {
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.rgb(18, 18, 20))
             addView(titleRow)
-            addView(positionRow)
+            addView(controlsRow)
             addView(
                 ScrollView(this@StepSequencerActivity).apply { addView(rowsContainer) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
@@ -90,8 +106,14 @@ class StepSequencerActivity : ComponentActivity() {
         refreshRows()
     }
 
+    private fun changeZoom(deltaDp: Float) {
+        rowHeightDp = (rowHeightDp + deltaDp).coerceIn(20f, 56f)
+        refreshRows()
+    }
+
     private fun refreshRows() {
         positionLabel.text = "%02X".format(position)
+        zoomLabel.text = "Zoom %.0fdp".format(rowHeightDp)
         rowsContainer.removeAllViews()
         for (track in 0 until project.song.trackCount) {
             rowsContainer.addView(trackRow(track))
@@ -100,6 +122,7 @@ class StepSequencerActivity : ComponentActivity() {
 
     private fun trackRow(track: Int): LinearLayout {
         val density = resources.displayMetrics.density
+        val rowHeightPx = (rowHeightDp * density).toInt()
         val phraseId = project.song.positions[position][track]
         val phrase = phraseId?.let { project.phrases[it] }
 
@@ -111,32 +134,22 @@ class StepSequencerActivity : ComponentActivity() {
         val instrumentButton = Button(this).apply {
             text = instrumentLabel
             setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams((150 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams((150 * density).toInt(), rowHeightPx)
             setOnClickListener { pickInstrumentForRow(track) }
         }
 
-        val stepsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        for (stepIndex in 0 until Phrase.STEP_COUNT) {
-            val on = phrase?.steps?.get(stepIndex)?.instrument != null
-            stepsRow.addView(stepCell(track, stepIndex, on), LinearLayout.LayoutParams((24 * density).toInt(), (24 * density).toInt()).apply {
-                setMargins((2 * density).toInt(), (2 * density).toInt(), (2 * density).toInt(), (2 * density).toInt())
-            })
+        val stepRow = StepRowView(this).apply {
+            stepCount = Phrase.STEP_COUNT
+            setStates(BooleanArray(Phrase.STEP_COUNT) { phrase?.steps?.get(it)?.instrument != null })
+            onStepToggleRequested = { index, desiredOn -> trySetStep(track, index, desiredOn) }
+            layoutParams = LinearLayout.LayoutParams(0, rowHeightPx, 1f)
         }
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(instrumentButton)
-            addView(stepsRow)
-        }
-    }
-
-    private fun stepCell(track: Int, stepIndex: Int, on: Boolean): TextView {
-        val groupShade = if ((stepIndex / 4) % 2 == 0) Color.rgb(40, 42, 48) else Color.rgb(30, 32, 36)
-        return TextView(this).apply {
-            gravity = Gravity.CENTER
-            setBackgroundColor(if (on) Color.rgb(255, 140, 40) else groupShade)
-            setOnClickListener { toggleStep(track, stepIndex) }
+            addView(stepRow)
         }
     }
 
@@ -156,16 +169,14 @@ class StepSequencerActivity : ComponentActivity() {
             .show()
     }
 
-    private fun toggleStep(track: Int, stepIndex: Int) {
+    private fun trySetStep(track: Int, stepIndex: Int, on: Boolean): Boolean {
         val instrumentIndex = rowInstrument[track]
-        val existingPhraseId = project.song.positions[position][track]
-        val currentlyOn = existingPhraseId?.let { project.phrases[it]?.steps?.get(stepIndex)?.instrument != null } ?: false
-
-        if (!currentlyOn && instrumentIndex == null) {
+        if (on && instrumentIndex == null) {
             Toast.makeText(this, "Pick an instrument for this row first", Toast.LENGTH_SHORT).show()
-            return
+            return false
         }
 
+        val existingPhraseId = project.song.positions[position][track]
         val phraseId = existingPhraseId ?: run {
             val id = project.nextPhraseId()
             project.putPhrase(id, Phrase.empty())
@@ -175,8 +186,8 @@ class StepSequencerActivity : ComponentActivity() {
 
         val phrase = project.phrases[phraseId] ?: Phrase.empty()
         val steps = phrase.steps.toMutableList()
-        steps[stepIndex] = if (currentlyOn) Step() else Step(instrument = instrumentIndex)
+        steps[stepIndex] = if (on) Step(instrument = instrumentIndex) else Step()
         project.putPhrase(phraseId, Phrase(steps))
-        refreshRows()
+        return true
     }
 }

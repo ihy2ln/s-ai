@@ -98,7 +98,7 @@ class PhraseActivity : ComponentActivity() {
 
         val title = TextView(this).apply {
             text = "PHRASE %02X".format(phraseId)
-            setTextColor(Color.CYAN)
+            setTextColor(AppTheme.accentColor(this@PhraseActivity))
             typeface = Typeface.MONOSPACE
             textSize = 20f
         }
@@ -376,67 +376,25 @@ class PhraseActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project", "Background")) { _, which ->
+            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project", "Theme")) { _, which ->
                 when (which) {
                     0 -> { project.undo(); refreshSteps() }
                     1 -> { project.redo(); refreshSteps() }
                     2 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
                     3 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    4 -> showBackgroundDialog()
+                    4 -> showThemeDialog()
                 }
             }
             .show()
     }
 
-    private fun showBackgroundDialog() {
-        val density = resources.displayMetrics.density
-        val pad = (16 * density).toInt()
-
-        val wheel = ColorWheelView(this).apply {
-            layoutParams = LinearLayout.LayoutParams((240 * density).toInt(), (240 * density).toInt())
-        }
-
-        val useColorButton = Button(this).apply { text = "Use This Color" }
-        val choosePictureButton = Button(this).apply { text = "Choose Picture" }
-        val resetButton = Button(this).apply { text = "Reset to Default" }
-
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(pad, pad, pad, pad)
-            addView(TextView(this@PhraseActivity).apply {
-                text = "Pick a color, or use a picture instead"
-                setTextColor(Color.WHITE)
-                setPadding(0, 0, 0, pad / 2)
-            })
-            addView(wheel)
-            addView(useColorButton)
-            addView(choosePictureButton)
-            addView(resetButton)
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Background")
-            .setView(content)
-            .setNegativeButton("Close", null)
-            .create()
-
-        useColorButton.setOnClickListener {
-            AppBackground.setColor(this, wheel.currentColor())
-            AppBackground.apply(this, rootView)
-            dialog.dismiss()
-        }
-        choosePictureButton.setOnClickListener {
-            dialog.dismiss()
-            pickBackgroundImage.launch(arrayOf("image/*"))
-        }
-        resetButton.setOnClickListener {
-            AppBackground.resetToDefault(this)
-            rootView.setBackgroundColor(Color.BLACK)
-            dialog.dismiss()
-        }
-
-        dialog.show()
+    private fun showThemeDialog() {
+        ThemeMenu.show(
+            context = this,
+            rootView = rootView,
+            onPickPicture = { pickBackgroundImage.launch(arrayOf("image/*")) },
+            onRecreate = { recreate() },
+        )
     }
 
     private fun saveProjectTo(uri: Uri) {
