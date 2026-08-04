@@ -7,6 +7,8 @@ import com.sai.core.tracker.Step
 import org.json.JSONArray
 import org.json.JSONObject
 
+private data class ProjectSnapshot(val song: Song, val phrases: Map<Int, Phrase>)
+
 class TrackerProject(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -19,7 +21,11 @@ class TrackerProject(context: Context) {
 
     val phrases: MutableMap<Int, Phrase> = loadPhrases()
 
+    private val undoStack = ArrayDeque<ProjectSnapshot>()
+    private val redoStack = ArrayDeque<ProjectSnapshot>()
+
     fun setSongSlot(position: Int, track: Int, phraseId: Int?) {
+        pushUndo()
         val rows = song.positions.toMutableList()
         val row = rows[position].toMutableList()
         row[track] = phraseId
@@ -29,11 +35,75 @@ class TrackerProject(context: Context) {
     }
 
     fun putPhrase(id: Int, phrase: Phrase) {
+        pushUndo()
         phrases[id] = phrase
         persist()
     }
 
     fun nextPhraseId(): Int = (phrases.keys.maxOrNull() ?: 0) + 1
+
+    // --- Undo / redo ------------------------------------------------------
+
+    fun canUndo(): Boolean = undoStack.isNotEmpty()
+    fun canRedo(): Boolean = redoStack.isNotEmpty()
+
+    fun undo() {
+        val previous = undoStack.removeLastOrNull() ?: return
+        redoStack.addLast(snapshot())
+        restore(previous)
+    }
+
+    fun redo() {
+        val next = redoStack.removeLastOrNull() ?: return
+        undoStack.addLast(snapshot())
+        restore(next)
+    }
+
+    private fun snapshot() = ProjectSnapshot(song, phrases.toMap())
+
+    private fun pushUndo() {
+        undoStack.addLast(snapshot())
+        if (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
+        redoStack.clear()
+    }
+
+    private fun restore(snapshot: ProjectSnapshot) {
+        song = snapshot.song
+        phrases.clear()
+        phrases.putAll(snapshot.phrases)
+        persist()
+    }
+
+    // --- Project admin: new / save / load ----------------------------------
+
+    fun resetProject() {
+        pushUndo()
+        song = Song.empty()
+        phrases.clear()
+        bpm = 120
+        persist()
+    }
+
+    fun exportProjectJson(): String {
+        val obj = JSONObject()
+        obj.put("bpm", bpm)
+        obj.put("song", JSONObject(encodeSong(song)))
+        obj.put("phrases", JSONObject(encodePhrases(phrases)))
+        return obj.toString(2)
+    }
+
+    fun importProjectJson(raw: String) {
+        pushUndo()
+        val obj = JSONObject(raw)
+        bpm = obj.optInt("bpm", 120)
+        song = decodeSong(obj.getJSONObject("song").toString())
+        val imported = decodePhrases(obj.getJSONObject("phrases").toString())
+        phrases.clear()
+        phrases.putAll(imported)
+        persist()
+    }
+
+    // --- Persistence --------------------------------------------------------
 
     private fun persist() {
         prefs.edit()
@@ -112,5 +182,6 @@ class TrackerProject(context: Context) {
         private const val KEY_BPM = "bpm"
         private const val KEY_SONG = "song"
         private const val KEY_PHRASES = "phrases"
+        private const val MAX_HISTORY = 20
     }
 }

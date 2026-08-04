@@ -23,6 +23,10 @@
             android:name=".PhraseActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".SoundLibraryActivity"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

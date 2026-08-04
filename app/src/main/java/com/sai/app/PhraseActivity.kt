@@ -43,9 +43,17 @@ class PhraseActivity : ComponentActivity() {
         }
     }
 
+    private val saveProjectLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) saveProjectTo(uri)
+    }
+
+    private val loadProjectLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) loadProjectFrom(uri)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        project = TrackerProject(this)
+        project = TrackerProjectStore.get(this)
         library = SampleLibrary(this)
 
         phraseId = intent.getIntExtra(EXTRA_PHRASE_ID, -1)
@@ -78,6 +86,21 @@ class PhraseActivity : ComponentActivity() {
             typeface = Typeface.MONOSPACE
             textSize = 20f
         }
+        val navButton = Button(this).apply {
+            text = "Nav"
+            setOnClickListener { showNav() }
+        }
+        val menuButton = Button(this).apply {
+            text = "Menu"
+            setOnClickListener { showMenu() }
+        }
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(navButton)
+            addView(menuButton)
+        }
 
         val loadButton = Button(this).apply {
             text = "Load Sample"
@@ -95,7 +118,7 @@ class PhraseActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.BLACK)
-            addView(title)
+            addView(titleRow)
             addView(loadButton)
             addView(samplerPanel)
             addView(
@@ -282,6 +305,48 @@ class PhraseActivity : ComponentActivity() {
         steps[stepIndex] = transform(steps[stepIndex])
         project.putPhrase(phraseId, Phrase(steps))
         refreshSteps()
+    }
+
+    // --- Nav / Menu -----------------------------------------------------
+
+    private fun showNav() {
+        AlertDialog.Builder(this)
+            .setItems(arrayOf("Back")) { _, _ -> onBackPressedDispatcher.onBackPressed() }
+            .show()
+    }
+
+    private fun showMenu() {
+        AlertDialog.Builder(this)
+            .setTitle("Menu")
+            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project")) { _, which ->
+                when (which) {
+                    0 -> { project.undo(); refreshSteps() }
+                    1 -> { project.redo(); refreshSteps() }
+                    2 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
+                    3 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                }
+            }
+            .show()
+    }
+
+    private fun saveProjectTo(uri: Uri) {
+        try {
+            contentResolver.openOutputStream(uri)!!.use { out -> out.write(project.exportProjectJson().toByteArray()) }
+            Toast.makeText(this, "Project saved", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun loadProjectFrom(uri: Uri) {
+        try {
+            val raw = contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+            project.importProjectJson(raw)
+            refreshSteps()
+            Toast.makeText(this, "Project loaded", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Load failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     companion object {
