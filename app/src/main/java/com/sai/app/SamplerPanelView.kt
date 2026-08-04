@@ -76,6 +76,10 @@ class SamplerPanelView @JvmOverloads constructor(
         refresh()
     }
 
+    fun currentWav(): Wav? = wav
+
+    fun currentSourceName(): String = sourceName
+
     private fun changeSliceCount(delta: Int) {
         sliceCount = (sliceCount + delta).coerceIn(1, 16)
         refresh()

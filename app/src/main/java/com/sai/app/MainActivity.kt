@@ -17,7 +17,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import com.sai.core.tracker.Phrase
 
 class MainActivity : ComponentActivity() {
@@ -108,9 +107,10 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(pillButton("E") { showExpand() })
-            addView(pillButton("N") { showNav() })
-            addView(pillButton("M") { showMenu() })
+            addView(PillButton.create(this@MainActivity, "E") { showExpand() })
+            addView(PillButton.create(this@MainActivity, "N") { showNav() })
+            addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerPanel) })
+            addView(PillButton.create(this@MainActivity, "M") { showMenu() })
         }
 
         samplerSectionWrapper = buildSamplerSection()
@@ -129,23 +129,6 @@ class MainActivity : ComponentActivity() {
 
         applyViewMode()
         return rootView
-    }
-
-    /** Rounded, semi-transparent (60%) single-letter action button used in the single-line header. */
-    private fun pillButton(letter: String, onClick: () -> Unit): Button {
-        val density = resources.displayMetrics.density
-        return Button(this).apply {
-            text = letter
-            setTextColor(Color.WHITE)
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.pill_button_bg)
-            minWidth = (44 * density).toInt()
-            minHeight = 0
-            setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())
-            val margin = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            margin.setMargins((4 * density).toInt(), 0, 0, 0)
-            layoutParams = margin
-            setOnClickListener { onClick() }
-        }
     }
 
     private fun buildSamplerSection(): LinearLayout {
