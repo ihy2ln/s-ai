@@ -6,7 +6,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
-import android.provider.OpenableColumns
+import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -17,14 +17,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.FileProvider
-import com.sai.core.audio.SampleEditor
-import com.sai.core.audio.Wav
-import com.sai.core.audio.WavIO
 import com.sai.core.tracker.NoteNames
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
-import java.io.File
 
 class PhraseActivity : ComponentActivity() {
 
@@ -32,14 +27,7 @@ class PhraseActivity : ComponentActivity() {
     private lateinit var library: SampleLibrary
     private var phraseId: Int = 0
 
-    private var sampleWav: Wav? = null
-    private var sampleSourceName: String = ""
-    private var sliceCount = 8
-
-    private lateinit var waveform: WaveformView
-    private lateinit var sampleNameLabel: TextView
-    private lateinit var sliceCountLabel: TextView
-    private lateinit var padContainer: LinearLayout
+    private lateinit var samplerPanel: SamplerPanelView
     private lateinit var stepRows: LinearLayout
 
     private val importSampleLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -49,7 +37,7 @@ class PhraseActivity : ComponentActivity() {
             } catch (e: SecurityException) {
                 // Grant couldn't be persisted; the sample still works this session.
             }
-            val name = queryDisplayName(uri)
+            val name = SampleLoader.queryDisplayName(contentResolver, uri)
             library.add(listOf(SampleEntry(uri, name)))
             loadSample(uri, name)
         }
@@ -71,11 +59,10 @@ class PhraseActivity : ComponentActivity() {
 
         setContentView(buildUi())
         refreshSteps()
-        refreshSampler()
 
         val preloadUri = intent.getParcelableExtra<Uri>(SampleEditorActivity.EXTRA_SAMPLE_URI)
         if (preloadUri != null) {
-            loadSample(preloadUri, queryDisplayName(preloadUri))
+            loadSample(preloadUri, SampleLoader.queryDisplayName(contentResolver, preloadUri))
         }
     }
 
@@ -92,66 +79,30 @@ class PhraseActivity : ComponentActivity() {
             textSize = 20f
         }
 
+        val loadButton = Button(this).apply {
+            text = "Load Sample"
+            setOnClickListener { showLoadSampleDialog() }
+        }
+
+        samplerPanel = SamplerPanelView(this).apply {
+            onSaveSlices = { sourceName, slices ->
+                val saved = SliceExporter.saveToLibrary(this@PhraseActivity, sourceName, slices)
+                Toast.makeText(this@PhraseActivity, "Saved ${saved.size} slices to your sample library", Toast.LENGTH_LONG).show()
+            }
+        }
+
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.BLACK)
             addView(title)
-            addView(buildSamplerSection())
-            addView(View(this@PhraseActivity).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }, dividerParams(density))
-            addView(buildStepSection(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        }
-    }
-
-    private fun dividerParams(density: Float) =
-        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt())
-
-    private fun buildSamplerSection(): LinearLayout {
-        val density = resources.displayMetrics.density
-
-        waveform = WaveformView(this)
-        sampleNameLabel = TextView(this).apply {
-            text = "No sample loaded"
-            setTextColor(Color.WHITE)
-            typeface = Typeface.MONOSPACE
-        }
-
-        val loadButton = Button(this).apply {
-            text = "Load Sample"
-            setOnClickListener { showLoadSampleDialog() }
-        }
-        val minusButton = Button(this).apply {
-            text = "-"
-            setOnClickListener { changeSliceCount(-1) }
-        }
-        sliceCountLabel = TextView(this).apply { setTextColor(Color.WHITE) }
-        val plusButton = Button(this).apply {
-            text = "+"
-            setOnClickListener { changeSliceCount(1) }
-        }
-        val saveButton = Button(this).apply {
-            text = "Save Slices"
-            setOnClickListener { saveSlices() }
-        }
-
-        val controlsRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
             addView(loadButton)
-            addView(minusButton)
-            addView(sliceCountLabel)
-            addView(plusButton)
-            addView(saveButton)
-        }
-
-        padContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(sampleNameLabel)
-            addView(waveform, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (110 * density).toInt()))
-            addView(controlsRow)
-            addView(padContainer)
+            addView(samplerPanel)
+            addView(
+                View(this@PhraseActivity).apply { setBackgroundColor(Color.rgb(50, 50, 55)) },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()),
+            )
+            addView(buildStepSection(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
     }
 
@@ -187,104 +138,13 @@ class PhraseActivity : ComponentActivity() {
     }
 
     private fun loadSample(uri: Uri, name: String) {
-        val bytes = try {
-            contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-        } catch (e: Exception) {
-            Toast.makeText(this, "Couldn't open that file: ${e.message}", Toast.LENGTH_LONG).show()
-            return
-        }
         val wav = try {
-            WavIO.read(bytes)
-        } catch (wavError: Exception) {
-            try {
-                AudioDecoder.decode(contentResolver, uri)
-            } catch (decodeError: Exception) {
-                Toast.makeText(this, "Unsupported audio file: ${decodeError.message}", Toast.LENGTH_LONG).show()
-                return
-            }
-        }
-        sampleWav = wav
-        sampleSourceName = name.substringBeforeLast('.')
-        sampleNameLabel.text = name
-        refreshSampler()
-    }
-
-    private fun changeSliceCount(delta: Int) {
-        sliceCount = (sliceCount + delta).coerceIn(1, 16)
-        refreshSampler()
-    }
-
-    private fun sliceBounds(wav: Wav): List<IntRange> {
-        val frameCount = wav.frameCount
-        return (0 until sliceCount).map { i ->
-            val start = i * frameCount / sliceCount
-            val end = if (i == sliceCount - 1) frameCount else (i + 1) * frameCount / sliceCount
-            start until end
-        }
-    }
-
-    private fun refreshSampler() {
-        sliceCountLabel.text = " %d ".format(sliceCount)
-        padContainer.removeAllViews()
-
-        val wav = sampleWav
-        if (wav == null) {
-            waveform.channels = 1
-            waveform.samples = ShortArray(0)
+            SampleLoader.decode(contentResolver, uri)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Couldn't load that file: ${e.message}", Toast.LENGTH_LONG).show()
             return
         }
-
-        val bounds = sliceBounds(wav)
-        waveform.channels = wav.channels
-        waveform.samples = wav.samples
-        waveform.sliceBoundaries = bounds.drop(1).map { it.first }
-
-        val columns = 4
-        var row: LinearLayout? = null
-        for ((index, range) in bounds.withIndex()) {
-            if (index % columns == 0) {
-                row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-                padContainer.addView(row)
-            }
-            val pad = Button(this).apply {
-                text = "%02X".format(index)
-                setBackgroundColor(PALETTE[index % PALETTE.size])
-                setTextColor(Color.BLACK)
-                setOnClickListener { previewSlice(wav, range) }
-            }
-            row!!.addView(pad, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-    }
-
-    private fun previewSlice(wav: Wav, range: IntRange) {
-        val slice = SampleEditor.trim(wav, range.first, range.last + 1)
-        AudioPlayback.playOneShot(slice)
-    }
-
-    private fun saveSlices() {
-        val wav = sampleWav ?: return
-        val bounds = sliceBounds(wav)
-        val dir = File(filesDir, "slices").apply { mkdirs() }
-        val saved = mutableListOf<SampleEntry>()
-        for ((index, range) in bounds.withIndex()) {
-            val slice = SampleEditor.trim(wav, range.first, range.last + 1)
-            val file = File(dir, "$sampleSourceName-slice-${"%02d".format(index)}-${System.currentTimeMillis()}.wav")
-            WavIO.write(slice, file)
-            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-            saved.add(SampleEntry(uri, "$sampleSourceName #${"%02X".format(index)}"))
-        }
-        library.add(saved)
-        Toast.makeText(this, "Saved ${saved.size} slices to your sample library", Toast.LENGTH_LONG).show()
-    }
-
-    private fun queryDisplayName(uri: Uri): String {
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (index >= 0) return cursor.getString(index)
-            }
-        }
-        return uri.lastPathSegment ?: "sample"
+        samplerPanel.load(wav, name)
     }
 
     // --- Tracker step grid (bottom) --------------------------------------
@@ -357,7 +217,7 @@ class PhraseActivity : ComponentActivity() {
         val phrase = project.phrases[phraseId] ?: return
         val current = phrase.steps[stepIndex].note
         val input = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            inputType = InputType.TYPE_CLASS_NUMBER
             setText(current?.toString().orEmpty())
             hint = "0-127, blank to clear"
         }
@@ -377,7 +237,7 @@ class PhraseActivity : ComponentActivity() {
         val phrase = project.phrases[phraseId] ?: return
         val current = phrase.steps[stepIndex].volume
         val input = EditText(this).apply {
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            inputType = InputType.TYPE_CLASS_NUMBER
             setText(current?.toString().orEmpty())
             hint = "0-127, blank to clear"
         }
@@ -426,10 +286,5 @@ class PhraseActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_PHRASE_ID = "phrase_id"
-        private val PALETTE = intArrayOf(
-            Color.rgb(230, 30, 99), Color.rgb(76, 175, 80), Color.rgb(255, 193, 7),
-            Color.rgb(38, 198, 218), Color.rgb(156, 39, 176), Color.rgb(255, 87, 34),
-            Color.rgb(3, 169, 244), Color.rgb(139, 195, 74),
-        )
     }
 }

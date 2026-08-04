@@ -20,10 +20,6 @@
             android:exported="false" />
 
         <activity
-            android:name=".SongActivity"
-            android:exported="false" />
-
-        <activity
             android:name=".PhraseActivity"
             android:exported="false" />
 
