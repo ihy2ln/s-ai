@@ -1,10 +1,6 @@
 package com.sai.app
 
 import android.graphics.Color
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioManager
-import android.media.AudioTrack
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
@@ -18,7 +14,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.sai.core.audio.SampleEditor
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
-import kotlin.math.max
 
 class SampleEditorActivity : ComponentActivity() {
 
@@ -30,8 +25,6 @@ class SampleEditorActivity : ComponentActivity() {
     private lateinit var gainBar: SeekBar
     private lateinit var reverseBox: CheckBox
     private lateinit var normalizeBox: CheckBox
-
-    private var playbackTrack: AudioTrack? = null
 
     private val saveLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("audio/x-wav")) { uri ->
         if (uri != null) saveEditedWav(uri)
@@ -66,11 +59,6 @@ class SampleEditorActivity : ComponentActivity() {
 
         setContentView(buildUi())
         refresh()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        playbackTrack?.release()
     }
 
     private fun toastAndFinish(message: String) {
@@ -157,36 +145,7 @@ class SampleEditorActivity : ComponentActivity() {
     }
 
     private fun playCurrentEdit() {
-        playbackTrack?.release()
-
-        val edited = currentEdit()
-        val channelMask = if (edited.channels == 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
-        val pcmBytes = ByteArray(edited.samples.size * 2)
-        var i = 0
-        for (s in edited.samples) {
-            val v = s.toInt()
-            pcmBytes[i++] = (v and 0xFF).toByte()
-            pcmBytes[i++] = ((v shr 8) and 0xFF).toByte()
-        }
-
-        val minBufferSize = AudioTrack.getMinBufferSize(edited.sampleRate, channelMask, AudioFormat.ENCODING_PCM_16BIT)
-        val track = AudioTrack(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build(),
-            AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .setSampleRate(edited.sampleRate)
-                .setChannelMask(channelMask)
-                .build(),
-            max(minBufferSize, pcmBytes.size),
-            AudioTrack.MODE_STATIC,
-            AudioManager.AUDIO_SESSION_ID_GENERATE,
-        )
-        track.write(pcmBytes, 0, pcmBytes.size)
-        track.play()
-        playbackTrack = track
+        AudioPlayback.playOneShot(currentEdit())
     }
 
     private fun suggestedFileName(): String = "sai-edited-${System.currentTimeMillis()}.wav"

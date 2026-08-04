@@ -11,8 +11,8 @@ android {
         applicationId = "com.sai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 5
+        versionName = "0.4.0"
     }
 
     // Release signing is driven entirely by Gradle properties (-P flags), never
@@ -53,4 +53,5 @@ android {
 dependencies {
     implementation(project(":core"))
     implementation("androidx.activity:activity:1.9.3")
+    implementation("androidx.core:core:1.13.1")
 }

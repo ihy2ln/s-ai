@@ -17,9 +17,18 @@ class WaveformView @JvmOverloads constructor(
         color = Color.GREEN
         strokeWidth = 1f
     }
+    private val markerPaint = Paint().apply {
+        color = Color.WHITE
+        strokeWidth = 2f
+    }
 
     var channels: Int = 1
     var samples: ShortArray = ShortArray(0)
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var sliceBoundaries: List<Int> = emptyList()
         set(value) {
             field = value
             invalidate()
@@ -49,6 +58,11 @@ class WaveformView @JvmOverloads constructor(
             canvas.drawLine(x, minY, x, maxY, paint)
             x += 1f
             frame += framesPerPixel
+        }
+
+        for (boundary in sliceBoundaries) {
+            val markerX = (boundary.toFloat() / frameCount) * width
+            canvas.drawLine(markerX, 0f, markerX, height.toFloat(), markerPaint)
         }
     }
 }

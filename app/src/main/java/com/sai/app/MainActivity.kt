@@ -1,10 +1,14 @@
 package com.sai.app
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -25,14 +29,33 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         library = SampleLibrary(this)
 
+        val density = resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+
+        val title = TextView(this).apply {
+            text = "S.Ai"
+            setTextColor(Color.WHITE)
+            textSize = 28f
+        }
+
         val trackerButton = Button(this).apply {
             text = "Open Tracker"
+            setTextColor(Color.BLACK)
+            background = pillBackground(Color.rgb(38, 198, 218))
             setOnClickListener { startActivity(Intent(this@MainActivity, SongActivity::class.java)) }
         }
 
         val importButton = Button(this).apply {
             text = "Import Samples"
+            setTextColor(Color.BLACK)
+            background = pillBackground(Color.rgb(230, 30, 99))
             setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
+        }
+
+        val buttonRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(trackerButton, rowParams())
+            addView(importButton, rowParams())
         }
 
         listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -40,9 +63,10 @@ class MainActivity : ComponentActivity() {
         setContentView(
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(Color.BLACK)
-                addView(trackerButton)
-                addView(importButton)
+                setPadding(pad, pad, pad, pad)
+                setBackgroundColor(Color.rgb(18, 18, 20))
+                addView(title)
+                addView(buttonRow)
                 addView(
                     ScrollView(this@MainActivity).apply { addView(listContainer) },
                     LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
@@ -54,6 +78,18 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshList()
+    }
+
+    private fun rowParams(): LinearLayout.LayoutParams {
+        val margin = (4 * resources.displayMetrics.density).toInt()
+        return LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+            setMargins(margin, margin, margin, margin)
+        }
+    }
+
+    private fun pillBackground(color: Int) = GradientDrawable().apply {
+        cornerRadius = 24f * resources.displayMetrics.density
+        setColor(color)
     }
 
     private fun importSamples(uris: List<Uri>) {
@@ -87,23 +123,54 @@ class MainActivity : ComponentActivity() {
             listContainer.addView(label("No samples yet. Tap Import Samples."))
             return
         }
-        for (entry in entries) {
-            listContainer.addView(
-                Button(this).apply {
-                    text = entry.displayName
-                    setOnClickListener {
-                        startActivity(
-                            Intent(this@MainActivity, SampleEditorActivity::class.java)
-                                .putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri)
-                        )
-                    }
-                }
-            )
+        for ((index, entry) in entries.withIndex()) {
+            listContainer.addView(sampleCard(entry, PALETTE[index % PALETTE.size]))
         }
+    }
+
+    private fun sampleCard(entry: SampleEntry, accent: Int): LinearLayout {
+        val density = resources.displayMetrics.density
+        val margin = (4 * density).toInt()
+
+        val accentStrip = View(this).apply { setBackgroundColor(accent) }
+        val nameButton = Button(this).apply {
+            text = entry.displayName
+            setTextColor(Color.WHITE)
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            background = null
+            setOnClickListener { openSampleOptions(entry) }
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Color.rgb(30, 30, 34))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, margin, 0, margin)
+            }
+            addView(accentStrip, LinearLayout.LayoutParams((6 * density).toInt(), LinearLayout.LayoutParams.MATCH_PARENT))
+            addView(nameButton, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+    }
+
+    private fun openSampleOptions(entry: SampleEntry) {
+        AlertDialog.Builder(this)
+            .setTitle(entry.displayName)
+            .setItems(arrayOf("Slice", "Edit")) { _, which ->
+                val target = if (which == 0) SlicerActivity::class.java else SampleEditorActivity::class.java
+                startActivity(Intent(this, target).putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri))
+            }
+            .show()
     }
 
     private fun label(text: String) = TextView(this).apply {
         this.text = text
         setTextColor(Color.WHITE)
+    }
+
+    companion object {
+        private val PALETTE = intArrayOf(
+            Color.rgb(230, 30, 99), Color.rgb(76, 175, 80), Color.rgb(255, 193, 7),
+            Color.rgb(38, 198, 218), Color.rgb(156, 39, 176), Color.rgb(255, 87, 34),
+        )
     }
 }
