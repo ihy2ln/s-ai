@@ -15,6 +15,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import com.sai.core.tracker.Phrase
 
 class MainActivity : ComponentActivity() {
 
@@ -155,9 +156,19 @@ class MainActivity : ComponentActivity() {
     private fun openSampleOptions(entry: SampleEntry) {
         AlertDialog.Builder(this)
             .setTitle(entry.displayName)
-            .setItems(arrayOf("Slice", "Edit")) { _, which ->
-                val target = if (which == 0) SlicerActivity::class.java else SampleEditorActivity::class.java
-                startActivity(Intent(this, target).putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri))
+            .setItems(arrayOf("Slice + Sequence", "Edit")) { _, which ->
+                if (which == 0) {
+                    val project = TrackerProject(this)
+                    val phraseId = project.nextPhraseId()
+                    project.putPhrase(phraseId, Phrase.empty())
+                    startActivity(
+                        Intent(this, PhraseActivity::class.java)
+                            .putExtra(PhraseActivity.EXTRA_PHRASE_ID, phraseId)
+                            .putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri)
+                    )
+                } else {
+                    startActivity(Intent(this, SampleEditorActivity::class.java).putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri))
+                }
             }
             .show()
     }
