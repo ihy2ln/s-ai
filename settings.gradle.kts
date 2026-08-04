@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "S.Ai"
 include(":app")
+include(":core")

@@ -49,3 +49,8 @@ android {
         jvmTarget = "17"
     }
 }
+
+dependencies {
+    implementation(project(":core"))
+    implementation("androidx.activity:activity:1.9.3")
+}
