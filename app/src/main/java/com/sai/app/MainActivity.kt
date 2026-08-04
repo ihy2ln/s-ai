@@ -10,12 +10,14 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.sai.core.tracker.Phrase
 
 class MainActivity : ComponentActivity() {
@@ -26,17 +28,19 @@ class MainActivity : ComponentActivity() {
     private lateinit var project: TrackerProject
     private lateinit var sequencer: Sequencer
 
+    private lateinit var rootView: LinearLayout
+
     private lateinit var samplerPanel: SamplerPanelView
     private lateinit var sampleListContainer: LinearLayout
     private lateinit var samplerSectionWrapper: LinearLayout
-    private lateinit var samplerExpandButton: Button
 
     private lateinit var songRows: LinearLayout
     private lateinit var bpmLabel: TextView
     private lateinit var playButton: Button
     private lateinit var statusText: TextView
+    private lateinit var tempoDot: ImageView
+    private lateinit var tempoBouncer: TempoBouncer
     private lateinit var trackerSectionWrapper: LinearLayout
-    private lateinit var trackerExpandButton: Button
 
     private lateinit var dividerView: View
 
@@ -56,6 +60,13 @@ class MainActivity : ComponentActivity() {
         if (uri != null) loadProjectFrom(uri)
     }
 
+    private val pickBackgroundImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            AppBackground.setImage(this, uri)
+            AppBackground.apply(this, rootView)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         library = SampleLibrary(this)
@@ -64,6 +75,7 @@ class MainActivity : ComponentActivity() {
         sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
 
         setContentView(buildUi())
+        AppBackground.apply(this, rootView)
         refreshSampleList()
         refreshSongGrid()
     }
@@ -71,12 +83,14 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshSampleList()
+        tempoBouncer.setBpm(project.bpm)
     }
 
     override fun onPause() {
         super.onPause()
         sequencer.stop()
         playButton.text = "Play"
+        tempoBouncer.stop()
     }
 
     // --- Layout -----------------------------------------------------------
@@ -90,27 +104,20 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.WHITE)
             textSize = 24f
         }
-        val menuButton = Button(this).apply {
-            text = "Menu"
-            setOnClickListener { showMenu() }
-        }
-        val navButton = Button(this).apply {
-            text = "Nav"
-            setOnClickListener { showNav() }
-        }
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(navButton)
-            addView(menuButton)
+            addView(pillButton("E") { showExpand() })
+            addView(pillButton("N") { showNav() })
+            addView(pillButton("M") { showMenu() })
         }
 
         samplerSectionWrapper = buildSamplerSection()
         trackerSectionWrapper = buildTrackerSection()
         dividerView = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
 
-        val root = LinearLayout(this).apply {
+        rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.rgb(18, 18, 20))
@@ -121,7 +128,24 @@ class MainActivity : ComponentActivity() {
         }
 
         applyViewMode()
-        return root
+        return rootView
+    }
+
+    /** Rounded, semi-transparent (60%) single-letter action button used in the single-line header. */
+    private fun pillButton(letter: String, onClick: () -> Unit): Button {
+        val density = resources.displayMetrics.density
+        return Button(this).apply {
+            text = letter
+            setTextColor(Color.WHITE)
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.pill_button_bg)
+            minWidth = (44 * density).toInt()
+            minHeight = 0
+            setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())
+            val margin = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            margin.setMargins((4 * density).toInt(), 0, 0, 0)
+            layoutParams = margin
+            setOnClickListener { onClick() }
+        }
     }
 
     private fun buildSamplerSection(): LinearLayout {
@@ -131,16 +155,6 @@ class MainActivity : ComponentActivity() {
             text = "SAMPLER"
             setTextColor(Color.CYAN)
             textSize = 16f
-        }
-        samplerExpandButton = Button(this).apply {
-            text = "Expand"
-            setOnClickListener { toggleSamplerFullScreen() }
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(samplerExpandButton)
         }
 
         samplerPanel = SamplerPanelView(this).apply {
@@ -155,7 +169,7 @@ class MainActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(titleRow)
+            addView(title)
             addView(samplerPanel)
             addView(
                 ScrollView(this@MainActivity).apply { addView(sampleListContainer) },
@@ -170,17 +184,8 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.CYAN)
             textSize = 16f
         }
-        trackerExpandButton = Button(this).apply {
-            text = "Expand"
-            setOnClickListener { toggleTrackerFullScreen() }
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(trackerExpandButton)
-        }
 
+        val density = resources.displayMetrics.density
         bpmLabel = TextView(this).apply {
             setTextColor(Color.WHITE)
             setOnClickListener { editBpm() }
@@ -189,11 +194,21 @@ class MainActivity : ComponentActivity() {
             text = "Play"
             setOnClickListener { togglePlayback() }
         }
+        tempoDot = ImageView(this).apply {
+            setImageResource(R.drawable.tempo_dot)
+            layoutParams = LinearLayout.LayoutParams((22 * density).toInt(), (22 * density).toInt()).apply {
+                setMargins((8 * density).toInt(), 0, (8 * density).toInt(), 0)
+                gravity = Gravity.CENTER_VERTICAL
+            }
+        }
+        tempoBouncer = TempoBouncer(tempoDot, 14 * density)
         statusText = TextView(this).apply { setTextColor(Color.rgb(90, 200, 200)) }
         val transport = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             addView(bpmLabel)
             addView(playButton)
+            addView(tempoDot)
             addView(statusText)
         }
 
@@ -207,7 +222,7 @@ class MainActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(titleRow)
+            addView(title)
             addView(transport)
             addView(header)
             addView(
@@ -229,16 +244,6 @@ class MainActivity : ComponentActivity() {
 
     // --- Full-screen toggle -------------------------------------------------
 
-    private fun toggleSamplerFullScreen() {
-        viewMode = if (viewMode == ViewMode.SAMPLER_FULL) ViewMode.SPLIT else ViewMode.SAMPLER_FULL
-        applyViewMode()
-    }
-
-    private fun toggleTrackerFullScreen() {
-        viewMode = if (viewMode == ViewMode.TRACKER_FULL) ViewMode.SPLIT else ViewMode.TRACKER_FULL
-        applyViewMode()
-    }
-
     private fun showSplitView() {
         viewMode = ViewMode.SPLIT
         applyViewMode()
@@ -259,9 +264,6 @@ class MainActivity : ComponentActivity() {
         if (trackerVisible) {
             trackerSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
-
-        samplerExpandButton.text = if (viewMode == ViewMode.SAMPLER_FULL) "Collapse" else "Expand"
-        trackerExpandButton.text = if (viewMode == ViewMode.TRACKER_FULL) "Collapse" else "Expand"
     }
 
     // --- Sampler section ----------------------------------------------------
@@ -270,7 +272,7 @@ class MainActivity : ComponentActivity() {
         sampleListContainer.removeAllViews()
         val entries = library.all()
         if (entries.isEmpty()) {
-            sampleListContainer.addView(label("No samples yet. Tap Menu > Samples or Sounds."))
+            sampleListContainer.addView(label("No samples yet. Tap M > Samples or Sounds."))
             return
         }
         for ((index, entry) in entries.withIndex()) {
@@ -338,6 +340,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshSongGrid() {
         bpmLabel.text = " BPM %d ".format(project.bpm)
+        tempoBouncer.setBpm(project.bpm)
         songRows.removeAllViews()
         songRowViews.clear()
         for (position in project.song.positions.indices) {
@@ -473,21 +476,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- Menu ---------------------------------------------------------------
+    // --- Menu (M) -------------------------------------------------------------
 
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Samples", "Sounds", "Plugins", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
+            .setItems(arrayOf("Samples", "Sounds", "Plugins", "Background", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
                 when (which) {
                     0 -> openSamples.launch(arrayOf("audio/*"))
                     1 -> startActivity(Intent(this, SoundLibraryActivity::class.java))
                     2 -> showPluginsDialog()
-                    3 -> { project.undo(); refreshSongGrid() }
-                    4 -> { project.redo(); refreshSongGrid() }
-                    5 -> saveProjectLauncher.launch(suggestedProjectFileName())
-                    6 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    7 -> confirmNewProject()
+                    3 -> showBackgroundDialog()
+                    4 -> { project.undo(); refreshSongGrid() }
+                    5 -> { project.redo(); refreshSongGrid() }
+                    6 -> saveProjectLauncher.launch(suggestedProjectFileName())
+                    7 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                    8 -> confirmNewProject()
                 }
             }
             .show()
@@ -513,6 +517,57 @@ class MainActivity : ComponentActivity() {
             }
             .setPositiveButton("Done", null)
             .show()
+    }
+
+    private fun showBackgroundDialog() {
+        val density = resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+
+        val wheel = ColorWheelView(this).apply {
+            layoutParams = LinearLayout.LayoutParams((240 * density).toInt(), (240 * density).toInt())
+        }
+
+        val useColorButton = Button(this).apply { text = "Use This Color" }
+        val choosePictureButton = Button(this).apply { text = "Choose Picture" }
+        val resetButton = Button(this).apply { text = "Reset to Default" }
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(pad, pad, pad, pad)
+            addView(TextView(this@MainActivity).apply {
+                text = "Pick a color, or use a picture instead"
+                setTextColor(Color.WHITE)
+                setPadding(0, 0, 0, pad / 2)
+            })
+            addView(wheel)
+            addView(useColorButton)
+            addView(choosePictureButton)
+            addView(resetButton)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Background")
+            .setView(content)
+            .setNegativeButton("Close", null)
+            .create()
+
+        useColorButton.setOnClickListener {
+            AppBackground.setColor(this, wheel.currentColor())
+            AppBackground.apply(this, rootView)
+            dialog.dismiss()
+        }
+        choosePictureButton.setOnClickListener {
+            dialog.dismiss()
+            pickBackgroundImage.launch(arrayOf("image/*"))
+        }
+        resetButton.setOnClickListener {
+            AppBackground.resetToDefault(this)
+            rootView.setBackgroundColor(Color.rgb(18, 18, 20))
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun suggestedProjectFileName(): String = "sai-project-${System.currentTimeMillis()}.json"
@@ -549,17 +604,29 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    // --- Nav ------------------------------------------------------------------
+    // --- Nav (N) ----------------------------------------------------------------
 
     private fun showNav() {
         AlertDialog.Builder(this)
             .setTitle("Navigate")
-            .setItems(arrayOf("Sampler Full Screen", "Tracker Full Screen", "Split View", "Back")) { _, which ->
+            .setItems(arrayOf("Back")) { _, which ->
+                when (which) {
+                    0 -> onBackPressedDispatcher.onBackPressed()
+                }
+            }
+            .show()
+    }
+
+    // --- Expand (E) ---------------------------------------------------------------
+
+    private fun showExpand() {
+        AlertDialog.Builder(this)
+            .setTitle("Expand")
+            .setItems(arrayOf("Sampler Full Screen", "Tracker Full Screen", "Split View")) { _, which ->
                 when (which) {
                     0 -> { viewMode = ViewMode.SAMPLER_FULL; applyViewMode() }
                     1 -> { viewMode = ViewMode.TRACKER_FULL; applyViewMode() }
                     2 -> showSplitView()
-                    3 -> onBackPressedDispatcher.onBackPressed()
                 }
             }
             .show()

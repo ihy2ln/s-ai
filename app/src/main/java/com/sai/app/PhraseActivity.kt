@@ -17,18 +17,27 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.sai.core.tracker.NoteNames
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
 class PhraseActivity : ComponentActivity() {
 
+    private enum class ViewMode { SPLIT, SAMPLER_FULL, STEPS_FULL }
+
     private lateinit var project: TrackerProject
     private lateinit var library: SampleLibrary
     private var phraseId: Int = 0
 
+    private lateinit var rootView: LinearLayout
     private lateinit var samplerPanel: SamplerPanelView
     private lateinit var stepRows: LinearLayout
+
+    private lateinit var samplerSectionWrapper: LinearLayout
+    private lateinit var stepSectionWrapper: LinearLayout
+    private lateinit var dividerView: View
+    private var viewMode = ViewMode.SPLIT
 
     private val importSampleLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -51,6 +60,13 @@ class PhraseActivity : ComponentActivity() {
         if (uri != null) loadProjectFrom(uri)
     }
 
+    private val pickBackgroundImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            AppBackground.setImage(this, uri)
+            AppBackground.apply(this, rootView)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         project = TrackerProjectStore.get(this)
@@ -66,6 +82,7 @@ class PhraseActivity : ComponentActivity() {
         }
 
         setContentView(buildUi())
+        AppBackground.apply(this, rootView)
         refreshSteps()
 
         val preloadUri = intent.getParcelableExtra<Uri>(SampleEditorActivity.EXTRA_SAMPLE_URI)
@@ -86,22 +103,51 @@ class PhraseActivity : ComponentActivity() {
             typeface = Typeface.MONOSPACE
             textSize = 20f
         }
-        val navButton = Button(this).apply {
-            text = "Nav"
-            setOnClickListener { showNav() }
-        }
-        val menuButton = Button(this).apply {
-            text = "Menu"
-            setOnClickListener { showMenu() }
-        }
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(navButton)
-            addView(menuButton)
+            addView(pillButton("E") { showExpand() })
+            addView(pillButton("N") { showNav() })
+            addView(pillButton("M") { showMenu() })
         }
 
+        samplerSectionWrapper = buildSamplerSection()
+        stepSectionWrapper = buildStepSection()
+        dividerView = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
+
+        rootView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+            setBackgroundColor(Color.BLACK)
+            addView(titleRow)
+            addView(samplerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(dividerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
+            addView(stepSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+
+        applyViewMode()
+        return rootView
+    }
+
+    /** Rounded, semi-transparent (60%) single-letter action button used in the single-line header. */
+    private fun pillButton(letter: String, onClick: () -> Unit): Button {
+        val density = resources.displayMetrics.density
+        return Button(this).apply {
+            text = letter
+            setTextColor(Color.WHITE)
+            background = ContextCompat.getDrawable(this@PhraseActivity, R.drawable.pill_button_bg)
+            minWidth = (44 * density).toInt()
+            minHeight = 0
+            setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())
+            val margin = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            margin.setMargins((4 * density).toInt(), 0, 0, 0)
+            layoutParams = margin
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun buildSamplerSection(): LinearLayout {
         val loadButton = Button(this).apply {
             text = "Load Sample"
             setOnClickListener { showLoadSampleDialog() }
@@ -116,16 +162,8 @@ class PhraseActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.BLACK)
-            addView(titleRow)
             addView(loadButton)
             addView(samplerPanel)
-            addView(
-                View(this@PhraseActivity).apply { setBackgroundColor(Color.rgb(50, 50, 55)) },
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()),
-            )
-            addView(buildStepSection(), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
     }
 
@@ -140,6 +178,25 @@ class PhraseActivity : ComponentActivity() {
                 ScrollView(this@PhraseActivity).apply { addView(stepRows) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
+        }
+    }
+
+    // --- Full-screen toggle -------------------------------------------------
+
+    private fun applyViewMode() {
+        val samplerVisible = viewMode != ViewMode.STEPS_FULL
+        val stepsVisible = viewMode != ViewMode.SAMPLER_FULL
+        val split = viewMode == ViewMode.SPLIT
+
+        samplerSectionWrapper.visibility = if (samplerVisible) View.VISIBLE else View.GONE
+        stepSectionWrapper.visibility = if (stepsVisible) View.VISIBLE else View.GONE
+        dividerView.visibility = if (split) View.VISIBLE else View.GONE
+
+        if (samplerVisible) {
+            samplerSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+        }
+        if (stepsVisible) {
+            stepSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
         }
     }
 
@@ -307,26 +364,96 @@ class PhraseActivity : ComponentActivity() {
         refreshSteps()
     }
 
-    // --- Nav / Menu -----------------------------------------------------
+    // --- Expand (E) -------------------------------------------------------
+
+    private fun showExpand() {
+        AlertDialog.Builder(this)
+            .setTitle("Expand")
+            .setItems(arrayOf("Sampler Full Screen", "Steps Full Screen", "Split View")) { _, which ->
+                when (which) {
+                    0 -> { viewMode = ViewMode.SAMPLER_FULL; applyViewMode() }
+                    1 -> { viewMode = ViewMode.STEPS_FULL; applyViewMode() }
+                    2 -> { viewMode = ViewMode.SPLIT; applyViewMode() }
+                }
+            }
+            .show()
+    }
+
+    // --- Nav (N) ------------------------------------------------------------
 
     private fun showNav() {
         AlertDialog.Builder(this)
+            .setTitle("Navigate")
             .setItems(arrayOf("Back")) { _, _ -> onBackPressedDispatcher.onBackPressed() }
             .show()
     }
 
+    // --- Menu (M) -------------------------------------------------------------
+
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project")) { _, which ->
+            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project", "Background")) { _, which ->
                 when (which) {
                     0 -> { project.undo(); refreshSteps() }
                     1 -> { project.redo(); refreshSteps() }
                     2 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
                     3 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                    4 -> showBackgroundDialog()
                 }
             }
             .show()
+    }
+
+    private fun showBackgroundDialog() {
+        val density = resources.displayMetrics.density
+        val pad = (16 * density).toInt()
+
+        val wheel = ColorWheelView(this).apply {
+            layoutParams = LinearLayout.LayoutParams((240 * density).toInt(), (240 * density).toInt())
+        }
+
+        val useColorButton = Button(this).apply { text = "Use This Color" }
+        val choosePictureButton = Button(this).apply { text = "Choose Picture" }
+        val resetButton = Button(this).apply { text = "Reset to Default" }
+
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(pad, pad, pad, pad)
+            addView(TextView(this@PhraseActivity).apply {
+                text = "Pick a color, or use a picture instead"
+                setTextColor(Color.WHITE)
+                setPadding(0, 0, 0, pad / 2)
+            })
+            addView(wheel)
+            addView(useColorButton)
+            addView(choosePictureButton)
+            addView(resetButton)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Background")
+            .setView(content)
+            .setNegativeButton("Close", null)
+            .create()
+
+        useColorButton.setOnClickListener {
+            AppBackground.setColor(this, wheel.currentColor())
+            AppBackground.apply(this, rootView)
+            dialog.dismiss()
+        }
+        choosePictureButton.setOnClickListener {
+            dialog.dismiss()
+            pickBackgroundImage.launch(arrayOf("image/*"))
+        }
+        resetButton.setOnClickListener {
+            AppBackground.resetToDefault(this)
+            rootView.setBackgroundColor(Color.BLACK)
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun saveProjectTo(uri: Uri) {

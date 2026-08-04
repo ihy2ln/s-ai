@@ -57,7 +57,9 @@ class SampleEditorActivity : ComponentActivity() {
             }
         }
 
-        setContentView(buildUi())
+        val root = buildUi()
+        setContentView(root)
+        AppBackground.apply(this, root)
         refresh()
     }
 

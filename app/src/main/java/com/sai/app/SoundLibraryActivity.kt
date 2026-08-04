@@ -44,19 +44,19 @@ class SoundLibraryActivity : ComponentActivity() {
 
         listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        setContentView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(pad, pad, pad, pad)
-                setBackgroundColor(Color.BLACK)
-                addView(title)
-                addView(addButton)
-                addView(
-                    ScrollView(this@SoundLibraryActivity).apply { addView(listContainer) },
-                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
-                )
-            }
-        )
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+            setBackgroundColor(Color.BLACK)
+            addView(title)
+            addView(addButton)
+            addView(
+                ScrollView(this@SoundLibraryActivity).apply { addView(listContainer) },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
+            )
+        }
+        setContentView(root)
+        AppBackground.apply(this, root)
     }
 
     override fun onResume() {
