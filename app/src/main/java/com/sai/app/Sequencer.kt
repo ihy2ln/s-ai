@@ -1,6 +1,6 @@
 package com.sai.app
 
-import android.content.ContentResolver
+import android.content.Context
 import com.sai.core.audio.SampleEditor
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
@@ -12,9 +12,10 @@ import kotlin.math.log10
 import kotlin.math.pow
 
 class Sequencer(
-    private val resolver: ContentResolver,
+    private val context: Context,
     private val instruments: List<SampleEntry>,
 ) {
+    private val resolver = context.contentResolver
     @Volatile private var running = false
     private var thread: Thread? = null
     private val sampleCache = mutableMapOf<Int, Wav>()
@@ -86,7 +87,7 @@ class Sequencer(
         val gainDb = if (volume <= 0) -80.0 else 20.0 * log10(volume / 127.0)
         val gained = SampleEditor.gain(wav, gainDb)
 
-        AudioPlayback.playOneShot(gained, rate)
+        AudioPlayback.playOneShot(gained, rate, context)
     }
 
     companion object {

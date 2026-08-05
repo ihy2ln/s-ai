@@ -128,7 +128,7 @@ class SamplerPanelView @JvmOverloads constructor(
     }
 
     private fun previewSlice(wav: Wav, range: IntRange) {
-        AudioPlayback.playOneShot(SampleEditor.trim(wav, range.first, range.last + 1))
+        AudioPlayback.playOneShot(SampleEditor.trim(wav, range.first, range.last + 1), context = context)
     }
 
     private fun saveSlices() {

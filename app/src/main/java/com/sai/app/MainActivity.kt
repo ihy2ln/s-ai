@@ -1,8 +1,13 @@
 package com.sai.app
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
@@ -17,7 +22,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.sai.core.tracker.Phrase
+import com.sai.core.tracker.Step
 
 class MainActivity : ComponentActivity() {
 
@@ -49,7 +56,24 @@ class MainActivity : ComponentActivity() {
 
     private var viewMode = ViewMode.SPLIT
     private var highlightedPosition = -1
+    private var lastLiveStep = 0
     private val songRowViews = mutableListOf<LinearLayout>()
+
+    private val audioRecorder = AudioRecorder()
+    private lateinit var recordAudioButton: Button
+    private lateinit var recordArmButton: Button
+    private lateinit var routeLabel: TextView
+    private var recordArmed = false
+    private val recordTrack = 0
+
+    private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            runOnUiThread { updateRouteLabel() }
+        }
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            runOnUiThread { updateRouteLabel() }
+        }
+    }
 
     private val openSamples = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) importSamples(uris)
@@ -66,7 +90,22 @@ class MainActivity : ComponentActivity() {
     private val pickBackgroundImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             AppBackground.setImage(this, uri)
-            AppBackground.apply(this, rootView)
+            recreate()
+        }
+    }
+
+    private val pickBackgroundVideo = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            AppBackground.setVideo(this, uri)
+            recreate()
+        }
+    }
+
+    private val requestRecordAudioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            startAudioRecording()
+        } else {
+            Toast.makeText(this, "Microphone permission is needed to record audio", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -92,19 +131,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         library = SampleLibrary(this)
         project = TrackerProjectStore.get(this)
-        sequencer = Sequencer(contentResolver, library.all())
+        sequencer = Sequencer(this, library.all())
         sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
 
-        setContentView(buildUi())
-        AppBackground.apply(this, rootView)
+        setContentView(AppBackground.wrap(this, buildUi()))
         refreshSampleList()
         refreshSongGrid()
+        updateRouteLabel()
+        (getSystemService(AUDIO_SERVICE) as AudioManager).registerAudioDeviceCallback(audioDeviceCallback, null)
     }
 
     override fun onResume() {
         super.onResume()
         refreshSampleList()
         tempoBouncer.setBpm(project.bpm)
+        updateRouteLabel()
     }
 
     override fun onPause() {
@@ -112,6 +153,21 @@ class MainActivity : ComponentActivity() {
         sequencer.stop()
         playButton.text = "Play"
         tempoBouncer.stop()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        (getSystemService(AUDIO_SERVICE) as AudioManager).unregisterAudioDeviceCallback(audioDeviceCallback)
+        if (audioRecorder.isRecording) audioRecorder.stop()
+    }
+
+    private fun updateRouteLabel() {
+        routeLabel.text = when (AudioRoute.current(this)) {
+            Route.HEADPHONES -> "🎧"
+            Route.BLUETOOTH -> "📶"
+            Route.SPEAKER -> "🔊"
+            Route.UNKNOWN -> "🔈"
+        }
     }
 
     // --- Layout -----------------------------------------------------------
@@ -125,13 +181,18 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.WHITE)
             textSize = 24f
         }
+        routeLabel = TextView(this).apply {
+            textSize = 16f
+            setPadding(0, 0, (6 * density).toInt(), 0)
+        }
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(routeLabel)
             addView(PillButton.create(this@MainActivity, "E") { showExpand() })
             addView(PillButton.create(this@MainActivity, "N") { showNav() })
-            addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerPanel) })
+            addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
             addView(PillButton.create(this@MainActivity, "M") { showMenu() })
         }
 
@@ -171,10 +232,15 @@ class MainActivity : ComponentActivity() {
             text = "+"
             setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
         }
+        recordAudioButton = Button(this).apply {
+            text = "Record Audio"
+            setOnClickListener { toggleAudioRecording() }
+        }
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(recordAudioButton)
             addView(addButton)
         }
 
@@ -266,11 +332,20 @@ class MainActivity : ComponentActivity() {
         }
         tempoBouncer = TempoBouncer(tempoDot, 14 * density)
         statusText = TextView(this).apply { setTextColor(Color.rgb(90, 200, 200)) }
+        recordArmButton = Button(this).apply {
+            text = "REC"
+            setOnClickListener {
+                recordArmed = !recordArmed
+                setBackgroundColor(if (recordArmed) Color.rgb(200, 40, 40) else Color.DKGRAY)
+                if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
+            }
+        }
         val transport = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(bpmLabel)
             addView(playButton)
+            addView(recordArmButton)
             addView(tempoDot)
             addView(statusText)
         }
@@ -345,11 +420,11 @@ class MainActivity : ComponentActivity() {
             return
         }
         for ((index, entry) in entries.withIndex()) {
-            sampleListContainer.addView(sampleRow(entry, PALETTE[index % PALETTE.size]))
+            sampleListContainer.addView(sampleRow(entry, index, PALETTE[index % PALETTE.size]))
         }
     }
 
-    private fun sampleRow(entry: SampleEntry, accent: Int): LinearLayout {
+    private fun sampleRow(entry: SampleEntry, instrumentIndex: Int, accent: Int): LinearLayout {
         val density = resources.displayMetrics.density
 
         val accentStrip = View(this).apply { setBackgroundColor(accent) }
@@ -358,9 +433,23 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.WHITE)
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             background = null
-            setOnClickListener { loadIntoSampler(entry) }
+            setOnClickListener {
+                if (recordArmed && sequencer.isRunning) {
+                    recordLiveHit(entry, instrumentIndex)
+                } else {
+                    loadIntoSampler(entry)
+                }
+            }
             setOnLongClickListener {
-                startActivity(Intent(this@MainActivity, SampleEditorActivity::class.java).putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri))
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(entry.displayName)
+                    .setItems(arrayOf("Edit", "Mixer")) { _, which ->
+                        when (which) {
+                            0 -> startActivity(Intent(this@MainActivity, SampleEditorActivity::class.java).putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri))
+                            1 -> EffectsMenu.show(this@MainActivity, libraryEffectsTarget(entry))
+                        }
+                    }
+                    .show()
                 true
             }
         }
@@ -385,6 +474,28 @@ class MainActivity : ComponentActivity() {
         }
         samplerPanel.load(wav, entry.displayName)
     }
+
+    private fun samplerEffectsTarget() = EffectsTarget(
+        getWav = { samplerPanel.currentWav() },
+        getName = { samplerPanel.currentSourceName() },
+        onApplied = { processed -> samplerPanel.load(processed, samplerPanel.currentSourceName()) },
+    )
+
+    private fun libraryEffectsTarget(entry: SampleEntry) = EffectsTarget(
+        getWav = {
+            try {
+                SampleLoader.decode(contentResolver, entry.uri)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Couldn't load ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
+                null
+            }
+        },
+        getName = { entry.displayName },
+        onApplied = { processed ->
+            SliceExporter.saveToLibrary(this, entry.displayName, listOf(processed))
+            refreshSampleList()
+        },
+    )
 
     private fun importSamples(uris: List<Uri>) {
         val entries = uris.map { uri ->
@@ -457,7 +568,53 @@ class MainActivity : ComponentActivity() {
             songRowViews[position].setBackgroundColor(Color.rgb(0, 50, 55))
         }
         highlightedPosition = position
+        lastLiveStep = step
         statusText.text = " %02X:%X".format(position, step)
+    }
+
+    /** Records a live "session" hit: plays the sample immediately and writes it into the phrase
+     *  at the sequencer's current position/step, similar to punching in a pad hit while playing. */
+    private fun recordLiveHit(entry: SampleEntry, instrumentIndex: Int) {
+        try {
+            AudioPlayback.playOneShot(SampleLoader.decode(contentResolver, entry.uri), context = this)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Couldn't play ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+
+        val position = highlightedPosition
+        if (position !in project.song.positions.indices) return
+
+        val existingPhraseId = project.song.positions[position][recordTrack]
+        val phraseId = existingPhraseId ?: run {
+            val id = project.nextPhraseId()
+            project.putPhrase(id, Phrase.empty())
+            project.setSongSlot(position, recordTrack, id)
+            id
+        }
+        val phrase = project.phrases[phraseId] ?: Phrase.empty()
+        val steps = phrase.steps.toMutableList()
+        val stepIndex = lastLiveStep.coerceIn(0, steps.size - 1)
+        steps[stepIndex] = Step(instrument = instrumentIndex)
+        project.putPhrase(phraseId, Phrase(steps))
+        refreshSongGrid()
+    }
+
+    private fun toggleAudioRecording() {
+        if (audioRecorder.isRecording) {
+            val wav = audioRecorder.stop()
+            recordAudioButton.text = "Record Audio"
+            samplerPanel.load(wav, "recording-${System.currentTimeMillis()}.wav")
+            Toast.makeText(this, "Recording loaded into Sampler", Toast.LENGTH_SHORT).show()
+        } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startAudioRecording()
+        } else {
+            requestRecordAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startAudioRecording() {
+        audioRecorder.start()
+        recordAudioButton.text = "Stop Recording"
     }
 
     private fun onSlotTapped(position: Int, track: Int) {
@@ -538,7 +695,7 @@ class MainActivity : ComponentActivity() {
             sequencer.stop()
             playButton.text = "Play"
         } else {
-            sequencer = Sequencer(contentResolver, library.all())
+            sequencer = Sequencer(this, library.all())
             sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
             sequencer.start(project.song, project.phrases, project.bpm)
             playButton.text = "Stop"
@@ -591,8 +748,8 @@ class MainActivity : ComponentActivity() {
     private fun showThemeDialog() {
         ThemeMenu.show(
             context = this,
-            rootView = rootView,
             onPickPicture = { pickBackgroundImage.launch(arrayOf("image/*")) },
+            onPickVideo = { pickBackgroundVideo.launch(arrayOf("video/*")) },
             onRecreate = { recreate() },
         )
     }

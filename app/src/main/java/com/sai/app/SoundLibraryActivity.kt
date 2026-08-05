@@ -55,8 +55,7 @@ class SoundLibraryActivity : ComponentActivity() {
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }
-        setContentView(root)
-        AppBackground.apply(this, root)
+        setContentView(AppBackground.wrap(this, root))
     }
 
     override fun onResume() {
@@ -95,14 +94,38 @@ class SoundLibraryActivity : ComponentActivity() {
         setPadding(8, 8, 8, 8)
         setOnClickListener { preview(entry) }
         setOnLongClickListener {
-            showRecategorizeDialog(entry)
+            AlertDialog.Builder(this@SoundLibraryActivity)
+                .setTitle(entry.displayName)
+                .setItems(arrayOf("Move to Category", "Mixer")) { _, which ->
+                    when (which) {
+                        0 -> showRecategorizeDialog(entry)
+                        1 -> EffectsMenu.show(this@SoundLibraryActivity, libraryEffectsTarget(entry))
+                    }
+                }
+                .show()
             true
         }
     }
 
+    private fun libraryEffectsTarget(entry: SampleEntry) = EffectsTarget(
+        getWav = {
+            try {
+                SampleLoader.decode(contentResolver, entry.uri)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Couldn't load ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
+                null
+            }
+        },
+        getName = { entry.displayName },
+        onApplied = { processed ->
+            SliceExporter.saveToLibrary(this, entry.displayName, listOf(processed))
+            refresh()
+        },
+    )
+
     private fun preview(entry: SampleEntry) {
         try {
-            AudioPlayback.playOneShot(SampleLoader.decode(contentResolver, entry.uri))
+            AudioPlayback.playOneShot(SampleLoader.decode(contentResolver, entry.uri), context = this)
         } catch (e: Exception) {
             Toast.makeText(this, "Couldn't play ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
         }

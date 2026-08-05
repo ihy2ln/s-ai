@@ -62,7 +62,14 @@ class PhraseActivity : ComponentActivity() {
     private val pickBackgroundImage = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             AppBackground.setImage(this, uri)
-            AppBackground.apply(this, rootView)
+            recreate()
+        }
+    }
+
+    private val pickBackgroundVideo = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            AppBackground.setVideo(this, uri)
+            recreate()
         }
     }
 
@@ -80,8 +87,7 @@ class PhraseActivity : ComponentActivity() {
             project.putPhrase(phraseId, Phrase.empty())
         }
 
-        setContentView(buildUi())
-        AppBackground.apply(this, rootView)
+        setContentView(AppBackground.wrap(this, buildUi()))
         refreshSteps()
 
         val preloadUri = intent.getParcelableExtra<Uri>(SampleEditorActivity.EXTRA_SAMPLE_URI)
@@ -108,7 +114,7 @@ class PhraseActivity : ComponentActivity() {
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(PillButton.create(this@PhraseActivity, "E") { showExpand() })
             addView(PillButton.create(this@PhraseActivity, "N") { showNav() })
-            addView(PillButton.create(this@PhraseActivity, "MX") { EffectsMenu.show(this@PhraseActivity, samplerPanel) })
+            addView(PillButton.create(this@PhraseActivity, "MX") { EffectsMenu.show(this@PhraseActivity, samplerEffectsTarget()) })
             addView(PillButton.create(this@PhraseActivity, "M") { showMenu() })
         }
 
@@ -211,6 +217,12 @@ class PhraseActivity : ComponentActivity() {
         }
         samplerPanel.load(wav, name)
     }
+
+    private fun samplerEffectsTarget() = EffectsTarget(
+        getWav = { samplerPanel.currentWav() },
+        getName = { samplerPanel.currentSourceName() },
+        onApplied = { processed -> samplerPanel.load(processed, samplerPanel.currentSourceName()) },
+    )
 
     // --- Tracker step grid (bottom) --------------------------------------
 
@@ -378,13 +390,14 @@ class PhraseActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project", "Theme")) { _, which ->
+            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project", "Theme", "Piano Roll")) { _, which ->
                 when (which) {
                     0 -> { project.undo(); refreshSteps() }
                     1 -> { project.redo(); refreshSteps() }
                     2 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
                     3 -> loadProjectLauncher.launch(arrayOf("application/json"))
                     4 -> showThemeDialog()
+                    5 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
                 }
             }
             .show()
@@ -393,8 +406,8 @@ class PhraseActivity : ComponentActivity() {
     private fun showThemeDialog() {
         ThemeMenu.show(
             context = this,
-            rootView = rootView,
             onPickPicture = { pickBackgroundImage.launch(arrayOf("image/*")) },
+            onPickVideo = { pickBackgroundVideo.launch(arrayOf("video/*")) },
             onRecreate = { recreate() },
         )
     }

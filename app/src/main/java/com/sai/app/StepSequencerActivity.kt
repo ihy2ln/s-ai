@@ -34,8 +34,7 @@ class StepSequencerActivity : ComponentActivity() {
         project = TrackerProjectStore.get(this)
         library = SampleLibrary(this)
 
-        setContentView(buildUi())
-        AppBackground.apply(this, rootView)
+        setContentView(AppBackground.wrap(this, buildUi()))
         refreshRows()
     }
 

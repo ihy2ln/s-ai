@@ -58,8 +58,7 @@ class SampleEditorActivity : ComponentActivity() {
         }
 
         val root = buildUi()
-        setContentView(root)
-        AppBackground.apply(this, root)
+        setContentView(AppBackground.wrap(this, root))
         refresh()
     }
 
@@ -147,7 +146,7 @@ class SampleEditorActivity : ComponentActivity() {
     }
 
     private fun playCurrentEdit() {
-        AudioPlayback.playOneShot(currentEdit())
+        AudioPlayback.playOneShot(currentEdit(), context = this)
     }
 
     private fun suggestedFileName(): String = "sai-edited-${System.currentTimeMillis()}.wav"

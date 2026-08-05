@@ -90,7 +90,7 @@ class SynthPanelView @JvmOverloads constructor(
 
     private fun preview() {
         val result = processed() ?: return
-        AudioPlayback.playOneShot(result)
+        AudioPlayback.playOneShot(result, context = context)
     }
 
     private fun applyInPlace() {

@@ -1,20 +1,21 @@
 package com.sai.app
 
 import android.app.AlertDialog
+import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 
 /** The Theme dialog: a color wheel that can set the window background or the app accent color,
- *  a picture-as-background option, and a window/button opacity slider. Everything here is global,
- *  applied consistently across every screen rather than per-widget, to keep this "low weight". */
+ *  a picture/video background with a mirror toggle, and separate opacity controls for the
+ *  background (a dark scrim over the picture/video - never clears the choice, just reveals it)
+ *  and for the pill buttons. Everything here is global and applied via Activity.recreate(). */
 object ThemeMenu {
 
-    fun show(context: android.content.Context, rootView: View, onPickPicture: () -> Unit, onRecreate: () -> Unit) {
+    fun show(context: Context, onPickPicture: () -> Unit, onPickVideo: () -> Unit, onRecreate: () -> Unit) {
         val density = context.resources.displayMetrics.density
         val pad = (16 * density).toInt()
 
@@ -30,7 +31,27 @@ object ThemeMenu {
             addView(setAccentButton)
         }
 
-        val choosePictureButton = Button(context).apply { text = "Choose Picture for Background" }
+        val choosePictureButton = Button(context).apply { text = "Choose Picture" }
+        val chooseVideoButton = Button(context).apply { text = "Choose Video" }
+        val mediaButtonsRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(choosePictureButton)
+            addView(chooseVideoButton)
+        }
+
+        val mirrorButton = Button(context).apply {
+            text = if (AppBackground.mirrorEnabled(context)) "Mirror: On" else "Mirror: Off"
+        }
+
+        val bgOpacityLabel = TextView(context).apply {
+            text = "Background Opacity: ${AppTheme.backgroundOpacityPercent(context)}%"
+            setTextColor(Color.WHITE)
+            setPadding(0, pad / 2, 0, 0)
+        }
+        val bgOpacitySeekBar = SeekBar(context).apply {
+            max = 100
+            progress = AppTheme.backgroundOpacityPercent(context)
+        }
 
         val opacityLabel = TextView(context).apply {
             text = "Window / Button Opacity: ${AppTheme.opacityPercent(context)}%"
@@ -55,7 +76,10 @@ object ThemeMenu {
             })
             addView(wheel)
             addView(colorButtonsRow)
-            addView(choosePictureButton)
+            addView(mediaButtonsRow)
+            addView(mirrorButton)
+            addView(bgOpacityLabel)
+            addView(bgOpacitySeekBar)
             addView(opacityLabel)
             addView(opacitySeekBar)
             addView(resetButton)
@@ -69,8 +93,8 @@ object ThemeMenu {
 
         setBackgroundButton.setOnClickListener {
             AppBackground.setColor(context, wheel.currentColor())
-            AppBackground.apply(context, rootView)
             dialog.dismiss()
+            onRecreate()
         }
         setAccentButton.setOnClickListener {
             AppTheme.setAccentColor(context, wheel.currentColor())
@@ -81,6 +105,27 @@ object ThemeMenu {
             dialog.dismiss()
             onPickPicture()
         }
+        chooseVideoButton.setOnClickListener {
+            dialog.dismiss()
+            onPickVideo()
+        }
+        mirrorButton.setOnClickListener {
+            val newValue = !AppBackground.mirrorEnabled(context)
+            AppBackground.setMirrorEnabled(context, newValue)
+            mirrorButton.text = if (newValue) "Mirror: On" else "Mirror: Off"
+            onRecreate()
+        }
+        bgOpacitySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                bgOpacityLabel.text = "Background Opacity: $progress%"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                AppTheme.setBackgroundOpacityPercent(context, bgOpacitySeekBar.progress)
+                dialog.dismiss()
+                onRecreate()
+            }
+        })
         opacitySeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 opacityLabel.text = "Window / Button Opacity: ${progress + 10}%"

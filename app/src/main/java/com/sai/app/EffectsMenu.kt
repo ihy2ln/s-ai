@@ -4,7 +4,6 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
-import android.view.Gravity
 import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -14,28 +13,38 @@ import com.sai.core.audio.Compressor
 import com.sai.core.audio.Equalizer
 import com.sai.core.audio.Filter
 import com.sai.core.audio.Reverb
+import com.sai.core.audio.StereoShaper
 import com.sai.core.audio.Wav
 
-/** The "MX" menu: sound-shaping effects (synth filter, compressor, reverb, EQ) plus the step sequencer,
- *  all applied on-demand to whatever sample is currently loaded in [SamplerPanelView]. */
+/** What the MX effects read from and write back to - a loaded sampler/synth sound, or an
+ *  individual library instrument - so the mixer works on any sound, not just one fixed panel. */
+class EffectsTarget(
+    val getWav: () -> Wav?,
+    val getName: () -> String,
+    val onApplied: (Wav) -> Unit,
+)
+
+/** The "MX" menu: sound-shaping effects (synth filter, compressor, reverb, EQ, stereo shaper)
+ *  plus the step sequencer, all applied on-demand to whatever [EffectsTarget] is passed in. */
 object EffectsMenu {
 
-    fun show(context: Context, samplerPanel: SamplerPanelView) {
+    fun show(context: Context, target: EffectsTarget) {
         AlertDialog.Builder(context)
             .setTitle("MX")
-            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Step Sequencer")) { _, which ->
+            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper", "Step Sequencer")) { _, which ->
                 when (which) {
-                    0 -> showFilterDialog(context, samplerPanel)
-                    1 -> showCompressorDialog(context, samplerPanel)
-                    2 -> showReverbDialog(context, samplerPanel)
-                    3 -> showEqualizerDialog(context, samplerPanel)
-                    4 -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
+                    0 -> showFilterDialog(context, target)
+                    1 -> showCompressorDialog(context, target)
+                    2 -> showReverbDialog(context, target)
+                    3 -> showEqualizerDialog(context, target)
+                    4 -> showStereoShaperDialog(context, target)
+                    5 -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
                 }
             }
             .show()
     }
 
-    private fun showFilterDialog(context: Context, panel: SamplerPanelView) {
+    private fun showFilterDialog(context: Context, target: EffectsTarget) {
         var lowCut = 20f
         var highCut = 20000f
         var cutoff = 8000f
@@ -53,11 +62,11 @@ object EffectsMenu {
             addView(Knob.labeled(context, "PITCH", -24f, 24f, pitch, { "%+.0fst".format(it) }) { pitch = it })
         }
 
-        effectDialog(context, "Synth / Filter", knobs, panel,
+        effectDialog(context, "Synth / Filter", knobs, target,
             process = { wav -> Filter.apply(wav, lowCut.toDouble(), highCut.toDouble(), cutoff.toDouble(), resonance.toDouble(), drive.toDouble(), pitch.toDouble()) })
     }
 
-    private fun showCompressorDialog(context: Context, panel: SamplerPanelView) {
+    private fun showCompressorDialog(context: Context, target: EffectsTarget) {
         var threshold = -18f
         var ratio = 4f
         var attack = 5f
@@ -73,11 +82,11 @@ object EffectsMenu {
             addView(Knob.labeled(context, "GAIN", -12f, 24f, makeup, { "%.0fdB".format(it) }) { makeup = it })
         }
 
-        effectDialog(context, "Compressor", knobs, panel,
+        effectDialog(context, "Compressor", knobs, target,
             process = { wav -> Compressor.apply(wav, threshold.toDouble(), ratio.toDouble(), attack.toDouble(), release.toDouble(), makeup.toDouble()) })
     }
 
-    private fun showReverbDialog(context: Context, panel: SamplerPanelView) {
+    private fun showReverbDialog(context: Context, target: EffectsTarget) {
         var size = 0.5f
         var damp = 0.5f
         var mix = 0.3f
@@ -89,11 +98,11 @@ object EffectsMenu {
             addView(Knob.labeled(context, "MIX", 0f, 1f, mix, { "%.2f".format(it) }) { mix = it })
         }
 
-        effectDialog(context, "Reverb", knobs, panel,
+        effectDialog(context, "Reverb", knobs, target,
             process = { wav -> Reverb.apply(wav, size.toDouble(), damp.toDouble(), mix.toDouble()) })
     }
 
-    private fun showEqualizerDialog(context: Context, panel: SamplerPanelView) {
+    private fun showEqualizerDialog(context: Context, target: EffectsTarget) {
         val bandGains = FloatArray(Equalizer.BAND_FREQS_HZ.size)
         var lowCut = 20f
         var midCut = 0f
@@ -111,23 +120,39 @@ object EffectsMenu {
             addView(Knob.labeled(context, "HIGH CUT", 1000f, 20000f, highCut, { "%.0fHz".format(it) }) { highCut = it })
         }
 
-        effectDialog(context, "Equalizer", knobs, panel,
+        effectDialog(context, "Equalizer", knobs, target,
             process = { wav -> Equalizer.apply(wav, DoubleArray(bandGains.size) { i -> bandGains[i].toDouble() }, lowCut.toDouble(), midCut.toDouble(), highCut.toDouble()) })
     }
 
-    /** Shared dialog chrome: a row of knobs plus Preview (non-destructive) / Apply (bakes into the loaded sample) / Close. */
+    private fun showStereoShaperDialog(context: Context, target: EffectsTarget) {
+        var pan = 0f
+        var width = 1f
+        var depth = 0f
+
+        val knobs = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(Knob.labeled(context, "PAN", -1f, 1f, pan, { if (it < -0.02f) "L%.0f".format(-it * 100) else if (it > 0.02f) "R%.0f".format(it * 100) else "C" }) { pan = it })
+            addView(Knob.labeled(context, "WIDTH", 0f, 2f, width, { "%.2f".format(it) }) { width = it })
+            addView(Knob.labeled(context, "DEPTH", 0f, 1f, depth, { if (it < 0.02f) "front" else "%.0f%% back".format(it * 100) }) { depth = it })
+        }
+
+        effectDialog(context, "Stereo Shaper", knobs, target,
+            process = { wav -> StereoShaper.apply(wav, pan.toDouble(), width.toDouble(), depth.toDouble()) })
+    }
+
+    /** Shared dialog chrome: a row of knobs plus Preview (non-destructive) / Apply (writes back via the target) / Close. */
     private fun effectDialog(
         context: Context,
         title: String,
         knobsRow: LinearLayout,
-        panel: SamplerPanelView,
+        target: EffectsTarget,
         process: (Wav) -> Wav,
     ) {
         val density = context.resources.displayMetrics.density
         val pad = (16 * density).toInt()
 
         val previewButton = Button(context).apply { text = "Preview" }
-        val applyButton = Button(context).apply { text = "Apply to Sample" }
+        val applyButton = Button(context).apply { text = "Apply" }
         val buttonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(previewButton)
@@ -138,7 +163,7 @@ object EffectsMenu {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             addView(TextView(context).apply {
-                text = "Load a sample first, then Preview or Apply."
+                text = "${target.getName()} - Preview or Apply."
                 setTextColor(Color.rgb(140, 150, 160))
                 textSize = 12f
                 setPadding(0, 0, 0, pad / 2)
@@ -154,19 +179,19 @@ object EffectsMenu {
             .create()
 
         previewButton.setOnClickListener {
-            val wav = panel.currentWav()
+            val wav = target.getWav()
             if (wav == null) {
-                Toast.makeText(context, "No sample loaded", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "No sound loaded", Toast.LENGTH_SHORT).show()
             } else {
-                AudioPlayback.playOneShot(process(wav))
+                AudioPlayback.playOneShot(process(wav), context = context)
             }
         }
         applyButton.setOnClickListener {
-            val wav = panel.currentWav()
+            val wav = target.getWav()
             if (wav == null) {
-                Toast.makeText(context, "No sample loaded", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "No sound loaded", Toast.LENGTH_SHORT).show()
             } else {
-                panel.load(process(wav), panel.currentSourceName())
+                target.onApplied(process(wav))
                 Toast.makeText(context, "Applied", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
             }
