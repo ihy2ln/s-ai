@@ -128,7 +128,12 @@ class SamplerPanelView @JvmOverloads constructor(
     }
 
     private fun previewSlice(wav: Wav, range: IntRange) {
-        AudioPlayback.playOneShot(SampleEditor.trim(wav, range.first, range.last + 1), context = context)
+        val choke = ModuleLayoutStore.isChokeEnabled(context, ModuleType.SAMPLER)
+        AudioPlayback.playOneShot(
+            SampleEditor.trim(wav, range.first, range.last + 1),
+            context = context,
+            chokeGroup = if (choke) "sampler" else null,
+        )
     }
 
     private fun saveSlices() {

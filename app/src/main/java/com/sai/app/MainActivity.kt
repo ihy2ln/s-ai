@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private var highlightedPosition = -1
     private var lastLiveStep = 0
     private val songRowViews = mutableListOf<LinearLayout>()
+    private val chokeButtons = mutableMapOf<ModuleType, Button>()
 
     private val audioRecorder = AudioRecorder()
     private lateinit var routeLabel: TextView
@@ -129,7 +130,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         library = SampleLibrary(this)
         project = TrackerProjectStore.get(this)
-        sequencer = Sequencer(this, library.all())
+        sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
         sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
 
         setContentView(AppBackground.wrap(this, buildUi()))
@@ -218,6 +219,7 @@ class MainActivity : ComponentActivity() {
      *  an accepted trade-off for keeping add/remove/reorder simple and reliable. */
     private fun rebuildModulesColumn() {
         modulesColumn.removeAllViews()
+        chokeButtons.clear()
         val density = resources.displayMetrics.density
 
         val full = fullScreenModule
@@ -282,7 +284,11 @@ class MainActivity : ComponentActivity() {
                 ModuleType.TRACKER -> {
                     addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
                 }
+                ModuleType.STEP_SEQUENCER -> {
+                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
+                }
             }
+            addView(buildChokeButton(type))
             addView(upButton)
             addView(downButton)
             addView(removeButton)
@@ -292,6 +298,7 @@ class MainActivity : ComponentActivity() {
             ModuleType.SAMPLER -> buildSamplerContent()
             ModuleType.SYNTH -> buildSynthContent()
             ModuleType.TRACKER -> buildTrackerContent()
+            ModuleType.STEP_SEQUENCER -> StepSequencerPanelView(this)
         }
 
         return LinearLayout(this).apply {
@@ -299,6 +306,32 @@ class MainActivity : ComponentActivity() {
             addView(titleRow)
             addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
+    }
+
+    /** "CUT" toggles Cut Itself (mono/poly) for this module - see [ModuleLayoutStore.chokeKey]:
+     *  Tracker and Step Sequencer share one value since they play back the same song data
+     *  through one engine, so toggling either one's button updates both in place. */
+    private fun buildChokeButton(type: ModuleType): Button {
+        val button = Button(this)
+        styleChokeButton(button, ModuleLayoutStore.isChokeEnabled(this, type))
+        button.setOnClickListener {
+            val newValue = !ModuleLayoutStore.isChokeEnabled(this, type)
+            ModuleLayoutStore.setChokeEnabled(this, type, newValue)
+            val key = ModuleLayoutStore.chokeKey(type)
+            for (candidate in ModuleType.values()) {
+                if (ModuleLayoutStore.chokeKey(candidate) == key) {
+                    chokeButtons[candidate]?.let { styleChokeButton(it, newValue) }
+                }
+            }
+        }
+        chokeButtons[type] = button
+        return button
+    }
+
+    private fun styleChokeButton(button: Button, enabled: Boolean) {
+        button.text = if (enabled) "MONO" else "POLY"
+        button.setTextColor(if (enabled) Color.BLACK else Color.WHITE)
+        button.setBackgroundColor(if (enabled) AppTheme.accentColor(this) else Color.DKGRAY)
     }
 
     private fun moveModule(type: ModuleType, delta: Int) {
@@ -629,7 +662,8 @@ class MainActivity : ComponentActivity() {
      *  at the sequencer's current position/step, similar to punching in a pad hit while playing. */
     private fun recordLiveHit(entry: SampleEntry, instrumentIndex: Int) {
         try {
-            AudioPlayback.playOneShot(SampleLoader.decode(contentResolver, entry.uri), context = this)
+            val choke = ModuleLayoutStore.isChokeEnabled(this, ModuleType.SAMPLER)
+            AudioPlayback.playOneShot(SampleLoader.decode(contentResolver, entry.uri), context = this, chokeGroup = if (choke) "sampler" else null)
         } catch (e: Exception) {
             Toast.makeText(this, "Couldn't play ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -753,7 +787,7 @@ class MainActivity : ComponentActivity() {
             sequencer.stop()
             playButton?.text = "Play"
         } else {
-            sequencer = Sequencer(this, library.all())
+            sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
             sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
             sequencer.start(project.song, project.phrases, project.bpm)
             playButton?.text = "Stop"

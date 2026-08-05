@@ -90,7 +90,8 @@ class SynthPanelView @JvmOverloads constructor(
 
     private fun preview() {
         val result = processed() ?: return
-        AudioPlayback.playOneShot(result, context = context)
+        val choke = ModuleLayoutStore.isChokeEnabled(context, ModuleType.SYNTH)
+        AudioPlayback.playOneShot(result, context = context, chokeGroup = if (choke) "synth" else null)
     }
 
     private fun applyInPlace() {

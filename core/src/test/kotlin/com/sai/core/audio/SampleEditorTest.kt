@@ -4,6 +4,7 @@ import java.io.File
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class SampleEditorTest {
@@ -54,5 +55,53 @@ class SampleEditorTest {
         val boosted = SampleEditor.gain(loud, gainDb = 12.0)
         assertEquals(Short.MAX_VALUE, boosted.samples[0])
         assertEquals(Short.MIN_VALUE, boosted.samples[1])
+    }
+
+    @Test
+    fun `cut removes the selected range and joins the remainder`() {
+        val wav = sineWav(frames = 1000)
+        val cut = SampleEditor.cut(wav, 200, 400)
+        assertEquals(800, cut.frameCount)
+        assertEquals(wav.samples[0], cut.samples[0])
+        assertEquals(wav.samples[999], cut.samples.last())
+    }
+
+    @Test
+    fun `insert splices a clip back in at the given frame`() {
+        val wav = sineWav(frames = 1000)
+        val clip = sineWav(frames = 100, freqHz = 880.0)
+        val result = SampleEditor.insert(wav, 500, clip)
+        assertEquals(1100, result.frameCount)
+        assertEquals(clip.samples[0], result.samples[500])
+    }
+
+    @Test
+    fun `concat joins two clips and coerces channel count to match`() {
+        val stereo = sineWav(channels = 2, frames = 100)
+        val mono = sineWav(channels = 1, frames = 50)
+        val joined = SampleEditor.concat(stereo, mono)
+        assertEquals(150, joined.frameCount)
+        assertEquals(2, joined.channels)
+    }
+
+    @Test
+    fun `concat rejects mismatched sample rates`() {
+        val a = sineWav(sampleRate = 44100, frames = 100)
+        val b = sineWav(sampleRate = 22050, frames = 100)
+        assertFailsWith<IllegalArgumentException> { SampleEditor.concat(a, b) }
+    }
+
+    @Test
+    fun `matchChannels downmixes stereo to mono and upmixes mono to stereo`() {
+        val stereo = Wav(44100, 2, shortArrayOf(100, 300, -100, -300))
+        val downmixed = SampleEditor.matchChannels(stereo, 1)
+        assertEquals(1, downmixed.channels)
+        assertEquals(200, downmixed.samples[0].toInt())
+        assertEquals(-200, downmixed.samples[1].toInt())
+
+        val mono = Wav(44100, 1, shortArrayOf(500, -500))
+        val upmixed = SampleEditor.matchChannels(mono, 2)
+        assertEquals(2, upmixed.channels)
+        assertEquals(shortArrayOf(500, 500, -500, -500).toList(), upmixed.samples.toList())
     }
 }

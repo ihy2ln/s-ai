@@ -11,10 +11,22 @@ import kotlin.math.max
 
 object AudioPlayback {
 
+    /** The currently-playing [AudioTrack] per choke group (see [playOneShot]'s chokeGroup param). */
+    private val activeTracks = mutableMapOf<String, AudioTrack>()
+
     /** [context], when provided, is used to detect the current output route (headphones/Bluetooth/
      *  speaker) so wide stereo content can be narrowed toward mono on a phone's built-in speaker,
-     *  where separated stereo speakers aren't available and full width just comb-filters. */
-    fun playOneShot(wav: Wav, rate: Float = 1.0f, context: Context? = null) {
+     *  where separated stereo speakers aren't available and full width just comb-filters.
+     *
+     *  [chokeGroup], when non-null, gives this one-shot "Cut Itself" (monophonic) behavior: any
+     *  sound still playing under the same group key is immediately stopped so the new note isn't
+     *  layered over it - the classic tracker/sampler "cut previous note on this channel" trick. */
+    fun playOneShot(wav: Wav, rate: Float = 1.0f, context: Context? = null, chokeGroup: String? = null) {
+        if (chokeGroup != null) {
+            val previous = synchronized(activeTracks) { activeTracks.remove(chokeGroup) }
+            previous?.let { stopSilently(it) }
+        }
+
         val effective = if (wav.channels == 2 && context != null && AudioRoute.shouldNarrowForSpeaker(context)) {
             narrowToMono(wav)
         } else {
@@ -53,16 +65,28 @@ object AudioPlayback {
             }
         }
         track.play()
+        if (chokeGroup != null) {
+            synchronized(activeTracks) { activeTracks[chokeGroup] = track }
+        }
 
         val durationMs = (effective.frameCount.toDouble() / effective.sampleRate / rate * 1000).toLong().coerceAtLeast(50)
         Thread {
             Thread.sleep(durationMs + 50)
-            track.stop()
-            track.release()
+            if (chokeGroup != null) {
+                synchronized(activeTracks) {
+                    if (activeTracks[chokeGroup] === track) activeTracks.remove(chokeGroup)
+                }
+            }
+            stopSilently(track)
         }.apply {
             isDaemon = true
             start()
         }
+    }
+
+    private fun stopSilently(track: AudioTrack) {
+        try { track.stop() } catch (e: Exception) { /* already stopped/released */ }
+        try { track.release() } catch (e: Exception) { /* already released */ }
     }
 
     private fun narrowToMono(wav: Wav): Wav {
