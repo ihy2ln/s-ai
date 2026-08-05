@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -28,40 +29,37 @@ import com.sai.core.tracker.Step
 
 class MainActivity : ComponentActivity() {
 
-    private enum class ViewMode { SPLIT, SAMPLER_FULL, SYNTH_FULL, TRACKER_FULL }
-
     private lateinit var library: SampleLibrary
     private lateinit var project: TrackerProject
     private lateinit var sequencer: Sequencer
 
     private lateinit var rootView: LinearLayout
+    private lateinit var modulesColumn: LinearLayout
+    private lateinit var moduleEntries: MutableList<ModuleEntry>
+    private var fullScreenModule: ModuleType? = null
 
-    private lateinit var samplerPanel: SamplerPanelView
-    private lateinit var sampleListContainer: LinearLayout
-    private lateinit var samplerSectionWrapper: LinearLayout
+    // Sampler module (null when that module isn't on screen)
+    private var samplerPanel: SamplerPanelView? = null
+    private var sampleListContainer: LinearLayout? = null
+    private var recordAudioButton: Button? = null
 
-    private lateinit var synthPanel: SynthPanelView
-    private lateinit var synthSectionWrapper: LinearLayout
+    // Synth module
+    private var synthPanel: SynthPanelView? = null
 
-    private lateinit var songRows: LinearLayout
-    private lateinit var bpmLabel: TextView
-    private lateinit var playButton: Button
-    private lateinit var statusText: TextView
-    private lateinit var tempoDot: ImageView
-    private lateinit var tempoBouncer: TempoBouncer
-    private lateinit var trackerSectionWrapper: LinearLayout
+    // Tracker module
+    private var bpmLabel: TextView? = null
+    private var playButton: Button? = null
+    private var statusText: TextView? = null
+    private var tempoDot: ImageView? = null
+    private var tempoBouncer: TempoBouncer? = null
+    private var songRows: LinearLayout? = null
+    private var recordArmButton: Button? = null
 
-    private lateinit var dividerView: View
-    private lateinit var dividerView2: View
-
-    private var viewMode = ViewMode.SPLIT
     private var highlightedPosition = -1
     private var lastLiveStep = 0
     private val songRowViews = mutableListOf<LinearLayout>()
 
     private val audioRecorder = AudioRecorder()
-    private lateinit var recordAudioButton: Button
-    private lateinit var recordArmButton: Button
     private lateinit var routeLabel: TextView
     private var recordArmed = false
     private val recordTrack = 0
@@ -119,7 +117,7 @@ class MainActivity : ComponentActivity() {
             val name = SampleLoader.queryDisplayName(contentResolver, uri)
             library.add(listOf(SampleEntry(uri, name)))
             try {
-                synthPanel.load(SampleLoader.decode(contentResolver, uri), name)
+                synthPanel?.load(SampleLoader.decode(contentResolver, uri), name)
             } catch (e: Exception) {
                 Toast.makeText(this, "Couldn't load that file: ${e.message}", Toast.LENGTH_LONG).show()
             }
@@ -135,8 +133,6 @@ class MainActivity : ComponentActivity() {
         sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
 
         setContentView(AppBackground.wrap(this, buildUi()))
-        refreshSampleList()
-        refreshSongGrid()
         updateRouteLabel()
         (getSystemService(AUDIO_SERVICE) as AudioManager).registerAudioDeviceCallback(audioDeviceCallback, null)
     }
@@ -144,15 +140,15 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshSampleList()
-        tempoBouncer.setBpm(project.bpm)
+        tempoBouncer?.setBpm(project.bpm)
         updateRouteLabel()
     }
 
     override fun onPause() {
         super.onPause()
         sequencer.stop()
-        playButton.text = "Play"
-        tempoBouncer.stop()
+        playButton?.text = "Play"
+        tempoBouncer?.stop()
     }
 
     override fun onDestroy() {
@@ -196,143 +192,222 @@ class MainActivity : ComponentActivity() {
             addView(PillButton.create(this@MainActivity, "M") { showMenu() })
         }
 
-        samplerSectionWrapper = buildSamplerSection()
-        synthSectionWrapper = buildSynthSection()
-        trackerSectionWrapper = buildTrackerSection()
-        dividerView = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
-        dividerView2 = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
+        moduleEntries = ModuleLayoutStore.load(this)
+        modulesColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val verticalScroll = ScrollView(this).apply { addView(modulesColumn) }
+        val bothScroll = HorizontalScrollView(this).apply { addView(verticalScroll) }
 
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.rgb(18, 18, 20))
             addView(headerRow)
-            addView(samplerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-            addView(dividerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
-            addView(synthSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-            addView(dividerView2, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
-            addView(trackerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(bothScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             isLongClickable = true
             setOnLongClickListener { showNav(); true }
         }
 
-        applyViewMode()
+        rebuildModulesColumn()
         return rootView
     }
 
-    private fun buildSamplerSection(): LinearLayout {
+    /** Rebuilds every module (and the resize handles between them) from [moduleEntries] /
+     *  [fullScreenModule], then repopulates the sample list and song grid into the fresh views.
+     *  Note: this recreates the Sampler/Synth panels, so a loaded-but-unsaved sound is cleared -
+     *  an accepted trade-off for keeping add/remove/reorder simple and reliable. */
+    private fun rebuildModulesColumn() {
+        modulesColumn.removeAllViews()
         val density = resources.displayMetrics.density
 
-        val title = TextView(this).apply {
-            text = "SAMPLER"
+        val full = fullScreenModule
+        if (full != null && moduleEntries.any { it.type == full }) {
+            modulesColumn.addView(
+                buildModuleWrapper(full),
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT),
+            )
+        } else {
+            fullScreenModule = null
+            for ((index, entry) in moduleEntries.withIndex()) {
+                val heightPx = (entry.heightDp * density).toInt()
+                modulesColumn.addView(buildModuleWrapper(entry.type), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx))
+
+                if (index < moduleEntries.size - 1) {
+                    val handle = ResizeHandleView(this)
+                    handle.onDrag = { deltaPx ->
+                        entry.heightDp = (entry.heightDp + deltaPx / density).coerceIn(MIN_MODULE_HEIGHT_DP, MAX_MODULE_HEIGHT_DP)
+                        val wrapperIndex = modulesColumn.indexOfChild(handle) - 1
+                        val wrapper = modulesColumn.getChildAt(wrapperIndex)
+                        val params = wrapper.layoutParams
+                        params.height = (entry.heightDp * density).toInt()
+                        wrapper.layoutParams = params
+                    }
+                    handle.onDragEnd = { ModuleLayoutStore.save(this, moduleEntries) }
+                    modulesColumn.addView(handle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (16 * density).toInt()))
+                }
+            }
+        }
+
+        refreshSampleList()
+        refreshSongGrid()
+    }
+
+    private fun buildModuleWrapper(type: ModuleType): LinearLayout {
+        val titleText = TextView(this).apply {
+            text = type.label
             setTextColor(AppTheme.accentColor(this@MainActivity))
             textSize = 16f
         }
-        val addButton = Button(this).apply {
-            text = "+"
-            setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
-        }
-        recordAudioButton = Button(this).apply {
-            text = "Record Audio"
-            setOnClickListener { toggleAudioRecording() }
-        }
+        val upButton = Button(this).apply { text = "▲"; setOnClickListener { moveModule(type, -1) } }
+        val downButton = Button(this).apply { text = "▼"; setOnClickListener { moveModule(type, 1) } }
+        val removeButton = Button(this).apply { text = "−"; setOnClickListener { removeModule(type) } }
+
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(recordAudioButton)
-            addView(addButton)
+            addView(titleText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            when (type) {
+                ModuleType.SAMPLER -> {
+                    val recordButton = Button(this@MainActivity).apply {
+                        text = "Record Audio"
+                        setOnClickListener { toggleAudioRecording() }
+                    }
+                    recordAudioButton = recordButton
+                    addView(recordButton)
+                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
+                }
+                ModuleType.SYNTH -> {
+                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSynthSample.launch(arrayOf("audio/*")) } })
+                }
+                ModuleType.TRACKER -> {
+                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
+                }
+            }
+            addView(upButton)
+            addView(downButton)
+            addView(removeButton)
         }
 
-        samplerPanel = SamplerPanelView(this).apply {
+        val content = when (type) {
+            ModuleType.SAMPLER -> buildSamplerContent()
+            ModuleType.SYNTH -> buildSynthContent()
+            ModuleType.TRACKER -> buildTrackerContent()
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(titleRow)
+            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+    }
+
+    private fun moveModule(type: ModuleType, delta: Int) {
+        val index = moduleEntries.indexOfFirst { it.type == type }
+        if (index < 0) return
+        val newIndex = (index + delta).coerceIn(0, moduleEntries.size - 1)
+        if (newIndex == index) return
+        val entry = moduleEntries.removeAt(index)
+        moduleEntries.add(newIndex, entry)
+        ModuleLayoutStore.save(this, moduleEntries)
+        rebuildModulesColumn()
+    }
+
+    private fun removeModule(type: ModuleType) {
+        AlertDialog.Builder(this)
+            .setTitle("Remove ${type.label}?")
+            .setMessage("You can add it back from Menu > Add Module. Your samples and project data are kept either way.")
+            .setPositiveButton("Remove") { _, _ ->
+                moduleEntries.removeAll { it.type == type }
+                ModuleLayoutStore.save(this, moduleEntries)
+                rebuildModulesColumn()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showAddModuleDialog() {
+        val missing = ModuleType.values().filter { type -> moduleEntries.none { it.type == type } }
+        if (missing.isEmpty()) {
+            Toast.makeText(this, "All modules are already on screen", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = missing.map { it.label }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Add Module")
+            .setItems(labels) { _, which ->
+                val type = missing[which]
+                moduleEntries.add(ModuleEntry(type, ModuleLayoutStore.defaultHeight(type)))
+                ModuleLayoutStore.save(this, moduleEntries)
+                rebuildModulesColumn()
+            }
+            .show()
+    }
+
+    private fun buildSamplerContent(): LinearLayout {
+        val density = resources.displayMetrics.density
+
+        val panel = SamplerPanelView(this).apply {
             onSaveSlices = { sourceName, slices ->
                 val saved = SliceExporter.saveToLibrary(this@MainActivity, sourceName, slices)
                 Toast.makeText(this@MainActivity, "Saved ${saved.size} slices to your sample library", Toast.LENGTH_LONG).show()
                 refreshSampleList()
             }
         }
+        samplerPanel = panel
 
-        sampleListContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        sampleListContainer = listContainer
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(titleRow)
-            addView(samplerPanel)
+            addView(panel)
             addView(
-                ScrollView(this@MainActivity).apply { addView(sampleListContainer) },
+                ScrollView(this@MainActivity).apply { addView(listContainer) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (100 * density).toInt()),
             )
         }
     }
 
-    private fun buildSynthSection(): LinearLayout {
-        val title = TextView(this).apply {
-            text = "SYNTH"
-            setTextColor(AppTheme.accentColor(this@MainActivity))
-            textSize = 16f
-        }
-        val addButton = Button(this).apply {
-            text = "+"
-            setOnClickListener { openSynthSample.launch(arrayOf("audio/*")) }
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(addButton)
-        }
-
-        synthPanel = SynthPanelView(this).apply {
+    private fun buildSynthContent(): LinearLayout {
+        val panel = SynthPanelView(this).apply {
             onSaveToLibrary = { sourceName, wav ->
                 val saved = SliceExporter.saveToLibrary(this@MainActivity, sourceName, listOf(wav))
                 Toast.makeText(this@MainActivity, "Saved ${saved.size} to your sample library", Toast.LENGTH_LONG).show()
                 refreshSampleList()
             }
         }
+        synthPanel = panel
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(titleRow)
-            addView(synthPanel)
+            addView(panel)
         }
     }
 
-    private fun buildTrackerSection(): LinearLayout {
-        val title = TextView(this).apply {
-            text = "TRACKER"
-            setTextColor(AppTheme.accentColor(this@MainActivity))
-            textSize = 16f
-        }
-        val addButton = Button(this).apply {
-            text = "+"
-            setOnClickListener { openSamples.launch(arrayOf("audio/*")) }
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(addButton)
-        }
-
+    private fun buildTrackerContent(): LinearLayout {
         val density = resources.displayMetrics.density
-        bpmLabel = TextView(this).apply {
+        val bpmLabelView = TextView(this).apply {
             setTextColor(Color.WHITE)
             setOnClickListener { editBpm() }
         }
-        playButton = Button(this).apply {
+        bpmLabel = bpmLabelView
+        val playButtonView = Button(this).apply {
             text = "Play"
             setOnClickListener { togglePlayback() }
         }
-        tempoDot = ImageView(this).apply {
+        playButton = playButtonView
+        val tempoDotView = ImageView(this).apply {
             setImageResource(R.drawable.tempo_dot)
             layoutParams = LinearLayout.LayoutParams((22 * density).toInt(), (22 * density).toInt()).apply {
                 setMargins((8 * density).toInt(), 0, (8 * density).toInt(), 0)
                 gravity = Gravity.CENTER_VERTICAL
             }
         }
-        tempoBouncer = TempoBouncer(tempoDot, 14 * density)
-        statusText = TextView(this).apply { setTextColor(Color.rgb(90, 200, 200)) }
-        recordArmButton = Button(this).apply {
+        tempoDot = tempoDotView
+        tempoBouncer = TempoBouncer(tempoDotView, 14 * density)
+        val statusTextView = TextView(this).apply { setTextColor(Color.rgb(90, 200, 200)) }
+        statusText = statusTextView
+        val recordArmButtonView = Button(this).apply {
             text = "REC"
             setOnClickListener {
                 recordArmed = !recordArmed
@@ -340,14 +415,15 @@ class MainActivity : ComponentActivity() {
                 if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
             }
         }
+        recordArmButton = recordArmButtonView
         val transport = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(bpmLabel)
-            addView(playButton)
-            addView(recordArmButton)
-            addView(tempoDot)
-            addView(statusText)
+            addView(bpmLabelView)
+            addView(playButtonView)
+            addView(recordArmButtonView)
+            addView(tempoDotView)
+            addView(statusTextView)
         }
 
         val header = LinearLayout(this).apply {
@@ -356,15 +432,15 @@ class MainActivity : ComponentActivity() {
             for (track in 0 until project.song.trackCount) headerCell((track + 1).toString())
         }
 
-        songRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val songRowsView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        songRows = songRowsView
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(titleRow)
             addView(transport)
             addView(header)
             addView(
-                ScrollView(this@MainActivity).apply { addView(songRows) },
+                ScrollView(this@MainActivity).apply { addView(songRowsView) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }
@@ -380,47 +456,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // --- Full-screen toggle -------------------------------------------------
-
-    private fun showSplitView() {
-        viewMode = ViewMode.SPLIT
-        applyViewMode()
-    }
-
-    private fun applyViewMode() {
-        val split = viewMode == ViewMode.SPLIT
-        val samplerVisible = split || viewMode == ViewMode.SAMPLER_FULL
-        val synthVisible = split || viewMode == ViewMode.SYNTH_FULL
-        val trackerVisible = split || viewMode == ViewMode.TRACKER_FULL
-
-        samplerSectionWrapper.visibility = if (samplerVisible) View.VISIBLE else View.GONE
-        synthSectionWrapper.visibility = if (synthVisible) View.VISIBLE else View.GONE
-        trackerSectionWrapper.visibility = if (trackerVisible) View.VISIBLE else View.GONE
-        dividerView.visibility = if (split) View.VISIBLE else View.GONE
-        dividerView2.visibility = if (split) View.VISIBLE else View.GONE
-
-        if (samplerVisible) {
-            samplerSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-        }
-        if (synthVisible) {
-            synthSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-        }
-        if (trackerVisible) {
-            trackerSectionWrapper.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
-        }
-    }
-
     // --- Sampler section ----------------------------------------------------
 
     private fun refreshSampleList() {
-        sampleListContainer.removeAllViews()
+        val container = sampleListContainer ?: return
+        container.removeAllViews()
         val entries = library.all()
         if (entries.isEmpty()) {
-            sampleListContainer.addView(label("No samples yet. Tap M > Samples or Sounds."))
+            container.addView(label("No samples yet. Tap M > Samples or Sounds."))
             return
         }
         for ((index, entry) in entries.withIndex()) {
-            sampleListContainer.addView(sampleRow(entry, index, PALETTE[index % PALETTE.size]))
+            container.addView(sampleRow(entry, index, PALETTE[index % PALETTE.size]))
         }
     }
 
@@ -466,19 +513,24 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun loadIntoSampler(entry: SampleEntry) {
+        val panel = samplerPanel
+        if (panel == null) {
+            Toast.makeText(this, "Add the Sampler module first (Menu > Add Module)", Toast.LENGTH_LONG).show()
+            return
+        }
         val wav = try {
             SampleLoader.decode(contentResolver, entry.uri)
         } catch (e: Exception) {
             Toast.makeText(this, "Couldn't load ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
             return
         }
-        samplerPanel.load(wav, entry.displayName)
+        panel.load(wav, entry.displayName)
     }
 
     private fun samplerEffectsTarget() = EffectsTarget(
-        getWav = { samplerPanel.currentWav() },
-        getName = { samplerPanel.currentSourceName() },
-        onApplied = { processed -> samplerPanel.load(processed, samplerPanel.currentSourceName()) },
+        getWav = { samplerPanel?.currentWav() },
+        getName = { samplerPanel?.currentSourceName() ?: "Sampler" },
+        onApplied = { processed -> samplerPanel?.let { it.load(processed, it.currentSourceName()) } },
     )
 
     private fun libraryEffectsTarget(entry: SampleEntry) = EffectsTarget(
@@ -519,14 +571,15 @@ class MainActivity : ComponentActivity() {
     // --- Tracker section ------------------------------------------------------
 
     private fun refreshSongGrid() {
-        bpmLabel.text = " BPM %d ".format(project.bpm)
-        tempoBouncer.setBpm(project.bpm)
-        songRows.removeAllViews()
+        val rows = songRows ?: return
+        bpmLabel?.text = " BPM %d ".format(project.bpm)
+        tempoBouncer?.setBpm(project.bpm)
+        rows.removeAllViews()
         songRowViews.clear()
         for (position in project.song.positions.indices) {
             val row = songRow(position)
             songRowViews.add(row)
-            songRows.addView(row)
+            rows.addView(row)
         }
     }
 
@@ -569,7 +622,7 @@ class MainActivity : ComponentActivity() {
         }
         highlightedPosition = position
         lastLiveStep = step
-        statusText.text = " %02X:%X".format(position, step)
+        statusText?.text = " %02X:%X".format(position, step)
     }
 
     /** Records a live "session" hit: plays the sample immediately and writes it into the phrase
@@ -602,9 +655,14 @@ class MainActivity : ComponentActivity() {
     private fun toggleAudioRecording() {
         if (audioRecorder.isRecording) {
             val wav = audioRecorder.stop()
-            recordAudioButton.text = "Record Audio"
-            samplerPanel.load(wav, "recording-${System.currentTimeMillis()}.wav")
-            Toast.makeText(this, "Recording loaded into Sampler", Toast.LENGTH_SHORT).show()
+            recordAudioButton?.text = "Record Audio"
+            val panel = samplerPanel
+            if (panel == null) {
+                Toast.makeText(this, "Add the Sampler module first (Menu > Add Module)", Toast.LENGTH_LONG).show()
+            } else {
+                panel.load(wav, "recording-${System.currentTimeMillis()}.wav")
+                Toast.makeText(this, "Recording loaded into Sampler", Toast.LENGTH_SHORT).show()
+            }
         } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             startAudioRecording()
         } else {
@@ -614,7 +672,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startAudioRecording() {
         audioRecorder.start()
-        recordAudioButton.text = "Stop Recording"
+        recordAudioButton?.text = "Stop Recording"
     }
 
     private fun onSlotTapped(position: Int, track: Int) {
@@ -693,12 +751,12 @@ class MainActivity : ComponentActivity() {
     private fun togglePlayback() {
         if (sequencer.isRunning) {
             sequencer.stop()
-            playButton.text = "Play"
+            playButton?.text = "Play"
         } else {
             sequencer = Sequencer(this, library.all())
             sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
             sequencer.start(project.song, project.phrases, project.bpm)
-            playButton.text = "Stop"
+            playButton?.text = "Stop"
         }
     }
 
@@ -707,17 +765,18 @@ class MainActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Samples", "Sounds", "Plugins", "Theme", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
+            .setItems(arrayOf("Samples", "Sounds", "Plugins", "Theme", "Add Module", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
                 when (which) {
                     0 -> openSamples.launch(arrayOf("audio/*"))
                     1 -> startActivity(Intent(this, SoundLibraryActivity::class.java))
                     2 -> showPluginsDialog()
                     3 -> showThemeDialog()
-                    4 -> { project.undo(); refreshSongGrid() }
-                    5 -> { project.redo(); refreshSongGrid() }
-                    6 -> saveProjectLauncher.launch(suggestedProjectFileName())
-                    7 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    8 -> confirmNewProject()
+                    4 -> showAddModuleDialog()
+                    5 -> { project.undo(); refreshSongGrid() }
+                    6 -> { project.redo(); refreshSongGrid() }
+                    7 -> saveProjectLauncher.launch(suggestedProjectFileName())
+                    8 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                    9 -> confirmNewProject()
                 }
             }
             .show()
@@ -804,20 +863,20 @@ class MainActivity : ComponentActivity() {
     // --- Expand (E) ---------------------------------------------------------------
 
     private fun showExpand() {
+        val options = moduleEntries.map { "${it.type.label} Full Screen" } + "Split View"
         AlertDialog.Builder(this)
             .setTitle("Expand")
-            .setItems(arrayOf("Sampler Full Screen", "Synth Full Screen", "Tracker Full Screen", "Split View")) { _, which ->
-                when (which) {
-                    0 -> { viewMode = ViewMode.SAMPLER_FULL; applyViewMode() }
-                    1 -> { viewMode = ViewMode.SYNTH_FULL; applyViewMode() }
-                    2 -> { viewMode = ViewMode.TRACKER_FULL; applyViewMode() }
-                    3 -> showSplitView()
-                }
+            .setItems(options.toTypedArray()) { _, which ->
+                fullScreenModule = if (which == options.size - 1) null else moduleEntries[which].type
+                rebuildModulesColumn()
             }
             .show()
     }
 
     companion object {
+        private const val MIN_MODULE_HEIGHT_DP = 100f
+        private const val MAX_MODULE_HEIGHT_DP = 1200f
+
         private val PALETTE = intArrayOf(
             Color.rgb(230, 30, 99), Color.rgb(76, 175, 80), Color.rgb(255, 193, 7),
             Color.rgb(38, 198, 218), Color.rgb(156, 39, 176), Color.rgb(255, 87, 34),
