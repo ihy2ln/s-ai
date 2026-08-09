@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -46,14 +47,17 @@ class MainActivity : ComponentActivity() {
     // Synth module
     private var synthPanel: SynthPanelView? = null
 
-    // Tracker module
-    private var bpmLabel: TextView? = null
-    private var playButton: Button? = null
+    // Tracker module (grid only - transport lives in the top bar, see below)
     private var statusText: TextView? = null
-    private var tempoDot: ImageView? = null
-    private var tempoBouncer: TempoBouncer? = null
     private var songRows: LinearLayout? = null
-    private var recordArmButton: Button? = null
+
+    // Global transport (top bar) - present on every screen regardless of which modules are shown
+    private lateinit var bpmLabel: TextView
+    private lateinit var playButton: Button
+    private lateinit var recordArmButton: Button
+    private lateinit var tempoDot: ImageView
+    private lateinit var tempoBouncer: TempoBouncer
+    private val tapTimestamps = mutableListOf<Long>()
 
     private var highlightedPosition = -1
     private var lastLiveStep = 0
@@ -131,7 +135,12 @@ class MainActivity : ComponentActivity() {
         library = SampleLibrary(this)
         project = TrackerProjectStore.get(this)
         sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
-        sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
+        sequencer.onPositionChanged = { position, step ->
+            runOnUiThread {
+                highlightPosition(position, step)
+                if (step % 4 == 0) tempoBouncer.pulseOnce()
+            }
+        }
 
         setContentView(AppBackground.wrap(this, buildUi()))
         updateRouteLabel()
@@ -141,15 +150,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshSampleList()
-        tempoBouncer?.setBpm(project.bpm)
+        tempoBouncer.setBpm(project.bpm)
+        if (!sequencer.isRunning) tempoBouncer.startIdle()
         updateRouteLabel()
     }
 
     override fun onPause() {
         super.onPause()
         sequencer.stop()
-        playButton?.text = "Play"
-        tempoBouncer?.stop()
+        playButton.text = "Play"
+        tempoBouncer.stop()
     }
 
     override fun onDestroy() {
@@ -176,16 +186,59 @@ class MainActivity : ComponentActivity() {
         val title = TextView(this).apply {
             text = "S.Ai"
             setTextColor(Color.WHITE)
-            textSize = 24f
+            textSize = 20f
+            setPadding(0, 0, (10 * density).toInt(), 0)
         }
         routeLabel = TextView(this).apply {
             textSize = 16f
             setPadding(0, 0, (6 * density).toInt(), 0)
         }
+
+        val bpmLabelView = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 16f
+            isClickable = true
+            setPadding((6 * density).toInt(), 0, (6 * density).toInt(), 0)
+        }
+        bpmLabel = bpmLabelView
+        wireBpmScrub(bpmLabelView)
+
+        val tapButton = transportButton("TAP") { tapTempo() }
+
+        val playButtonView = transportButton("Play", big = true) { togglePlayback() }
+        playButton = playButtonView
+
+        val recordArmButtonView = transportButton("REC", big = true) {
+            recordArmed = !recordArmed
+            recordArmButton.setBackgroundColor(if (recordArmed) Color.rgb(200, 40, 40) else Color.DKGRAY)
+            if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
+        }
+        recordArmButton = recordArmButtonView
+
+        val tempoDotView = ImageView(this).apply {
+            setImageResource(R.drawable.tempo_dot)
+            layoutParams = LinearLayout.LayoutParams((18 * density).toInt(), (18 * density).toInt()).apply {
+                setMargins((6 * density).toInt(), 0, (6 * density).toInt(), 0)
+                gravity = Gravity.CENTER_VERTICAL
+            }
+        }
+        tempoDot = tempoDotView
+        tempoBouncer = TempoBouncer(tempoDotView, 12 * density)
+
+        val spacer = View(this)
+
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            setPadding(0, 0, 0, (4 * density).toInt())
+            addView(title)
+            addView(bpmLabelView)
+            addView(tapButton)
+            addView(playButtonView)
+            addView(recordArmButtonView)
+            addView(tempoDotView)
+            addView(spacer, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
             addView(routeLabel)
             addView(PillButton.create(this@MainActivity, "E") { showExpand() })
             addView(PillButton.create(this@MainActivity, "N") { showNav() })
@@ -211,6 +264,73 @@ class MainActivity : ComponentActivity() {
 
         rebuildModulesColumn()
         return rootView
+    }
+
+    /** A transport control sized as one of the bar's biggest touch targets when [big] is true
+     *  (Play/REC per the spec), otherwise sized like the header's other compact controls. */
+    private fun transportButton(text: String, big: Boolean = false, onClick: () -> Unit): Button {
+        val density = resources.displayMetrics.density
+        val hPad = ((if (big) 16 else 10) * density).toInt()
+        val vPad = ((if (big) 10 else 6) * density).toInt()
+        return Button(this).apply {
+            this.text = text
+            textSize = if (big) 15f else 13f
+            minWidth = ((if (big) 64 else 44) * density).toInt()
+            minHeight = (48 * density).toInt()
+            setPadding(hPad, vPad, hPad, vPad)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins((4 * density).toInt(), 0, 0, 0)
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    /** BPM is adjustable three ways: tap opens the type-a-number dialog ([editBpm]), a vertical
+     *  drag scrubs it up/down, and [tapTempo] derives it from tap intervals. */
+    private fun wireBpmScrub(label: TextView) {
+        var startY = 0f
+        var startBpm = project.bpm
+        var dragged = false
+        label.setOnTouchListener { v, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    startY = event.rawY
+                    startBpm = project.bpm
+                    dragged = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val deltaY = startY - event.rawY
+                    if (kotlin.math.abs(deltaY) > 8f) dragged = true
+                    if (dragged) setBpmValue(startBpm + (deltaY / 6f).toInt())
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragged) v.performClick()
+                    true
+                }
+                else -> false
+            }
+        }
+        label.setOnClickListener { editBpm() }
+    }
+
+    private fun tapTempo() {
+        val now = System.currentTimeMillis()
+        if (tapTimestamps.isNotEmpty() && now - tapTimestamps.last() > 2000) {
+            tapTimestamps.clear()
+        }
+        tapTimestamps.add(now)
+        while (tapTimestamps.size > 5) tapTimestamps.removeAt(0)
+        if (tapTimestamps.size >= 2) {
+            val avgMs = tapTimestamps.zipWithNext { a, b -> b - a }.average()
+            if (avgMs > 0) setBpmValue((60000.0 / avgMs).toInt())
+        }
+    }
+
+    private fun setBpmValue(newBpm: Int) {
+        project.bpm = newBpm.coerceIn(20, 300)
+        refreshSongGrid()
     }
 
     /** Rebuilds every module (and the resize handles between them) from [moduleEntries] /
@@ -418,46 +538,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildTrackerContent(): LinearLayout {
-        val density = resources.displayMetrics.density
-        val bpmLabelView = TextView(this).apply {
-            setTextColor(Color.WHITE)
-            setOnClickListener { editBpm() }
-        }
-        bpmLabel = bpmLabelView
-        val playButtonView = Button(this).apply {
-            text = "Play"
-            setOnClickListener { togglePlayback() }
-        }
-        playButton = playButtonView
-        val tempoDotView = ImageView(this).apply {
-            setImageResource(R.drawable.tempo_dot)
-            layoutParams = LinearLayout.LayoutParams((22 * density).toInt(), (22 * density).toInt()).apply {
-                setMargins((8 * density).toInt(), 0, (8 * density).toInt(), 0)
-                gravity = Gravity.CENTER_VERTICAL
-            }
-        }
-        tempoDot = tempoDotView
-        tempoBouncer = TempoBouncer(tempoDotView, 14 * density)
         val statusTextView = TextView(this).apply { setTextColor(Color.rgb(90, 200, 200)) }
         statusText = statusTextView
-        val recordArmButtonView = Button(this).apply {
-            text = "REC"
-            setOnClickListener {
-                recordArmed = !recordArmed
-                setBackgroundColor(if (recordArmed) Color.rgb(200, 40, 40) else Color.DKGRAY)
-                if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
-            }
-        }
-        recordArmButton = recordArmButtonView
-        val transport = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(bpmLabelView)
-            addView(playButtonView)
-            addView(recordArmButtonView)
-            addView(tempoDotView)
-            addView(statusTextView)
-        }
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -470,7 +552,7 @@ class MainActivity : ComponentActivity() {
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(transport)
+            addView(statusTextView)
             addView(header)
             addView(
                 ScrollView(this@MainActivity).apply { addView(songRowsView) },
@@ -604,9 +686,11 @@ class MainActivity : ComponentActivity() {
     // --- Tracker section ------------------------------------------------------
 
     private fun refreshSongGrid() {
+        bpmLabel.text = "BPM %d".format(project.bpm)
+        tempoBouncer.setBpm(project.bpm)
+        if (!sequencer.isRunning) tempoBouncer.startIdle()
+
         val rows = songRows ?: return
-        bpmLabel?.text = " BPM %d ".format(project.bpm)
-        tempoBouncer?.setBpm(project.bpm)
         rows.removeAllViews()
         songRowViews.clear()
         for (position in project.song.positions.indices) {
@@ -785,12 +869,19 @@ class MainActivity : ComponentActivity() {
     private fun togglePlayback() {
         if (sequencer.isRunning) {
             sequencer.stop()
-            playButton?.text = "Play"
+            playButton.text = "Play"
+            tempoBouncer.startIdle()
         } else {
             sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
-            sequencer.onPositionChanged = { position, step -> runOnUiThread { highlightPosition(position, step) } }
+            sequencer.onPositionChanged = { position, step ->
+                runOnUiThread {
+                    highlightPosition(position, step)
+                    if (step % 4 == 0) tempoBouncer.pulseOnce()
+                }
+            }
             sequencer.start(project.song, project.phrases, project.bpm)
-            playButton?.text = "Stop"
+            playButton.text = "Stop"
+            tempoBouncer.stop()
         }
     }
 
