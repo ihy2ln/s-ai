@@ -115,6 +115,7 @@ class PhraseActivity : ComponentActivity() {
             addView(PillButton.create(this@PhraseActivity, "E") { showExpand() })
             addView(PillButton.create(this@PhraseActivity, "N") { showNav() })
             addView(PillButton.create(this@PhraseActivity, "MX") { EffectsMenu.show(this@PhraseActivity, samplerEffectsTarget()) })
+            addView(PillButton.create(this@PhraseActivity, "P") { showProjectMenu() })
             addView(PillButton.create(this@PhraseActivity, "M") { showMenu() })
         }
 
@@ -385,20 +386,58 @@ class PhraseActivity : ComponentActivity() {
             .show()
     }
 
+    // --- Project (P) ----------------------------------------------------------
+
+    private fun showProjectMenu() {
+        ProjectMenu.show(
+            this,
+            ProjectMenu.Actions(
+                onRename = { editProjectName() },
+                onSave = { saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json") },
+                onLoad = { loadProjectLauncher.launch(arrayOf("application/json")) },
+                onNew = { confirmNewProject() },
+                onUndo = { project.undo(); refreshSteps() },
+                onRedo = { project.redo(); refreshSteps() },
+            ),
+        )
+    }
+
+    private fun editProjectName() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText(project.name)
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Project Name")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ -> project.name = input.text.toString() }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun confirmNewProject() {
+        AlertDialog.Builder(this)
+            .setTitle("New Project")
+            .setMessage("Clear the current song and all phrases? Your sample library is kept.")
+            .setPositiveButton("New") { _, _ ->
+                project.resetProject()
+                refreshSteps()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     // --- Menu (M) -------------------------------------------------------------
 
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Manual", "Undo", "Redo", "Save Project", "Load Project", "Theme", "Piano Roll")) { _, which ->
+            .setItems(arrayOf("Manual", "Theme", "Piano Roll")) { _, which ->
                 when (which) {
                     0 -> startActivity(Intent(this, ManualActivity::class.java))
-                    1 -> { project.undo(); refreshSteps() }
-                    2 -> { project.redo(); refreshSteps() }
-                    3 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
-                    4 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    5 -> showThemeDialog()
-                    6 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
+                    1 -> showThemeDialog()
+                    2 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
                 }
             }
             .show()

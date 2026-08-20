@@ -270,12 +270,12 @@ class MainActivity : ComponentActivity() {
         recordArmButton = recordArmButtonView
         updateRecordButton()
 
-        val projectEditButton = TransportShapeButton.create(
+        val projectSoundButton = TransportShapeButton.create(
             this,
-            "Edit",
+            "Sound",
             ShapeIconView.Shape.SQUARE,
             TransportShapeButton.EDIT_BLUE,
-        ) { showProjectEditMenu() }
+        ) { ProjectSoundMenu.show(this) }
 
         val transportControls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -283,7 +283,7 @@ class MainActivity : ComponentActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             addView(playButtonView)
             addView(recordArmButtonView)
-            addView(projectEditButton)
+            addView(projectSoundButton)
             addView(tapButton)
         }
 
@@ -303,6 +303,7 @@ class MainActivity : ComponentActivity() {
                     addView(PillButton.create(this@MainActivity, "E") { showExpand() })
                     addView(PillButton.create(this@MainActivity, "N") { showNav() })
                     addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
+                    addView(PillButton.create(this@MainActivity, "P") { showProjectMenu() })
                     addView(PillButton.create(this@MainActivity, "M") { showMenu() })
                 },
             )
@@ -395,20 +396,18 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    private fun showProjectEditMenu() {
-        AlertDialog.Builder(this)
-            .setTitle("Project")
-            .setItems(arrayOf("Rename", "Save", "Load", "New", "Undo", "Redo")) { _, which ->
-                when (which) {
-                    0 -> editProjectName()
-                    1 -> saveProjectLauncher.launch(suggestedProjectFileName())
-                    2 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    3 -> confirmNewProject()
-                    4 -> { project.undo(); refreshSongGrid() }
-                    5 -> { project.redo(); refreshSongGrid() }
-                }
-            }
-            .show()
+    private fun showProjectMenu() {
+        ProjectMenu.show(
+            this,
+            ProjectMenu.Actions(
+                onRename = { editProjectName() },
+                onSave = { saveProjectLauncher.launch(suggestedProjectFileName()) },
+                onLoad = { loadProjectLauncher.launch(arrayOf("application/json")) },
+                onNew = { confirmNewProject() },
+                onUndo = { project.undo(); refreshSongGrid() },
+                onRedo = { project.redo(); refreshSongGrid() },
+            ),
+        )
     }
 
     /** BPM is adjustable three ways: tap opens the type-a-number dialog ([editBpm]), a vertical
@@ -1047,7 +1046,7 @@ class MainActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Manual", "Samples", "Sounds", "Plugins", "Theme", "Add Module", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
+            .setItems(arrayOf("Manual", "Samples", "Sounds", "Plugins", "Theme", "Add Module")) { _, which ->
                 when (which) {
                     0 -> startActivity(Intent(this, ManualActivity::class.java))
                     1 -> openSamples.launch(arrayOf("audio/*"))
@@ -1055,11 +1054,6 @@ class MainActivity : ComponentActivity() {
                     3 -> showPluginsDialog()
                     4 -> showThemeDialog()
                     5 -> showAddModuleDialog()
-                    6 -> { project.undo(); refreshSongGrid() }
-                    7 -> { project.redo(); refreshSongGrid() }
-                    8 -> saveProjectLauncher.launch(suggestedProjectFileName())
-                    9 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    10 -> confirmNewProject()
                 }
             }
             .show()

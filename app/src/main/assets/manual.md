@@ -6,7 +6,7 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 
 - [Getting Started](#getting-started)
 - [Transport Bar](#transport-bar)
-- [Menu Buttons (E / N / MX / M)](#menu-buttons-e--n--mx--m)
+- [Menu Buttons (E / N / MX / P / M)](#menu-buttons-e--n--mx--p--m)
 - [Home Modules](#home-modules)
 - [Sampler Module](#sampler-module)
 - [Synth Module](#synth-module)
@@ -47,7 +47,7 @@ The transport bar runs across the top of the Home screen.
 | **Tempo dot** | Blue dot | Pulses on downbeats during playback |
 | **Play / Stop** | Green triangle / white square | Start or stop song playback |
 | **Record** | Red circle | Arm live punch-in recording |
-| **Edit** | Blue square | Project menu: rename, save, load, undo, redo |
+| **Sound** | Blue square | Project sound: global pitch and master volume |
 | **Tempo (Tap)** | Yellow **T** in yellow circle on black | Tap repeatedly to set BPM from your taps |
 | **Route** | 🎧 📶 🔊 | Shows current audio output (headphones, Bluetooth, speaker) |
 
@@ -57,7 +57,7 @@ When you tap a transport shape button, its label appears for **one second** then
 
 Tap the **T** button at least twice in rhythm. S.Ai averages the last 2–5 taps. If you pause for more than 2 seconds, the tap sequence resets.
 
-## Menu Buttons (E / N / MX / M)
+## Menu Buttons (E / N / MX / P / M)
 
 Four pill buttons sit at the end of the transport row:
 
@@ -66,7 +66,19 @@ Four pill buttons sit at the end of the transport row:
 | **E** | Expand | Full-screen the current module, or return to Split View |
 | **N** | Navigate | Back / navigation menu (long-press anywhere on Home also opens this) |
 | **MX** | Mixer / Effects | Effects chain on the loaded sampler sound |
-| **M** | Menu | App menu including **Manual**, samples, theme, modules, project tools |
+| **P** | Project | Rename, save, load, new, undo, redo |
+| **M** | Menu | App menu including **Manual**, samples, theme, modules |
+
+### Project Sound (blue square)
+
+Tap the blue square in the transport bar to open **Project Sound**:
+
+| Control | Range | Effect |
+| --- | --- | --- |
+| **PITCH** | ±24 semitones | Transposes all song playback |
+| **MASTER** | 0–127 | Overall mix level for playback |
+
+These settings apply to tracker/sequencer playback and are saved with your project.
 
 ## Home Modules
 
@@ -250,11 +262,10 @@ Your project **auto-saves** continuously (BPM, name, song, phrases, undo stack).
 
 Manual export/import:
 
-- **Edit → Save** or **M → Save Project** — JSON file
-- **Edit → Load** or **M → Load Project** — replace current project
-- **M → New Project** — clear song and phrases (library untouched)
+- **P → Save** or **P → Load** — JSON file
+- **P → New** — clear song and phrases (library untouched)
 
-**Undo / Redo** is available from Edit menu, M menu, and Phrase Editor menu.
+**Undo / Redo** is available from **P → Project** on Home and Phrase Editor.
 
 ## Theme & Appearance
 

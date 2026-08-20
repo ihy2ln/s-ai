@@ -1,15 +1,12 @@
 package com.sai.app
 
 import android.content.Context
-import com.sai.core.audio.SampleEditor
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Song
 import com.sai.core.tracker.Step
 import com.sai.core.tracker.TrackerEngine
-import kotlin.math.log10
-import kotlin.math.pow
 
 class Sequencer(
     private val context: Context,
@@ -84,11 +81,8 @@ class Sequencer(
 
     private fun playOneShot(wav: Wav, step: Step, track: Int) {
         val note = step.note ?: ROOT_NOTE
-        val rate = 2.0.pow((note - ROOT_NOTE) / 12.0).toFloat()
-
-        val volume = step.volume ?: 127
-        val gainDb = if (volume <= 0) -80.0 else 20.0 * log10(volume / 127.0)
-        val gained = SampleEditor.gain(wav, gainDb)
+        val rate = ProjectPlayback.rateForNote(context, note, ROOT_NOTE)
+        val gained = com.sai.core.audio.SampleEditor.gain(wav, ProjectPlayback.gainDb(context, step.volume ?: 127))
 
         val chokeGroup = if (chokeSameTrack) "tracker-track-$track" else null
         AudioPlayback.playOneShot(gained, rate, context, chokeGroup)

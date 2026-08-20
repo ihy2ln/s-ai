@@ -6,7 +6,7 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 
 - [Getting Started](#getting-started)
 - [Transport Bar](#transport-bar)
-- [Menu Buttons (E / N / MX / M)](#menu-buttons-e--n--mx--m)
+- [Menu Buttons (E / N / MX / P / M)](#menu-buttons-e--n--mx--p--m)
 - [Home Modules](#home-modules)
 - [Sampler Module](#sampler-module)
 - [Synth Module](#synth-module)
