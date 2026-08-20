@@ -4,9 +4,10 @@ import android.content.Context
 import android.view.MotionEvent
 import android.widget.ScrollView
 
-/** Home-screen module scroller that never steals divider-bar drags. */
+/** Home-screen module scroller; yields to divider drags and module control touches. */
 class ModulesScrollView(context: Context) : ScrollView(context) {
 
+    /** When true, vertical drags go to knobs/pads/steps inside a module instead of scrolling this view. */
     var suppressIntercept = false
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {

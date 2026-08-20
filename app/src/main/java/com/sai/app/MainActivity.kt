@@ -574,10 +574,14 @@ class MainActivity : ComponentActivity() {
             ModuleType.STEP_SEQUENCER -> ChannelRackPanelView(this).also { stepSequencerPanel = it }
         }
 
+        val touchPanel = ModuleTouchPanel(this).apply {
+            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
+        }
+
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(titleRow)
-            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(touchPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
     }
 
