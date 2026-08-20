@@ -69,10 +69,11 @@ class Knob(context: Context, private val min: Float, private val max: Float) : V
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.action) {
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 dragStartY = event.y
                 dragStartValue = value
+                TouchScrollGuard.lock(this)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -80,6 +81,10 @@ class Knob(context: Context, private val min: Float, private val max: Float) : V
                 val range = max - min
                 val newValue = dragStartValue + (deltaY / DRAG_PIXELS_FOR_FULL_RANGE) * range
                 setValue(newValue, notify = true)
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                TouchScrollGuard.unlock(this)
                 return true
             }
         }

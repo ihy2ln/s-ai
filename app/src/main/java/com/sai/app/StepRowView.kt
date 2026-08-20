@@ -88,11 +88,15 @@ class StepRowView(context: Context) : View(context) {
                 paintValue = !states.getOrElse(index) { false }
                 lastIndex = -1
                 applyIndex(index)
-                parent?.requestDisallowInterceptTouchEvent(true)
+                TouchScrollGuard.lock(this)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
                 if (index != lastIndex) applyIndex(index)
+                return true
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                TouchScrollGuard.unlock(this)
                 return true
             }
         }
