@@ -17,9 +17,9 @@ object ModuleLayoutStore {
 
     private val DEFAULT_HEIGHTS = mapOf(
         ModuleType.SAMPLER to 260f,
-        ModuleType.SYNTH to 220f,
+        ModuleType.SYNTH to 260f,
         ModuleType.TRACKER to 280f,
-        ModuleType.STEP_SEQUENCER to 260f,
+        ModuleType.STEP_SEQUENCER to 300f,
     )
 
     fun defaultHeight(type: ModuleType): Float = DEFAULT_HEIGHTS[type] ?: 240f

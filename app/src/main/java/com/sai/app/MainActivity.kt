@@ -524,7 +524,7 @@ class MainActivity : ComponentActivity() {
     private fun buildSynthContent(): LinearLayout {
         val panel = SynthPanelView(this).apply {
             onSaveToLibrary = { sourceName, wav ->
-                val saved = SliceExporter.saveToLibrary(this@MainActivity, sourceName, listOf(wav))
+                val saved = SliceExporter.saveToLibrary(this@MainActivity, sourceName, listOf(wav), SoundCategory.SYNTH)
                 Toast.makeText(this@MainActivity, "Saved ${saved.size} to your sample library", Toast.LENGTH_LONG).show()
                 refreshSampleList()
             }

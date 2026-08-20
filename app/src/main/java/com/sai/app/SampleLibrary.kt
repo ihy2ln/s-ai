@@ -10,10 +10,11 @@ object SoundCategory {
     const val PERCUSSION = "Percussion"
     const val VOCALS = "Vocals"
     const val SFX = "SFX"
+    const val SYNTH = "Synth"
     const val SAMPLES = "Samples"
     const val DEFAULT = SAMPLES
 
-    val ALL = listOf(KICKS, SNARES, HATS, PERCUSSION, VOCALS, SFX, SAMPLES)
+    val ALL = listOf(KICKS, SNARES, HATS, PERCUSSION, VOCALS, SFX, SYNTH, SAMPLES)
 }
 
 data class SampleEntry(
