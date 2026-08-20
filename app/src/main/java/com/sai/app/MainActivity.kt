@@ -191,31 +191,55 @@ class MainActivity : ComponentActivity() {
 
         val title = TextView(this).apply {
             setTextColor(Color.WHITE)
-            textSize = 16f
+            textSize = 15f
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.MARQUEE
             marqueeRepeatLimit = -1
             isSelected = true
-            setPadding(0, 0, (8 * density).toInt(), 0)
-            layoutParams = LinearLayout.LayoutParams((110 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            setPadding(0, 0, (4 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams((100 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
             setOnClickListener { editProjectName() }
         }
         projectTitleLabel = title
         refreshProjectTitle()
         routeLabel = TextView(this).apply {
-            textSize = 16f
-            setPadding(0, 0, (6 * density).toInt(), 0)
+            textSize = 14f
+            setPadding(0, 0, (4 * density).toInt(), 0)
         }
 
         val bpmLabelView = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(Color.rgb(170, 180, 190))
             typeface = android.graphics.Typeface.MONOSPACE
-            textSize = 16f
+            textSize = 11f
             isClickable = true
-            setPadding((6 * density).toInt(), 0, (6 * density).toInt(), 0)
+            text = "BPM %d".format(project.bpm)
+            setPadding(0, (2 * density).toInt(), (4 * density).toInt(), 0)
         }
         bpmLabel = bpmLabelView
         wireBpmScrub(bpmLabelView)
+
+        val tempoDotView = ImageView(this).apply {
+            setImageResource(R.drawable.tempo_dot)
+            layoutParams = LinearLayout.LayoutParams((12 * density).toInt(), (12 * density).toInt()).apply {
+                gravity = Gravity.CENTER_VERTICAL
+            }
+        }
+        tempoDot = tempoDotView
+        tempoBouncer = TempoBouncer(tempoDotView, 8 * density)
+
+        val tempoRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(bpmLabelView)
+            addView(tempoDotView)
+        }
+
+        val titleColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams((100 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            addView(title)
+            addView(tempoRow)
+        }
 
         val tapButton = transportButton("TAP") { tapTempo() }
 
@@ -231,45 +255,43 @@ class MainActivity : ComponentActivity() {
 
         val projectEditButton = transportButton("Edit") { showProjectEditMenu() }
 
-        val tempoDotView = ImageView(this).apply {
-            setImageResource(R.drawable.tempo_dot)
-            layoutParams = LinearLayout.LayoutParams((18 * density).toInt(), (18 * density).toInt()).apply {
-                setMargins((6 * density).toInt(), 0, (6 * density).toInt(), 0)
-                gravity = Gravity.CENTER_VERTICAL
-            }
-        }
-        tempoDot = tempoDotView
-        tempoBouncer = TempoBouncer(tempoDotView, 12 * density)
-
         val transportControls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(tapButton)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             addView(playButtonView)
             addView(recordArmButtonView)
             addView(projectEditButton)
-            addView(tempoDotView)
+            addView(tapButton)
         }
 
         val transportScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = false
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            addView(transportControls)
+            addView(
+                LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(transportControls)
+                    addView(routeLabel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                        setMargins((8 * density).toInt(), 0, 0, 0)
+                    })
+                    addView(PillButton.create(this@MainActivity, "E") { showExpand() })
+                    addView(PillButton.create(this@MainActivity, "N") { showNav() })
+                    addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
+                    addView(PillButton.create(this@MainActivity, "M") { showMenu() })
+                },
+            )
         }
 
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, (4 * density).toInt())
-            addView(title)
-            addView(bpmLabelView)
+            addView(titleColumn)
             addView(transportScroll)
-            addView(routeLabel)
-            addView(PillButton.create(this@MainActivity, "E") { showExpand() })
-            addView(PillButton.create(this@MainActivity, "N") { showNav() })
-            addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
-            addView(PillButton.create(this@MainActivity, "M") { showMenu() })
         }
 
         moduleEntries = ModuleLayoutStore.load(this)
@@ -296,16 +318,16 @@ class MainActivity : ComponentActivity() {
      *  (Play/REC per the spec), otherwise sized like the header's other compact controls. */
     private fun transportButton(text: String, big: Boolean = false, onClick: () -> Unit): Button {
         val density = resources.displayMetrics.density
-        val hPad = ((if (big) 12 else 10) * density).toInt()
-        val vPad = ((if (big) 8 else 6) * density).toInt()
+        val hPad = ((if (big) 10 else 8) * density).toInt()
+        val vPad = ((if (big) 6 else 4) * density).toInt()
         return Button(this).apply {
             this.text = text
-            textSize = if (big) 17f else 13f
-            minWidth = ((if (big) 44 else 40) * density).toInt()
-            minHeight = (40 * density).toInt()
+            textSize = if (big) 16f else 12f
+            minWidth = ((if (big) 40 else 36) * density).toInt()
+            minHeight = (36 * density).toInt()
             setPadding(hPad, vPad, hPad, vPad)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins((4 * density).toInt(), 0, 0, 0)
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
             setOnClickListener { onClick() }
         }
@@ -313,11 +335,11 @@ class MainActivity : ComponentActivity() {
 
     private fun recordDotButton(onClick: () -> Unit): View {
         val density = resources.displayMetrics.density
-        val size = (36 * density).toInt()
+        val size = (32 * density).toInt()
         return View(this).apply {
             setBackgroundResource(R.drawable.record_dot_idle)
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                setMargins((6 * density).toInt(), 0, (4 * density).toInt(), 0)
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
                 gravity = Gravity.CENTER_VERTICAL
             }
             setOnClickListener { onClick() }
