@@ -16,6 +16,10 @@ class TrackerProject(context: Context) {
         get() = prefs.getInt(KEY_BPM, 120)
         set(value) = prefs.edit().putInt(KEY_BPM, value).apply()
 
+    var name: String
+        get() = prefs.getString(KEY_NAME, DEFAULT_NAME) ?: DEFAULT_NAME
+        set(value) = prefs.edit().putString(KEY_NAME, value.ifBlank { DEFAULT_NAME }).apply()
+
     var song: Song = loadSong()
         private set
 
@@ -81,12 +85,14 @@ class TrackerProject(context: Context) {
         song = Song.empty()
         phrases.clear()
         bpm = 120
+        name = DEFAULT_NAME
         persist()
     }
 
     fun exportProjectJson(): String {
         val obj = JSONObject()
         obj.put("bpm", bpm)
+        obj.put("name", name)
         obj.put("song", JSONObject(encodeSong(song)))
         obj.put("phrases", JSONObject(encodePhrases(phrases)))
         return obj.toString(2)
@@ -96,6 +102,7 @@ class TrackerProject(context: Context) {
         pushUndo()
         val obj = JSONObject(raw)
         bpm = obj.optInt("bpm", 120)
+        name = obj.optString("name", DEFAULT_NAME)
         song = decodeSong(obj.getJSONObject("song").toString())
         val imported = decodePhrases(obj.getJSONObject("phrases").toString())
         phrases.clear()
@@ -180,8 +187,10 @@ class TrackerProject(context: Context) {
     companion object {
         private const val PREFS_NAME = "tracker_project"
         private const val KEY_BPM = "bpm"
+        private const val KEY_NAME = "name"
         private const val KEY_SONG = "song"
         private const val KEY_PHRASES = "phrases"
+        private const val DEFAULT_NAME = "Untitled"
         private const val MAX_HISTORY = 20
     }
 }

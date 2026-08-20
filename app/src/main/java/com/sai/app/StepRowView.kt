@@ -20,6 +20,15 @@ class StepRowView(context: Context) : View(context) {
             invalidate()
         }
 
+    /** Highlight the current playback step column (-1 = none). */
+    var playheadStep: Int = -1
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
+
     /** Return false to reject the change (e.g. no instrument assigned yet); the view will not visually flip. */
     var onStepToggleRequested: ((index: Int, desiredOn: Boolean) -> Boolean)? = null
 
@@ -28,9 +37,19 @@ class StepRowView(context: Context) : View(context) {
     private var lastIndex = -1
 
     private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AppTheme.accentColor(context) }
-    private val offEvenPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(40, 42, 48) }
-    private val offOddPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 32, 36) }
-    private val gapPx = 3f * context.resources.displayMetrics.density
+    private val offGroupAPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(34, 38, 46) }
+    private val offGroupBPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(52, 34, 38) }
+    private val playheadPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(90, 255, 255, 255)
+        style = Paint.Style.FILL
+    }
+    private val playheadBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(180, 255, 255, 255)
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f * context.resources.displayMetrics.density
+    }
+    private val gapPx = 2.5f * context.resources.displayMetrics.density
+    private val cornerPx = 3f * context.resources.displayMetrics.density
 
     fun setStates(newStates: BooleanArray) {
         states = newStates.copyOf(stepCount)
@@ -46,10 +65,17 @@ class StepRowView(context: Context) : View(context) {
             val right = (i + 1) * cellWidth - gapPx / 2
             val paint = when {
                 states.getOrElse(i) { false } -> onPaint
-                (i / 4) % 2 == 0 -> offEvenPaint
-                else -> offOddPaint
+                (i / 4) % 2 == 0 -> offGroupAPaint
+                else -> offGroupBPaint
             }
-            canvas.drawRect(left, 0f, right, height.toFloat(), paint)
+            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, paint)
+        }
+
+        if (playheadStep in 0 until stepCount) {
+            val left = playheadStep * cellWidth + gapPx / 2
+            val right = (playheadStep + 1) * cellWidth - gapPx / 2
+            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, playheadPaint)
+            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, playheadBorderPaint)
         }
     }
 
