@@ -31,7 +31,7 @@ object EffectsMenu {
     fun show(context: Context, target: EffectsTarget) {
         AlertDialog.Builder(context)
             .setTitle("MX")
-            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper", "Step Sequencer")) { _, which ->
+            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper", "Channel Rack")) { _, which ->
                 when (which) {
                     0 -> showFilterDialog(context, target)
                     1 -> showCompressorDialog(context, target)

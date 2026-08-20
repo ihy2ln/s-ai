@@ -3,7 +3,7 @@ package com.sai.app
 import android.content.Context
 
 enum class ModuleType(val label: String) {
-    SAMPLER("SAMPLER"), SYNTH("SYNTH"), TRACKER("TRACKER"), STEP_SEQUENCER("STEP SEQ"),
+    SAMPLER("SAMPLER"), SYNTH("SYNTH"), TRACKER("TRACKER"), STEP_SEQUENCER("CHANNEL RACK"),
 }
 
 data class ModuleEntry(val type: ModuleType, var heightDp: Float)
@@ -19,7 +19,7 @@ object ModuleLayoutStore {
         ModuleType.SAMPLER to 260f,
         ModuleType.SYNTH to 260f,
         ModuleType.TRACKER to 280f,
-        ModuleType.STEP_SEQUENCER to 300f,
+        ModuleType.STEP_SEQUENCER to 360f,
     )
 
     fun defaultHeight(type: ModuleType): Float = DEFAULT_HEIGHTS[type] ?: 240f
