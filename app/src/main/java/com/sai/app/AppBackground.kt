@@ -70,6 +70,7 @@ object AppBackground {
     /** Wraps [content] with the chosen background layered behind it; call this instead of
      *  setting content's own background, and pass the result to setContentView. */
     fun wrap(context: Context, content: View): View {
+        SystemBarInsets.applyPadding(content)
         val p = prefs(context)
         val type = p.getString(KEY_TYPE, TYPE_DEFAULT)
         val mirror = mirrorEnabled(context)
