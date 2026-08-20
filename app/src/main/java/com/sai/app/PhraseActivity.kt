@@ -112,10 +112,10 @@ class PhraseActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(PillButton.create(this@PhraseActivity, "E") { showExpand() })
-            addView(PillButton.create(this@PhraseActivity, "N") { showNav() })
-            addView(PillButton.create(this@PhraseActivity, "MX") { EffectsMenu.show(this@PhraseActivity, samplerEffectsTarget()) })
-            addView(PillButton.create(this@PhraseActivity, "M") { showMenu() })
+            addView(ShapeMenuButton.create(this@PhraseActivity, "Expand", ShapeMenuButton.Shape.SQUARE) { showExpand() })
+            addView(ShapeMenuButton.create(this@PhraseActivity, "Navigate", ShapeMenuButton.Shape.CIRCLE) { showNav() })
+            addView(ShapeMenuButton.create(this@PhraseActivity, "Effects", ShapeMenuButton.Shape.DIAMOND) { EffectsMenu.show(this@PhraseActivity, samplerEffectsTarget()) })
+            addView(ShapeMenuButton.create(this@PhraseActivity, "Menu", ShapeMenuButton.Shape.TRIANGLE) { showMenu() })
         }
 
         samplerSectionWrapper = buildSamplerSection()

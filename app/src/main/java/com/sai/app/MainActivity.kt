@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
@@ -37,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var rootView: LinearLayout
     private lateinit var modulesColumn: LinearLayout
+    private lateinit var modulesScroll: ScrollView
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
 
@@ -278,10 +280,10 @@ class MainActivity : ComponentActivity() {
                     addView(routeLabel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                         setMargins((8 * density).toInt(), 0, 0, 0)
                     })
-                    addView(PillButton.create(this@MainActivity, "E") { showExpand() })
-                    addView(PillButton.create(this@MainActivity, "N") { showNav() })
-                    addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
-                    addView(PillButton.create(this@MainActivity, "M") { showMenu() })
+                    addView(ShapeMenuButton.create(this@MainActivity, "Expand", ShapeMenuButton.Shape.SQUARE) { showExpand() })
+                    addView(ShapeMenuButton.create(this@MainActivity, "Navigate", ShapeMenuButton.Shape.CIRCLE) { showNav() })
+                    addView(ShapeMenuButton.create(this@MainActivity, "Effects", ShapeMenuButton.Shape.DIAMOND) { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
+                    addView(ShapeMenuButton.create(this@MainActivity, "Menu", ShapeMenuButton.Shape.TRIANGLE) { showMenu() })
                 },
             )
         }
@@ -297,15 +299,18 @@ class MainActivity : ComponentActivity() {
         moduleEntries = ModuleLayoutStore.load(this)
         modulesColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        val verticalScroll = ScrollView(this).apply { addView(modulesColumn) }
-        val bothScroll = HorizontalScrollView(this).apply { addView(verticalScroll) }
+        modulesScroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(modulesColumn)
+            viewTreeObserver.addOnGlobalLayoutListener { fitModulesToScreen() }
+        }
 
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             setBackgroundColor(Color.rgb(18, 18, 20))
             addView(headerRow)
-            addView(bothScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(modulesScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             isLongClickable = true
             setOnLongClickListener { showNav(); true }
         }
@@ -470,7 +475,10 @@ class MainActivity : ComponentActivity() {
                         params.height = (entry.heightDp * density).toInt()
                         wrapper.layoutParams = params
                     }
-                    handle.onDragEnd = { ModuleLayoutStore.save(this, moduleEntries) }
+                    handle.onDragEnd = {
+                        ModuleLayoutStore.save(this, moduleEntries)
+                        fitModulesToScreen()
+                    }
                     modulesColumn.addView(handle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (16 * density).toInt()))
                 }
             }
@@ -478,6 +486,25 @@ class MainActivity : ComponentActivity() {
 
         refreshSampleList()
         refreshSongGrid()
+        fitModulesToScreen()
+    }
+
+    private fun fitModulesToScreen() {
+        if (!::modulesScroll.isInitialized) return
+        ModuleLayoutFit.redistribute(
+            scroll = modulesScroll,
+            column = modulesColumn,
+            entries = moduleEntries,
+            density = resources.displayMetrics.density,
+            minHeightDp = MIN_MODULE_HEIGHT_DP,
+            isFullScreen = fullScreenModule != null,
+            orientation = resources.configuration.orientation,
+        )
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        fitModulesToScreen()
     }
 
     private fun buildModuleWrapper(type: ModuleType): LinearLayout {
