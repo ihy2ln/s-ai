@@ -76,7 +76,7 @@ The Home screen stacks up to four modules. Each module has:
 - **−** — remove module from screen (data is kept)
 - **MONO / POLY** — Cut Itself (choke) toggle for preview playback
 
-Drag the **resize line** between modules up or down to expand or shrink adjacent panels. The module above grows while the one below shrinks.
+Drag the **divider line** under a module up or down to resize it. Drag down to expand the module above the line; drag up to shrink it. If neighboring modules are already at their minimum size, the layout grows and you can scroll. There is a divider under every module, including the last one.
 
 | Module | Purpose |
 | --- | --- |

@@ -8,7 +8,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewParent
 
-/** A draggable horizontal bar between two modules; dragging it up/down resizes adjacent modules. */
+/** Full-width divider line between modules. Press and drag vertically to resize. */
 class ResizeHandleView(context: Context) : View(context) {
 
     var onDragStart: (() -> Unit)? = null
@@ -18,21 +18,28 @@ class ResizeHandleView(context: Context) : View(context) {
     private var lastY = 0f
     private var dragging = false
 
-    private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(120, 125, 132)
-        strokeWidth = 3f
+    private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(70, 74, 82)
+        strokeWidth = 2f * resources.displayMetrics.density
         strokeCap = Paint.Cap.ROUND
     }
 
-    private val activeGripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(170, 175, 182)
-        strokeWidth = 3.5f
+    private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(168, 174, 184)
+        strokeWidth = 3.5f * resources.displayMetrics.density
+        strokeCap = Paint.Cap.ROUND
+    }
+
+    private val activePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(200, 210, 220)
+        strokeWidth = 4f * resources.displayMetrics.density
         strokeCap = Paint.Cap.ROUND
     }
 
     init {
-        setBackgroundColor(Color.rgb(45, 47, 52))
+        setBackgroundColor(Color.rgb(32, 34, 38))
         isClickable = true
+        isFocusable = true
         contentDescription = "Drag to resize modules"
     }
 
@@ -40,18 +47,20 @@ class ResizeHandleView(context: Context) : View(context) {
         super.onDraw(canvas)
         val midY = height / 2f
         val cx = width / 2f
-        val paint = if (dragging) activeGripPaint else gripPaint
-        canvas.drawLine(cx - 36f, midY, cx + 36f, midY, paint)
-        canvas.drawLine(cx - 22f, midY - 5f, cx + 22f, midY - 5f, paint)
-        canvas.drawLine(cx - 22f, midY + 5f, cx + 22f, midY + 5f, paint)
+        val paint = if (dragging) activePaint else gripPaint
+        canvas.drawLine(24f, midY, width - 24f, midY, trackPaint)
+        canvas.drawLine(cx - 48f, midY, cx + 48f, midY, paint)
+        canvas.drawLine(cx - 28f, midY - 7f, cx + 28f, midY - 7f, paint)
+        canvas.drawLine(cx - 28f, midY + 7f, cx + 28f, midY + 7f, paint)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        when (event.action) {
+        when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 lastY = event.rawY
                 dragging = true
                 invalidate()
+                parentScroll()?.suppressIntercept = true
                 disallowParentIntercept(true)
                 onDragStart?.invoke()
                 return true
@@ -59,18 +68,30 @@ class ResizeHandleView(context: Context) : View(context) {
             MotionEvent.ACTION_MOVE -> {
                 val dy = event.rawY - lastY
                 lastY = event.rawY
-                if (dy != 0f) onDrag?.invoke(dy)
+                if (kotlin.math.abs(dy) >= 0.5f || dragging) {
+                    onDrag?.invoke(dy)
+                }
                 return true
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 dragging = false
                 invalidate()
+                parentScroll()?.suppressIntercept = false
                 disallowParentIntercept(false)
                 onDragEnd?.invoke()
                 return true
             }
         }
-        return super.onTouchEvent(event)
+        return true
+    }
+
+    private fun parentScroll(): ModulesScrollView? {
+        var parent: ViewParent? = parent
+        while (parent != null) {
+            if (parent is ModulesScrollView) return parent
+            parent = parent.parent
+        }
+        return null
     }
 
     private fun disallowParentIntercept(disallow: Boolean) {
