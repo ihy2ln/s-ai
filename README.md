@@ -11,3 +11,7 @@ bundled samples, loops, or presets.
 
 Phase 0: project scaffold, signing, and the release pipeline. See
 [`docs/RELEASING.md`](docs/RELEASING.md) for how tagged releases work.
+
+## Documentation
+
+- **[User Manual](docs/MANUAL.md)** — full wiki-style guide to every screen and workflow (also built into the app via **M → Manual**)

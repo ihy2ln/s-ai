@@ -390,14 +390,15 @@ class PhraseActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Undo", "Redo", "Save Project", "Load Project", "Theme", "Piano Roll")) { _, which ->
+            .setItems(arrayOf("Manual", "Undo", "Redo", "Save Project", "Load Project", "Theme", "Piano Roll")) { _, which ->
                 when (which) {
-                    0 -> { project.undo(); refreshSteps() }
-                    1 -> { project.redo(); refreshSteps() }
-                    2 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
-                    3 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    4 -> showThemeDialog()
-                    5 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
+                    0 -> startActivity(Intent(this, ManualActivity::class.java))
+                    1 -> { project.undo(); refreshSteps() }
+                    2 -> { project.redo(); refreshSteps() }
+                    3 -> saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json")
+                    4 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                    5 -> showThemeDialog()
+                    6 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
                 }
             }
             .show()

@@ -13,13 +13,15 @@ import androidx.core.content.ContextCompat
 class TransportShapeButtonView(
     context: Context,
     private val promptLabel: TextView,
-    private val iconView: ShapeIconView,
+    private val iconView: View,
 ) : FrameLayout(context) {
 
     fun setAppearance(shape: ShapeIconView.Shape, color: Int, prompt: String) {
         promptLabel.text = prompt
-        iconView.shape = shape
-        iconView.iconColor = color
+        (iconView as? ShapeIconView)?.apply {
+            this.shape = shape
+            iconColor = color
+        }
     }
 
     fun flashPrompt() {
@@ -41,9 +43,39 @@ object TransportShapeButton {
     val PLAY_GREEN = Color.rgb(76, 217, 100)
     val STOP_WHITE = Color.WHITE
     val RECORD_RED = Color.rgb(224, 40, 40)
-    val RECORD_IDLE = Color.rgb(120, 120, 125)
+    val RECORD_ARMED = Color.rgb(255, 70, 70)
     val EDIT_BLUE = Color.rgb(66, 133, 244)
     val TAP_YELLOW = Color.rgb(255, 204, 0)
+
+    fun createTempo(context: Context, onClick: () -> Unit): TransportShapeButtonView {
+        val density = context.resources.displayMetrics.density
+        val size = (36 * density).toInt()
+
+        val promptLabel = TextView(context).apply {
+            text = "Tap"
+            setTextColor(Color.WHITE)
+            textSize = 10f
+            gravity = Gravity.CENTER
+            alpha = 0f
+            visibility = View.GONE
+        }
+
+        val iconView = TempoIconView(context)
+
+        return TransportShapeButtonView(context, promptLabel, iconView).apply {
+            setBackgroundColor(Color.BLACK)
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
+            }
+            addView(iconView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(promptLabel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            isClickable = true
+            setOnClickListener {
+                flashPrompt()
+                onClick()
+            }
+        }
+    }
 
     fun create(
         context: Context,

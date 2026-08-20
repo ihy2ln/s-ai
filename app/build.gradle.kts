@@ -11,8 +11,8 @@ android {
         applicationId = "com.sai.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 20
-        versionName = "0.21.0"
+        versionCode = 21
+        versionName = "0.22.0"
     }
 
     // Release signing is driven entirely by Gradle properties (-P flags), never
