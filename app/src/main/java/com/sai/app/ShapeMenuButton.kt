@@ -3,6 +3,7 @@ package com.sai.app
 import android.content.Context
 import android.graphics.Color
 import android.view.Gravity
+import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -23,7 +24,7 @@ object ShapeMenuButton {
             textSize = 10f
             gravity = Gravity.CENTER
             alpha = 0f
-            visibility = GONE
+            visibility = View.GONE
         }
 
         val icon = ShapeIconView(context, shape)
@@ -39,14 +40,14 @@ object ShapeMenuButton {
             addView(promptLabel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
             isClickable = true
             setOnClickListener {
-                promptLabel.visibility = VISIBLE
+                promptLabel.visibility = View.VISIBLE
                 promptLabel.alpha = 1f
                 promptLabel.animate().cancel()
                 promptLabel.postDelayed({
                     promptLabel.animate()
                         .alpha(0f)
                         .setDuration(300)
-                        .withEndAction { promptLabel.visibility = GONE }
+                        .withEndAction { promptLabel.visibility = View.GONE }
                         .start()
                 }, 1000)
                 onClick()
