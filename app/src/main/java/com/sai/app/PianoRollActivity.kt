@@ -61,7 +61,7 @@ class PianoRollActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(ShapeMenuButton.create(this@PianoRollActivity, "Back", ShapeMenuButton.Shape.CIRCLE) { onBackPressedDispatcher.onBackPressed() })
+            addView(PillButton.create(this@PianoRollActivity, "N") { onBackPressedDispatcher.onBackPressed() })
         }
 
         instrumentButton = Button(this).apply {

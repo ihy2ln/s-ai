@@ -60,8 +60,8 @@ class MainActivity : ComponentActivity() {
     // Global transport (top bar) - present on every screen regardless of which modules are shown
     private lateinit var projectTitleLabel: TextView
     private lateinit var bpmLabel: TextView
-    private lateinit var playButton: Button
-    private lateinit var recordArmButton: View
+    private lateinit var playButton: TransportShapeButtonView
+    private lateinit var recordArmButton: TransportShapeButtonView
     private lateinit var tempoDot: ImageView
     private lateinit var tempoBouncer: TempoBouncer
     private val tapTimestamps = mutableListOf<Long>()
@@ -165,7 +165,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         sequencer.stop()
-        playButton.text = "▶"
+        updatePlayButtonAppearance()
         stepSequencerPanel?.setPlayhead(-1)
         tempoBouncer.stop()
     }
@@ -243,19 +243,41 @@ class MainActivity : ComponentActivity() {
             addView(tempoRow)
         }
 
-        val tapButton = transportButton("TAP") { tapTempo() }
+        val tapButton = TransportShapeButton.create(
+            this,
+            "Tap",
+            ShapeIconView.Shape.TRIANGLE,
+            TransportShapeButton.TAP_YELLOW,
+        ) { tapTempo() }
 
-        val playButtonView = transportButton("▶", big = true) { togglePlayback() }
+        val playButtonView = TransportShapeButton.create(
+            this,
+            "Play",
+            ShapeIconView.Shape.TRIANGLE,
+            TransportShapeButton.PLAY_GREEN,
+            big = true,
+        ) { togglePlayback() }
         playButton = playButtonView
 
-        val recordArmButtonView = recordDotButton {
+        val recordArmButtonView = TransportShapeButton.create(
+            this,
+            "Record",
+            ShapeIconView.Shape.CIRCLE,
+            TransportShapeButton.RECORD_IDLE,
+        ) {
             recordArmed = !recordArmed
-            updateRecordDot()
+            updateRecordButton()
             if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
         }
         recordArmButton = recordArmButtonView
+        updateRecordButton()
 
-        val projectEditButton = transportButton("Edit") { showProjectEditMenu() }
+        val projectEditButton = TransportShapeButton.create(
+            this,
+            "Edit",
+            ShapeIconView.Shape.SQUARE,
+            TransportShapeButton.EDIT_BLUE,
+        ) { showProjectEditMenu() }
 
         val transportControls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -280,10 +302,10 @@ class MainActivity : ComponentActivity() {
                     addView(routeLabel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                         setMargins((8 * density).toInt(), 0, 0, 0)
                     })
-                    addView(ShapeMenuButton.create(this@MainActivity, "Expand", ShapeMenuButton.Shape.SQUARE) { showExpand() })
-                    addView(ShapeMenuButton.create(this@MainActivity, "Navigate", ShapeMenuButton.Shape.CIRCLE) { showNav() })
-                    addView(ShapeMenuButton.create(this@MainActivity, "Effects", ShapeMenuButton.Shape.DIAMOND) { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
-                    addView(ShapeMenuButton.create(this@MainActivity, "Menu", ShapeMenuButton.Shape.TRIANGLE) { showMenu() })
+                    addView(PillButton.create(this@MainActivity, "E") { showExpand() })
+                    addView(PillButton.create(this@MainActivity, "N") { showNav() })
+                    addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
+                    addView(PillButton.create(this@MainActivity, "M") { showMenu() })
                 },
             )
         }
@@ -319,41 +341,19 @@ class MainActivity : ComponentActivity() {
         return rootView
     }
 
-    /** A transport control sized as one of the bar's biggest touch targets when [big] is true
-     *  (Play/REC per the spec), otherwise sized like the header's other compact controls. */
-    private fun transportButton(text: String, big: Boolean = false, onClick: () -> Unit): Button {
-        val density = resources.displayMetrics.density
-        val hPad = ((if (big) 10 else 8) * density).toInt()
-        val vPad = ((if (big) 6 else 4) * density).toInt()
-        return Button(this).apply {
-            this.text = text
-            textSize = if (big) 16f else 12f
-            minWidth = ((if (big) 40 else 36) * density).toInt()
-            minHeight = (36 * density).toInt()
-            setPadding(hPad, vPad, hPad, vPad)
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
-            }
-            setOnClickListener { onClick() }
+    private fun updatePlayButtonAppearance() {
+        if (sequencer.isRunning) {
+            playButton.setAppearance(ShapeIconView.Shape.SQUARE, TransportShapeButton.STOP_WHITE, "Stop")
+        } else {
+            playButton.setAppearance(ShapeIconView.Shape.TRIANGLE, TransportShapeButton.PLAY_GREEN, "Play")
         }
     }
 
-    private fun recordDotButton(onClick: () -> Unit): View {
-        val density = resources.displayMetrics.density
-        val size = (32 * density).toInt()
-        return View(this).apply {
-            setBackgroundResource(R.drawable.record_dot_idle)
-            layoutParams = LinearLayout.LayoutParams(size, size).apply {
-                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            setOnClickListener { onClick() }
-        }
-    }
-
-    private fun updateRecordDot() {
-        recordArmButton.setBackgroundResource(
-            if (recordArmed) R.drawable.record_dot_armed else R.drawable.record_dot_idle,
+    private fun updateRecordButton() {
+        recordArmButton.setAppearance(
+            ShapeIconView.Shape.CIRCLE,
+            if (recordArmed) TransportShapeButton.RECORD_RED else TransportShapeButton.RECORD_IDLE,
+            "Record",
         )
     }
 
@@ -1004,7 +1004,7 @@ class MainActivity : ComponentActivity() {
     private fun togglePlayback() {
         if (sequencer.isRunning) {
             sequencer.stop()
-            playButton.text = "▶"
+            updatePlayButtonAppearance()
             stepSequencerPanel?.setPlayhead(-1)
             tempoBouncer.startIdle()
         } else {
@@ -1016,7 +1016,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             sequencer.start(project.song, project.phrases, project.bpm)
-            playButton.text = "■"
+            updatePlayButtonAppearance()
             tempoBouncer.stop()
         }
     }
