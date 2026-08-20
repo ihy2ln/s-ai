@@ -27,7 +27,7 @@ object ModuleLayoutFit {
         val scrollHeight = scroll.height
         if (scrollHeight <= 0) return
 
-        val handleHeightPx = (16 * density).toInt()
+        val handleHeightPx = (28 * density).toInt()
         val handleCount = (entries.size - 1).coerceAtLeast(0)
         val available = scrollHeight - handleCount * handleHeightPx
         if (available <= 0) return

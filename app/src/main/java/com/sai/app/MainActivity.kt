@@ -41,6 +41,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var modulesScroll: ScrollView
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
+    private var isDraggingModuleHandle = false
+    private var lastModuleScrollHeight = 0
 
     // Sampler module (null when that module isn't on screen)
     private var samplerPanel: SamplerPanelView? = null
@@ -319,7 +321,14 @@ class MainActivity : ComponentActivity() {
         modulesScroll = ScrollView(this).apply {
             isFillViewport = true
             addView(modulesColumn)
-            viewTreeObserver.addOnGlobalLayoutListener { fitModulesToScreen() }
+            viewTreeObserver.addOnGlobalLayoutListener {
+                if (isDraggingModuleHandle) return@addOnGlobalLayoutListener
+                val h = height
+                if (h > 0 && h != lastModuleScrollHeight) {
+                    lastModuleScrollHeight = h
+                    fitModulesToScreen()
+                }
+            }
         }
 
         rootView = LinearLayout(this).apply {
@@ -462,19 +471,19 @@ class MainActivity : ComponentActivity() {
 
                 if (index < moduleEntries.size - 1) {
                     val handle = ResizeHandleView(this)
+                    val aboveIndex = index
+                    handle.onDragStart = { isDraggingModuleHandle = true }
                     handle.onDrag = { deltaPx ->
-                        entry.heightDp = (entry.heightDp + deltaPx / density).coerceIn(MIN_MODULE_HEIGHT_DP, MAX_MODULE_HEIGHT_DP)
-                        val wrapperIndex = modulesColumn.indexOfChild(handle) - 1
-                        val wrapper = modulesColumn.getChildAt(wrapperIndex)
-                        val params = wrapper.layoutParams
-                        params.height = (entry.heightDp * density).toInt()
-                        wrapper.layoutParams = params
+                        if (adjustModuleHeights(aboveIndex, deltaPx / density)) {
+                            fitModulesToScreen()
+                        }
                     }
                     handle.onDragEnd = {
+                        isDraggingModuleHandle = false
                         ModuleLayoutStore.save(this, moduleEntries)
                         fitModulesToScreen()
                     }
-                    modulesColumn.addView(handle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (16 * density).toInt()))
+                    modulesColumn.addView(handle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (28 * density).toInt()))
                 }
             }
         }
@@ -495,6 +504,25 @@ class MainActivity : ComponentActivity() {
             isFullScreen = fullScreenModule != null,
             orientation = resources.configuration.orientation,
         )
+    }
+
+    /** Dragging a handle grows the module above and shrinks the one below, keeping total weight stable. */
+    private fun adjustModuleHeights(aboveIndex: Int, deltaDp: Float): Boolean {
+        if (aboveIndex < 0 || aboveIndex >= moduleEntries.size - 1) return false
+        val above = moduleEntries[aboveIndex]
+        val below = moduleEntries[aboveIndex + 1]
+
+        var delta = deltaDp
+        if (delta > 0f) {
+            delta = minOf(delta, MAX_MODULE_HEIGHT_DP - above.heightDp, below.heightDp - MIN_MODULE_HEIGHT_DP)
+        } else if (delta < 0f) {
+            delta = maxOf(delta, MIN_MODULE_HEIGHT_DP - above.heightDp, -(MAX_MODULE_HEIGHT_DP - below.heightDp))
+        }
+        if (delta == 0f) return false
+
+        above.heightDp += delta
+        below.heightDp -= delta
+        return true
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
