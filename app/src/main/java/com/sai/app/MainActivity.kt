@@ -27,6 +27,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.sai.core.layout.ModuleResize
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
@@ -38,7 +39,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var rootView: LinearLayout
     private lateinit var modulesColumn: LinearLayout
-    private lateinit var modulesScroll: ScrollView
+    private lateinit var modulesScroll: ModulesScrollView
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
     private var isDraggingModuleHandle = false
@@ -318,8 +319,9 @@ class MainActivity : ComponentActivity() {
         moduleEntries = ModuleLayoutStore.load(this)
         modulesColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        modulesScroll = ScrollView(this).apply {
+        modulesScroll = ModulesScrollView(this).apply {
             isFillViewport = true
+            isVerticalScrollBarEnabled = true
             addView(modulesColumn)
             viewTreeObserver.addOnGlobalLayoutListener {
                 if (isDraggingModuleHandle) return@addOnGlobalLayoutListener
@@ -468,23 +470,7 @@ class MainActivity : ComponentActivity() {
             for ((index, entry) in moduleEntries.withIndex()) {
                 val heightPx = (entry.heightDp * density).toInt()
                 modulesColumn.addView(buildModuleWrapper(entry.type), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx))
-
-                if (index < moduleEntries.size - 1) {
-                    val handle = ResizeHandleView(this)
-                    val aboveIndex = index
-                    handle.onDragStart = { isDraggingModuleHandle = true }
-                    handle.onDrag = { deltaPx ->
-                        if (adjustModuleHeights(aboveIndex, deltaPx / density)) {
-                            fitModulesToScreen()
-                        }
-                    }
-                    handle.onDragEnd = {
-                        isDraggingModuleHandle = false
-                        ModuleLayoutStore.save(this, moduleEntries)
-                        fitModulesToScreen()
-                    }
-                    modulesColumn.addView(handle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (28 * density).toInt()))
-                }
+                modulesColumn.addView(buildResizeHandle(index), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()))
             }
         }
 
@@ -493,8 +479,26 @@ class MainActivity : ComponentActivity() {
         fitModulesToScreen()
     }
 
+    private fun buildResizeHandle(aboveIndex: Int): ResizeHandleView {
+        return ResizeHandleView(this).apply {
+            onDragStart = {
+                isDraggingModuleHandle = true
+                syncEntriesFromDisplayedHeights()
+            }
+            onDrag = { deltaPx ->
+                if (resizeModuleFromHandle(aboveIndex, deltaPx)) {
+                    applyStoredModuleHeights()
+                }
+            }
+            onDragEnd = {
+                isDraggingModuleHandle = false
+                ModuleLayoutStore.save(this@MainActivity, moduleEntries)
+            }
+        }
+    }
+
     private fun fitModulesToScreen() {
-        if (!::modulesScroll.isInitialized) return
+        if (!::modulesScroll.isInitialized || isDraggingModuleHandle) return
         ModuleLayoutFit.redistribute(
             scroll = modulesScroll,
             column = modulesColumn,
@@ -504,24 +508,34 @@ class MainActivity : ComponentActivity() {
             isFullScreen = fullScreenModule != null,
             orientation = resources.configuration.orientation,
         )
+        syncEntriesFromDisplayedHeights()
     }
 
-    /** Dragging a handle grows the module above and shrinks the one below, keeping total weight stable. */
-    private fun adjustModuleHeights(aboveIndex: Int, deltaDp: Float): Boolean {
-        if (aboveIndex < 0 || aboveIndex >= moduleEntries.size - 1) return false
-        val above = moduleEntries[aboveIndex]
-        val below = moduleEntries[aboveIndex + 1]
+    private fun applyStoredModuleHeights() {
+        ModuleLayoutFit.applyStoredHeights(modulesColumn, moduleEntries, resources.displayMetrics.density)
+    }
 
-        var delta = deltaDp
-        if (delta > 0f) {
-            delta = minOf(delta, MAX_MODULE_HEIGHT_DP - above.heightDp, below.heightDp - MIN_MODULE_HEIGHT_DP)
-        } else if (delta < 0f) {
-            delta = maxOf(delta, MIN_MODULE_HEIGHT_DP - above.heightDp, -(MAX_MODULE_HEIGHT_DP - below.heightDp))
+    /** Read current on-screen pixel heights back into [moduleEntries] so drag starts from what the user sees. */
+    private fun syncEntriesFromDisplayedHeights() {
+        val density = resources.displayMetrics.density
+        for (index in moduleEntries.indices) {
+            val wrapper = modulesColumn.getChildAt(index * 2) ?: continue
+            val heightPx = if (wrapper.height > 0) wrapper.height else wrapper.layoutParams.height
+            if (heightPx > 0) {
+                moduleEntries[index].heightDp = heightPx / density
+            }
         }
-        if (delta == 0f) return false
+    }
 
-        above.heightDp += delta
-        below.heightDp -= delta
+    private fun resizeModuleFromHandle(aboveIndex: Int, deltaPx: Float): Boolean {
+        val density = resources.displayMetrics.density
+        val heights = moduleEntries.map { it.heightDp }.toMutableList()
+        if (!ModuleResize.drag(heights, aboveIndex, deltaPx / density, MIN_MODULE_HEIGHT_DP, MAX_MODULE_HEIGHT_DP)) {
+            return false
+        }
+        for (index in moduleEntries.indices) {
+            moduleEntries[index].heightDp = heights[index]
+        }
         return true
     }
 
@@ -1161,7 +1175,7 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val MIN_MODULE_HEIGHT_DP = 100f
+        private const val MIN_MODULE_HEIGHT_DP = 64f
         private const val MAX_MODULE_HEIGHT_DP = 1200f
 
         private val PALETTE = intArrayOf(
