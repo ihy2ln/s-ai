@@ -77,8 +77,8 @@ object TransportShapeButton {
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }
-            addView(iconView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-            addView(promptLabel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+            addView(iconView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(promptLabel, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
             isClickable = true
             setOnClickListener {
                 flashPrompt()
