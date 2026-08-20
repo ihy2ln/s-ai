@@ -243,12 +243,7 @@ class MainActivity : ComponentActivity() {
             addView(tempoRow)
         }
 
-        val tapButton = TransportShapeButton.create(
-            this,
-            "Tap",
-            ShapeIconView.Shape.TRIANGLE,
-            TransportShapeButton.TAP_YELLOW,
-        ) { tapTempo() }
+        val tapButton = TransportShapeButton.createTempo(this) { tapTempo() }
 
         val playButtonView = TransportShapeButton.create(
             this,
@@ -263,7 +258,7 @@ class MainActivity : ComponentActivity() {
             this,
             "Record",
             ShapeIconView.Shape.CIRCLE,
-            TransportShapeButton.RECORD_IDLE,
+            TransportShapeButton.RECORD_RED,
         ) {
             recordArmed = !recordArmed
             updateRecordButton()
@@ -352,7 +347,7 @@ class MainActivity : ComponentActivity() {
     private fun updateRecordButton() {
         recordArmButton.setAppearance(
             ShapeIconView.Shape.CIRCLE,
-            if (recordArmed) TransportShapeButton.RECORD_RED else TransportShapeButton.RECORD_IDLE,
+            if (recordArmed) TransportShapeButton.RECORD_ARMED else TransportShapeButton.RECORD_RED,
             "Record",
         )
     }
@@ -1026,18 +1021,19 @@ class MainActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Samples", "Sounds", "Plugins", "Theme", "Add Module", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
+            .setItems(arrayOf("Manual", "Samples", "Sounds", "Plugins", "Theme", "Add Module", "Undo", "Redo", "Save Project", "Load Project", "New Project")) { _, which ->
                 when (which) {
-                    0 -> openSamples.launch(arrayOf("audio/*"))
-                    1 -> startActivity(Intent(this, SoundLibraryActivity::class.java))
-                    2 -> showPluginsDialog()
-                    3 -> showThemeDialog()
-                    4 -> showAddModuleDialog()
-                    5 -> { project.undo(); refreshSongGrid() }
-                    6 -> { project.redo(); refreshSongGrid() }
-                    7 -> saveProjectLauncher.launch(suggestedProjectFileName())
-                    8 -> loadProjectLauncher.launch(arrayOf("application/json"))
-                    9 -> confirmNewProject()
+                    0 -> startActivity(Intent(this, ManualActivity::class.java))
+                    1 -> openSamples.launch(arrayOf("audio/*"))
+                    2 -> startActivity(Intent(this, SoundLibraryActivity::class.java))
+                    3 -> showPluginsDialog()
+                    4 -> showThemeDialog()
+                    5 -> showAddModuleDialog()
+                    6 -> { project.undo(); refreshSongGrid() }
+                    7 -> { project.redo(); refreshSongGrid() }
+                    8 -> saveProjectLauncher.launch(suggestedProjectFileName())
+                    9 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                    10 -> confirmNewProject()
                 }
             }
             .show()
