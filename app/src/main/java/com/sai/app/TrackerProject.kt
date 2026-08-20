@@ -20,6 +20,16 @@ class TrackerProject(context: Context) {
         get() = prefs.getString(KEY_NAME, DEFAULT_NAME) ?: DEFAULT_NAME
         set(value) = prefs.edit().putString(KEY_NAME, value.ifBlank { DEFAULT_NAME }).apply()
 
+    /** Global pitch offset applied to song playback (-24..+24 semitones). */
+    var pitchSemitones: Int
+        get() = prefs.getInt(KEY_PITCH, 0)
+        set(value) = prefs.edit().putInt(KEY_PITCH, value.coerceIn(-24, 24)).apply()
+
+    /** Overall mix level for song playback (0..127). */
+    var masterVolume: Int
+        get() = prefs.getInt(KEY_MASTER, 127)
+        set(value) = prefs.edit().putInt(KEY_MASTER, value.coerceIn(0, 127)).apply()
+
     var song: Song = loadSong()
         private set
 
@@ -86,6 +96,8 @@ class TrackerProject(context: Context) {
         phrases.clear()
         bpm = 120
         name = DEFAULT_NAME
+        pitchSemitones = 0
+        masterVolume = 127
         persist()
     }
 
@@ -93,6 +105,8 @@ class TrackerProject(context: Context) {
         val obj = JSONObject()
         obj.put("bpm", bpm)
         obj.put("name", name)
+        obj.put("pitchSemitones", pitchSemitones)
+        obj.put("masterVolume", masterVolume)
         obj.put("song", JSONObject(encodeSong(song)))
         obj.put("phrases", JSONObject(encodePhrases(phrases)))
         return obj.toString(2)
@@ -103,6 +117,8 @@ class TrackerProject(context: Context) {
         val obj = JSONObject(raw)
         bpm = obj.optInt("bpm", 120)
         name = obj.optString("name", DEFAULT_NAME)
+        pitchSemitones = obj.optInt("pitchSemitones", 0)
+        masterVolume = obj.optInt("masterVolume", 127)
         song = decodeSong(obj.getJSONObject("song").toString())
         val imported = decodePhrases(obj.getJSONObject("phrases").toString())
         phrases.clear()
@@ -188,6 +204,8 @@ class TrackerProject(context: Context) {
         private const val PREFS_NAME = "tracker_project"
         private const val KEY_BPM = "bpm"
         private const val KEY_NAME = "name"
+        private const val KEY_PITCH = "pitch_semitones"
+        private const val KEY_MASTER = "master_volume"
         private const val KEY_SONG = "song"
         private const val KEY_PHRASES = "phrases"
         private const val DEFAULT_NAME = "Untitled"
