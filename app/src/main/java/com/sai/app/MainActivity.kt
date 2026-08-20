@@ -27,7 +27,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.sai.core.layout.ModuleResize
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
@@ -38,12 +37,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var sequencer: Sequencer
 
     private lateinit var rootView: LinearLayout
-    private lateinit var modulesColumn: LinearLayout
+    private lateinit var modulesColumn: ModuleStackView
     private lateinit var modulesScroll: ModulesScrollView
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
     private var isDraggingModuleHandle = false
     private var lastModuleScrollHeight = 0
+    private var keepUserModuleHeights = false
 
     // Sampler module (null when that module isn't on screen)
     private var samplerPanel: SamplerPanelView? = null
@@ -317,14 +317,24 @@ class MainActivity : ComponentActivity() {
         }
 
         moduleEntries = ModuleLayoutStore.load(this)
-        modulesColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        modulesColumn = ModuleStackView(this).apply {
+            onResizeStart = {
+                isDraggingModuleHandle = true
+            }
+            onResizeEnd = {
+                isDraggingModuleHandle = false
+                keepUserModuleHeights = true
+                syncEntriesFromDisplayedHeights()
+                ModuleLayoutStore.save(this@MainActivity, moduleEntries)
+            }
+        }
 
         modulesScroll = ModulesScrollView(this).apply {
-            isFillViewport = true
+            isFillViewport = false
             isVerticalScrollBarEnabled = true
-            addView(modulesColumn)
+            addView(modulesColumn, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT))
             viewTreeObserver.addOnGlobalLayoutListener {
-                if (isDraggingModuleHandle) return@addOnGlobalLayoutListener
+                if (isDraggingModuleHandle || keepUserModuleHeights) return@addOnGlobalLayoutListener
                 val h = height
                 if (h > 0 && h != lastModuleScrollHeight) {
                     lastModuleScrollHeight = h
@@ -467,38 +477,24 @@ class MainActivity : ComponentActivity() {
             )
         } else {
             fullScreenModule = null
-            for ((index, entry) in moduleEntries.withIndex()) {
+            for (entry in moduleEntries) {
                 val heightPx = (entry.heightDp * density).toInt()
                 modulesColumn.addView(buildModuleWrapper(entry.type), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx))
-                modulesColumn.addView(buildResizeHandle(index), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()))
+                modulesColumn.addView(ResizeHandleView(this), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()))
             }
         }
 
         refreshSampleList()
         refreshSongGrid()
-        fitModulesToScreen()
-    }
-
-    private fun buildResizeHandle(aboveIndex: Int): ResizeHandleView {
-        return ResizeHandleView(this).apply {
-            onDragStart = {
-                isDraggingModuleHandle = true
-                syncEntriesFromDisplayedHeights()
-            }
-            onDrag = { deltaPx ->
-                if (resizeModuleFromHandle(aboveIndex, deltaPx)) {
-                    applyStoredModuleHeights()
-                }
-            }
-            onDragEnd = {
-                isDraggingModuleHandle = false
-                ModuleLayoutStore.save(this@MainActivity, moduleEntries)
-            }
+        if (keepUserModuleHeights) {
+            applyStoredModuleHeights()
+        } else {
+            fitModulesToScreen()
         }
     }
 
     private fun fitModulesToScreen() {
-        if (!::modulesScroll.isInitialized || isDraggingModuleHandle) return
+        if (!::modulesScroll.isInitialized || isDraggingModuleHandle || keepUserModuleHeights) return
         ModuleLayoutFit.redistribute(
             scroll = modulesScroll,
             column = modulesColumn,
@@ -525,18 +521,6 @@ class MainActivity : ComponentActivity() {
                 moduleEntries[index].heightDp = heightPx / density
             }
         }
-    }
-
-    private fun resizeModuleFromHandle(aboveIndex: Int, deltaPx: Float): Boolean {
-        val density = resources.displayMetrics.density
-        val heights = moduleEntries.map { it.heightDp }.toMutableList()
-        if (!ModuleResize.drag(heights, aboveIndex, deltaPx / density, MIN_MODULE_HEIGHT_DP, MAX_MODULE_HEIGHT_DP)) {
-            return false
-        }
-        for (index in moduleEntries.indices) {
-            moduleEntries[index].heightDp = heights[index]
-        }
-        return true
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
