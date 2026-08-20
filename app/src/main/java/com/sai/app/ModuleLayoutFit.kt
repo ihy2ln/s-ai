@@ -7,7 +7,7 @@ import android.widget.ScrollView
 /** Sizes home-screen modules to fill the viewport in landscape on first layout. */
 object ModuleLayoutFit {
 
-    const val HANDLE_HEIGHT_DP = 36f
+    const val HANDLE_HEIGHT_DP = 48f
 
     fun redistribute(
         scroll: ScrollView,

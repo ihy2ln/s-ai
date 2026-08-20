@@ -7,20 +7,20 @@ import kotlin.test.assertTrue
 class ModuleResizeTest {
 
     @Test
-    fun `dragging a divider down expands the module above it`() {
+    fun `dragging a divider down expands only the module above it`() {
         val heights = mutableListOf(100f, 100f, 100f)
         assertTrue(ModuleResize.drag(heights, handleIndex = 0, deltaDp = 40f, minDp = 64f, maxDp = 1200f))
         assertEquals(140f, heights[0])
-        assertEquals(64f, heights[1])
+        assertEquals(100f, heights[1])
         assertEquals(100f, heights[2])
     }
 
     @Test
-    fun `dragging past the neighbor minimum still expands the module above`() {
-        val heights = mutableListOf(100f, 70f)
-        assertTrue(ModuleResize.drag(heights, handleIndex = 0, deltaDp = 40f, minDp = 64f, maxDp = 1200f))
-        assertEquals(140f, heights[0])
-        assertEquals(64f, heights[1])
+    fun `dragging a divider up shrinks only the module above it`() {
+        val heights = mutableListOf(140f, 80f)
+        assertTrue(ModuleResize.drag(heights, handleIndex = 0, deltaDp = -30f, minDp = 64f, maxDp = 1200f))
+        assertEquals(110f, heights[0])
+        assertEquals(80f, heights[1])
     }
 
     @Test
