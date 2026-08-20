@@ -11,6 +11,7 @@ import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -47,14 +48,18 @@ class MainActivity : ComponentActivity() {
     // Synth module
     private var synthPanel: SynthPanelView? = null
 
+    // Step sequencer module
+    private var stepSequencerPanel: StepSequencerPanelView? = null
+
     // Tracker module (grid only - transport lives in the top bar, see below)
     private var statusText: TextView? = null
     private var songRows: LinearLayout? = null
 
     // Global transport (top bar) - present on every screen regardless of which modules are shown
+    private lateinit var projectTitleLabel: TextView
     private lateinit var bpmLabel: TextView
     private lateinit var playButton: Button
-    private lateinit var recordArmButton: Button
+    private lateinit var recordArmButton: View
     private lateinit var tempoDot: ImageView
     private lateinit var tempoBouncer: TempoBouncer
     private val tapTimestamps = mutableListOf<Long>()
@@ -158,7 +163,8 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         sequencer.stop()
-        playButton.text = "Play"
+        playButton.text = "▶"
+        stepSequencerPanel?.setPlayhead(-1)
         tempoBouncer.stop()
     }
 
@@ -184,11 +190,18 @@ class MainActivity : ComponentActivity() {
         val pad = (12 * density).toInt()
 
         val title = TextView(this).apply {
-            text = "S.Ai"
             setTextColor(Color.WHITE)
-            textSize = 20f
-            setPadding(0, 0, (10 * density).toInt(), 0)
+            textSize = 16f
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.MARQUEE
+            marqueeRepeatLimit = -1
+            isSelected = true
+            setPadding(0, 0, (8 * density).toInt(), 0)
+            layoutParams = LinearLayout.LayoutParams((110 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            setOnClickListener { editProjectName() }
         }
+        projectTitleLabel = title
+        refreshProjectTitle()
         routeLabel = TextView(this).apply {
             textSize = 16f
             setPadding(0, 0, (6 * density).toInt(), 0)
@@ -206,15 +219,17 @@ class MainActivity : ComponentActivity() {
 
         val tapButton = transportButton("TAP") { tapTempo() }
 
-        val playButtonView = transportButton("Play", big = true) { togglePlayback() }
+        val playButtonView = transportButton("▶", big = true) { togglePlayback() }
         playButton = playButtonView
 
-        val recordArmButtonView = transportButton("REC", big = true) {
+        val recordArmButtonView = recordDotButton {
             recordArmed = !recordArmed
-            recordArmButton.setBackgroundColor(if (recordArmed) Color.rgb(200, 40, 40) else Color.DKGRAY)
+            updateRecordDot()
             if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
         }
         recordArmButton = recordArmButtonView
+
+        val projectEditButton = transportButton("Edit") { showProjectEditMenu() }
 
         val tempoDotView = ImageView(this).apply {
             setImageResource(R.drawable.tempo_dot)
@@ -226,7 +241,22 @@ class MainActivity : ComponentActivity() {
         tempoDot = tempoDotView
         tempoBouncer = TempoBouncer(tempoDotView, 12 * density)
 
-        val spacer = View(this)
+        val transportControls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(tapButton)
+            addView(playButtonView)
+            addView(recordArmButtonView)
+            addView(projectEditButton)
+            addView(tempoDotView)
+        }
+
+        val transportScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            addView(transportControls)
+        }
 
         val headerRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -234,11 +264,7 @@ class MainActivity : ComponentActivity() {
             setPadding(0, 0, 0, (4 * density).toInt())
             addView(title)
             addView(bpmLabelView)
-            addView(tapButton)
-            addView(playButtonView)
-            addView(recordArmButtonView)
-            addView(tempoDotView)
-            addView(spacer, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+            addView(transportScroll)
             addView(routeLabel)
             addView(PillButton.create(this@MainActivity, "E") { showExpand() })
             addView(PillButton.create(this@MainActivity, "N") { showNav() })
@@ -270,19 +296,76 @@ class MainActivity : ComponentActivity() {
      *  (Play/REC per the spec), otherwise sized like the header's other compact controls. */
     private fun transportButton(text: String, big: Boolean = false, onClick: () -> Unit): Button {
         val density = resources.displayMetrics.density
-        val hPad = ((if (big) 16 else 10) * density).toInt()
-        val vPad = ((if (big) 10 else 6) * density).toInt()
+        val hPad = ((if (big) 12 else 10) * density).toInt()
+        val vPad = ((if (big) 8 else 6) * density).toInt()
         return Button(this).apply {
             this.text = text
-            textSize = if (big) 15f else 13f
-            minWidth = ((if (big) 64 else 44) * density).toInt()
-            minHeight = (48 * density).toInt()
+            textSize = if (big) 17f else 13f
+            minWidth = ((if (big) 44 else 40) * density).toInt()
+            minHeight = (40 * density).toInt()
             setPadding(hPad, vPad, hPad, vPad)
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 setMargins((4 * density).toInt(), 0, 0, 0)
             }
             setOnClickListener { onClick() }
         }
+    }
+
+    private fun recordDotButton(onClick: () -> Unit): View {
+        val density = resources.displayMetrics.density
+        val size = (36 * density).toInt()
+        return View(this).apply {
+            setBackgroundResource(R.drawable.record_dot_idle)
+            layoutParams = LinearLayout.LayoutParams(size, size).apply {
+                setMargins((6 * density).toInt(), 0, (4 * density).toInt(), 0)
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun updateRecordDot() {
+        recordArmButton.setBackgroundResource(
+            if (recordArmed) R.drawable.record_dot_armed else R.drawable.record_dot_idle,
+        )
+    }
+
+    private fun refreshProjectTitle() {
+        projectTitleLabel.text = project.name
+        projectTitleLabel.isSelected = true
+    }
+
+    private fun editProjectName() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText(project.name)
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Project Name")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                project.name = input.text.toString()
+                refreshProjectTitle()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showProjectEditMenu() {
+        AlertDialog.Builder(this)
+            .setTitle("Project")
+            .setItems(arrayOf("Rename", "Save", "Load", "New", "Undo", "Redo")) { _, which ->
+                when (which) {
+                    0 -> editProjectName()
+                    1 -> saveProjectLauncher.launch(suggestedProjectFileName())
+                    2 -> loadProjectLauncher.launch(arrayOf("application/json"))
+                    3 -> confirmNewProject()
+                    4 -> { project.undo(); refreshSongGrid() }
+                    5 -> { project.redo(); refreshSongGrid() }
+                }
+            }
+            .show()
     }
 
     /** BPM is adjustable three ways: tap opens the type-a-number dialog ([editBpm]), a vertical
@@ -340,6 +423,7 @@ class MainActivity : ComponentActivity() {
     private fun rebuildModulesColumn() {
         modulesColumn.removeAllViews()
         chokeButtons.clear()
+        stepSequencerPanel = null
         val density = resources.displayMetrics.density
 
         val full = fullScreenModule
@@ -418,7 +502,7 @@ class MainActivity : ComponentActivity() {
             ModuleType.SAMPLER -> buildSamplerContent()
             ModuleType.SYNTH -> buildSynthContent()
             ModuleType.TRACKER -> buildTrackerContent()
-            ModuleType.STEP_SEQUENCER -> StepSequencerPanelView(this)
+            ModuleType.STEP_SEQUENCER -> StepSequencerPanelView(this).also { stepSequencerPanel = it }
         }
 
         return LinearLayout(this).apply {
@@ -687,6 +771,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshSongGrid() {
         bpmLabel.text = "BPM %d".format(project.bpm)
+        refreshProjectTitle()
         tempoBouncer.setBpm(project.bpm)
         if (!sequencer.isRunning) tempoBouncer.startIdle()
 
@@ -740,6 +825,7 @@ class MainActivity : ComponentActivity() {
         highlightedPosition = position
         lastLiveStep = step
         statusText?.text = " %02X:%X".format(position, step)
+        stepSequencerPanel?.setPlayhead(step)
     }
 
     /** Records a live "session" hit: plays the sample immediately and writes it into the phrase
@@ -869,7 +955,8 @@ class MainActivity : ComponentActivity() {
     private fun togglePlayback() {
         if (sequencer.isRunning) {
             sequencer.stop()
-            playButton.text = "Play"
+            playButton.text = "▶"
+            stepSequencerPanel?.setPlayhead(-1)
             tempoBouncer.startIdle()
         } else {
             sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
@@ -880,7 +967,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             sequencer.start(project.song, project.phrases, project.bpm)
-            playButton.text = "Stop"
+            playButton.text = "■"
             tempoBouncer.stop()
         }
     }
@@ -954,6 +1041,7 @@ class MainActivity : ComponentActivity() {
             val raw = contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
             project.importProjectJson(raw)
             refreshSongGrid()
+            stepSequencerPanel?.refreshRows()
             Toast.makeText(this, "Project loaded", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Load failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -967,6 +1055,7 @@ class MainActivity : ComponentActivity() {
             .setPositiveButton("New Project") { _, _ ->
                 project.resetProject()
                 refreshSongGrid()
+                stepSequencerPanel?.refreshRows()
             }
             .setNegativeButton("Cancel", null)
             .show()

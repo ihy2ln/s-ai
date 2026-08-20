@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -28,6 +29,9 @@ class StepSequencerPanelView @JvmOverloads constructor(
     private val positionLabel: TextView
     private val zoomLabel: TextView
     private val rowsContainer: LinearLayout
+    private val beatMarker: BeatMarkerView
+    private val stepRowViews = mutableListOf<StepRowView>()
+    private val instrumentColumnWidthPx: Int
 
     private var position = 0
     private var rowHeightDp = 36f
@@ -36,6 +40,7 @@ class StepSequencerPanelView @JvmOverloads constructor(
     init {
         orientation = VERTICAL
         val density = resources.displayMetrics.density
+        instrumentColumnWidthPx = (120 * density).toInt()
 
         val prevButton = Button(context).apply { text = "<"; setOnClickListener { movePosition(-1) } }
         val nextButton = Button(context).apply { text = ">"; setOnClickListener { movePosition(1) } }
@@ -65,9 +70,22 @@ class StepSequencerPanelView @JvmOverloads constructor(
             addView(zoomInButton)
         }
 
+        beatMarker = BeatMarkerView(context).apply {
+            stepCount = Phrase.STEP_COUNT
+            layoutParams = LayoutParams(0, (10 * density).toInt(), 1f)
+        }
+
+        val beatHeaderRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(View(context), LayoutParams(instrumentColumnWidthPx, LayoutParams.WRAP_CONTENT))
+            addView(beatMarker)
+        }
+
         rowsContainer = LinearLayout(context).apply { orientation = VERTICAL }
 
         addView(controlsRow)
+        addView(beatHeaderRow)
         addView(
             ScrollView(context).apply { addView(rowsContainer) },
             LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f),
@@ -76,10 +94,15 @@ class StepSequencerPanelView @JvmOverloads constructor(
         refreshRows()
     }
 
+    fun setPlayhead(step: Int) {
+        for (row in stepRowViews) row.playheadStep = step
+    }
+
     fun refreshRows() {
         positionLabel.text = "%02X".format(position)
         zoomLabel.text = "Zoom %.0fdp".format(rowHeightDp)
         rowsContainer.removeAllViews()
+        stepRowViews.clear()
         for (track in 0 until project.song.trackCount) {
             rowsContainer.addView(trackRow(track))
         }
@@ -107,7 +130,7 @@ class StepSequencerPanelView @JvmOverloads constructor(
             ?: "Pick sample"
 
         val instrumentButton = compactRowButton(instrumentLabel, rowHeightPx).apply {
-            layoutParams = LayoutParams((120 * density).toInt(), rowHeightPx)
+            layoutParams = LayoutParams(instrumentColumnWidthPx, rowHeightPx)
             setOnClickListener { pickInstrumentForRow(track) }
         }
 
@@ -117,6 +140,7 @@ class StepSequencerPanelView @JvmOverloads constructor(
             onStepToggleRequested = { index, desiredOn -> trySetStep(track, index, desiredOn) }
             layoutParams = LayoutParams(0, rowHeightPx, 1f)
         }
+        stepRowViews.add(stepRow)
 
         return LinearLayout(context).apply {
             orientation = HORIZONTAL
