@@ -76,7 +76,7 @@ The Home screen stacks up to four modules. Each module has:
 - **−** — remove module from screen (data is kept)
 - **MONO / POLY** — Cut Itself (choke) toggle for preview playback
 
-Drag the resize handle between modules to change height. In landscape, modules expand to fill the screen.
+Drag the **resize line** between modules up or down to expand or shrink adjacent panels. The module above grows while the one below shrinks.
 
 | Module | Purpose |
 | --- | --- |
