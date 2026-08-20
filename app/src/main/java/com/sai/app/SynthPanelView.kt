@@ -8,6 +8,8 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.sai.core.audio.Filter
+import com.sai.core.audio.Oscillator
+import com.sai.core.audio.Waveform
 import com.sai.core.audio.Wav
 
 /** The SYNTH panel: loads a sample and shapes it with the 6-knob synth filter (same DSP as MX > Synth),
@@ -42,6 +44,20 @@ class SynthPanelView @JvmOverloads constructor(
             setTextColor(Color.WHITE)
         }
 
+        val waveformsRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            for (waveform in Waveform.entries) {
+                addView(Button(context).apply {
+                    text = Oscillator.displayName(waveform)
+                    textSize = 11f
+                    minHeight = 0
+                    minimumHeight = 0
+                    setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+                    setOnClickListener { loadWaveform(waveform) }
+                })
+            }
+        }
+
         waveform = WaveformView(context)
 
         val knobsRow = LinearLayout(context).apply {
@@ -65,6 +81,7 @@ class SynthPanelView @JvmOverloads constructor(
         }
 
         addView(sampleNameLabel)
+        addView(waveformsRow)
         addView(waveform, LayoutParams(LayoutParams.MATCH_PARENT, (80 * density).toInt()))
         addView(HorizontalScrollView(context).apply { addView(knobsRow) })
         addView(buttonsRow)
@@ -75,6 +92,11 @@ class SynthPanelView @JvmOverloads constructor(
         sourceName = name.substringBeforeLast('.')
         sampleNameLabel.text = name
         refreshWaveform()
+    }
+
+    private fun loadWaveform(waveform: Waveform) {
+        val name = Oscillator.displayName(waveform)
+        load(Oscillator.generate(waveform), name)
     }
 
     private fun refreshWaveform() {

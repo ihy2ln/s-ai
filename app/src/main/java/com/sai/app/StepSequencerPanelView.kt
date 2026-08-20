@@ -3,6 +3,7 @@ package com.sai.app
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.text.TextUtils
 import android.util.AttributeSet
 import android.view.Gravity
 import android.widget.Button
@@ -29,7 +30,7 @@ class StepSequencerPanelView @JvmOverloads constructor(
     private val rowsContainer: LinearLayout
 
     private var position = 0
-    private var rowHeightDp = 32f
+    private var rowHeightDp = 36f
     private val rowInstrument = mutableMapOf<Int, Int>()
 
     init {
@@ -90,7 +91,7 @@ class StepSequencerPanelView @JvmOverloads constructor(
     }
 
     private fun changeZoom(deltaDp: Float) {
-        rowHeightDp = (rowHeightDp + deltaDp).coerceIn(20f, 56f)
+        rowHeightDp = (rowHeightDp + deltaDp).coerceIn(28f, 56f)
         refreshRows()
     }
 
@@ -103,12 +104,10 @@ class StepSequencerPanelView @JvmOverloads constructor(
         val instrumentIndex = rowInstrument[track] ?: phrase?.steps?.firstNotNullOfOrNull { it.instrument }
         val instrumentLabel = instrumentIndex
             ?.let { library.all().getOrNull(it)?.displayName }
-            ?: "-- pick sample --"
+            ?: "Pick sample"
 
-        val instrumentButton = Button(context).apply {
-            text = instrumentLabel
-            setTextColor(Color.WHITE)
-            layoutParams = LayoutParams((150 * density).toInt(), rowHeightPx)
+        val instrumentButton = compactRowButton(instrumentLabel, rowHeightPx).apply {
+            layoutParams = LayoutParams((120 * density).toInt(), rowHeightPx)
             setOnClickListener { pickInstrumentForRow(track) }
         }
 
@@ -122,8 +121,25 @@ class StepSequencerPanelView @JvmOverloads constructor(
         return LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, rowHeightPx)
             addView(instrumentButton)
             addView(stepRow)
+        }
+    }
+
+    private fun compactRowButton(label: String, heightPx: Int): Button {
+        val density = resources.displayMetrics.density
+        val vPad = (2 * density).toInt().coerceAtMost(heightPx / 4)
+        return Button(context).apply {
+            text = label
+            setTextColor(Color.WHITE)
+            textSize = 10f
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            minHeight = 0
+            minimumHeight = 0
+            setPadding((6 * density).toInt(), vPad, (6 * density).toInt(), vPad)
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, heightPx)
         }
     }
 

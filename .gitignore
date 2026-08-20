@@ -11,3 +11,4 @@ captures/
 # Never commit signing material.
 *.keystore
 *.jks
+.kotlin/
