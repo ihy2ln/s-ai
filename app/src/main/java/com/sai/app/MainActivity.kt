@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
     private var synthPanel: SynthPanelView? = null
 
     // Step sequencer module
-    private var stepSequencerPanel: StepSequencerPanelView? = null
+    private var stepSequencerPanel: ChannelRackPanelView? = null
 
     // Tracker module (grid only - transport lives in the top bar, see below)
     private var statusText: TextView? = null
@@ -524,7 +524,7 @@ class MainActivity : ComponentActivity() {
             ModuleType.SAMPLER -> buildSamplerContent()
             ModuleType.SYNTH -> buildSynthContent()
             ModuleType.TRACKER -> buildTrackerContent()
-            ModuleType.STEP_SEQUENCER -> StepSequencerPanelView(this).also { stepSequencerPanel = it }
+            ModuleType.STEP_SEQUENCER -> ChannelRackPanelView(this).also { stepSequencerPanel = it }
         }
 
         return LinearLayout(this).apply {

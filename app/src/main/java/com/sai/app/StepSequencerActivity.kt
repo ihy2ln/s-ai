@@ -1,15 +1,14 @@
 package com.sai.app
 
 import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 
-/** Full-screen wrapper around [StepSequencerPanelView] - the same panel also embeds directly
- *  into the Home screen as the STEP SEQ module. */
+/** Full-screen wrapper around [ChannelRackPanelView] - the same panel also embeds directly
+ *  into the Home screen as the CHANNEL RACK module. */
 class StepSequencerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,9 +21,8 @@ class StepSequencerActivity : ComponentActivity() {
         val pad = (12 * density).toInt()
 
         val title = TextView(this).apply {
-            text = "STEP SEQUENCER"
+            text = "CHANNEL RACK"
             setTextColor(AppTheme.accentColor(this@StepSequencerActivity))
-            typeface = Typeface.MONOSPACE
             textSize = 18f
         }
         val titleRow = LinearLayout(this).apply {
@@ -40,7 +38,7 @@ class StepSequencerActivity : ComponentActivity() {
             setBackgroundColor(Color.rgb(18, 18, 20))
             addView(titleRow)
             addView(
-                StepSequencerPanelView(this@StepSequencerActivity),
+                ChannelRackPanelView(this@StepSequencerActivity),
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }

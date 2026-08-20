@@ -36,9 +36,9 @@ class StepRowView(context: Context) : View(context) {
     private var paintValue = false
     private var lastIndex = -1
 
-    private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AppTheme.accentColor(context) }
-    private val offGroupAPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(34, 38, 46) }
-    private val offGroupBPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(52, 34, 38) }
+    private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(235, 110, 130) }
+    private val offGroupAPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(38, 42, 50) }
+    private val offGroupBPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(48, 32, 36) }
     private val playheadPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.argb(90, 255, 255, 255)
         style = Paint.Style.FILL
