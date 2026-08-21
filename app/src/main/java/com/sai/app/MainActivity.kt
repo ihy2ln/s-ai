@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -39,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var rootView: LinearLayout
     private lateinit var modulesColumn: ModuleStackView
     private lateinit var modulesScroll: ModulesScrollView
+    private lateinit var edgeScrollBar: EdgeScrollBar
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
     private var isDraggingModuleHandle = false
@@ -332,7 +334,6 @@ class MainActivity : ComponentActivity() {
 
         modulesScroll = ModulesScrollView(this).apply {
             isFillViewport = false
-            isVerticalScrollBarEnabled = true
             addView(modulesColumn, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT))
             viewTreeObserver.addOnGlobalLayoutListener {
                 if (isDraggingModuleHandle || keepUserModuleHeights) return@addOnGlobalLayoutListener
@@ -341,15 +342,28 @@ class MainActivity : ComponentActivity() {
                     lastModuleScrollHeight = h
                     fitModulesToScreen()
                 }
+                if (::edgeScrollBar.isInitialized) edgeScrollBar.invalidate()
             }
+        }
+
+        edgeScrollBar = EdgeScrollBar(this).apply { scrollTarget = modulesScroll }
+
+        val modulesArea = FrameLayout(this).apply {
+            addView(modulesScroll, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(
+                edgeScrollBar,
+                FrameLayout.LayoutParams((22 * density).toInt(), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END),
+            )
         }
 
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
+            setPadding(pad, pad, 0, pad)
             setBackgroundColor(Color.rgb(18, 18, 20))
-            addView(headerRow)
-            addView(modulesScroll, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            addView(headerRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = pad
+            })
+            addView(modulesArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             isLongClickable = true
             setOnLongClickListener { showNav(); true }
         }
@@ -672,7 +686,10 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             addView(panel)
             addView(
-                ScrollView(this@MainActivity).apply { addView(listContainer) },
+                ScrollView(this@MainActivity).apply {
+                    isNestedScrollingEnabled = false
+                    addView(listContainer)
+                },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (100 * density).toInt()),
             )
         }
@@ -712,7 +729,10 @@ class MainActivity : ComponentActivity() {
             addView(statusTextView)
             addView(header)
             addView(
-                ScrollView(this@MainActivity).apply { addView(songRowsView) },
+                ScrollView(this@MainActivity).apply {
+                    isNestedScrollingEnabled = false
+                    addView(songRowsView)
+                },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }

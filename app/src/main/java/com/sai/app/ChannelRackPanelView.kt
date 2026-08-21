@@ -131,7 +131,10 @@ class ChannelRackPanelView @JvmOverloads constructor(
         addView(toolbar)
         addView(beatHeaderRow)
         addView(
-            ScrollView(context).apply { addView(rowsContainer) },
+            ScrollView(context).apply {
+                isNestedScrollingEnabled = false
+                addView(rowsContainer)
+            },
             LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f),
         )
         addView(addChannelButton)

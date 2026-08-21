@@ -24,7 +24,6 @@ class ModuleStackView(context: Context) : LinearLayout(context) {
 
     init {
         orientation = VERTICAL
-        isMotionEventSplittingEnabled = false
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {

@@ -83,7 +83,10 @@ class SynthPanelView @JvmOverloads constructor(
         addView(sampleNameLabel)
         addView(waveformsRow)
         addView(waveform, LayoutParams(LayoutParams.MATCH_PARENT, (80 * density).toInt()))
-        addView(HorizontalScrollView(context).apply { addView(knobsRow) })
+        addView(HorizontalScrollView(context).apply {
+            isNestedScrollingEnabled = false
+            addView(knobsRow)
+        })
         addView(buttonsRow)
     }
 
