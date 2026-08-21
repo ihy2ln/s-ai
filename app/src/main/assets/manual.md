@@ -90,6 +90,10 @@ The Home screen stacks up to four modules. Each module has:
 
 Drag the **grey divider bar** under a module to resize it freely. Drag down to expand the module above the bar; drag up to shrink it. Other modules keep their size and you can scroll if the stack grows taller than the screen.
 
+**Scrolling the page** (one-finger drags stay with knobs and pads):
+- Drag the **thin bar on the far right edge** of the screen
+- Or swipe **up or down with two fingers**
+
 | Module | Purpose |
 | --- | --- |
 | **SAMPLER** | Waveform view, slice pads, record audio |
