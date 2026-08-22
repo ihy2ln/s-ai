@@ -7,6 +7,7 @@ import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.sai.core.audio.Filter
 import com.sai.core.audio.Oscillator
 import com.sai.core.audio.Waveform
@@ -20,6 +21,7 @@ class SynthPanelView @JvmOverloads constructor(
 ) : LinearLayout(context, attrs) {
 
     private val sampleNameLabel: TextView
+    private val hintLabel: TextView
     private val waveform: WaveformView
 
     private var wav: Wav? = null
@@ -35,6 +37,9 @@ class SynthPanelView @JvmOverloads constructor(
     /** Invoked with the processed sound when the user wants to keep it as a usable instrument. */
     var onSaveToLibrary: ((sourceName: String, wav: Wav) -> Unit)? = null
 
+    /** Invoked with the processed sound to add it to the sample library and pick a module for it. */
+    var onAddAsSample: ((sourceName: String, wav: Wav) -> Unit)? = null
+
     init {
         orientation = VERTICAL
         val density = resources.displayMetrics.density
@@ -42,6 +47,12 @@ class SynthPanelView @JvmOverloads constructor(
         sampleNameLabel = TextView(context).apply {
             text = "No sample loaded"
             setTextColor(Color.WHITE)
+        }
+
+        hintLabel = TextView(context).apply {
+            text = "Tap the wave to play"
+            setTextColor(Color.rgb(140, 150, 165))
+            textSize = 10f
         }
 
         val waveformsRow = LinearLayout(context).apply {
@@ -58,7 +69,10 @@ class SynthPanelView @JvmOverloads constructor(
             }
         }
 
-        waveform = WaveformView(context)
+        waveform = WaveformView(context).apply {
+            setBackgroundColor(Color.rgb(26, 28, 32))
+            setOnClickListener { preview() }
+        }
 
         val knobsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
@@ -70,24 +84,45 @@ class SynthPanelView @JvmOverloads constructor(
             addView(Knob.labeled(context, "PITCH", -24f, 24f, pitch, { "%+.0fst".format(it) }) { pitch = it })
         }
 
-        val previewButton = Button(context).apply { text = "Preview"; setOnClickListener { preview() } }
-        val applyButton = Button(context).apply { text = "Apply"; setOnClickListener { applyInPlace() } }
-        val saveButton = Button(context).apply { text = "Save to Library"; setOnClickListener { saveToLibrary() } }
+        val previewButton = compactButton("Preview") { preview() }
+        val applyButton = compactButton("Apply") { applyInPlace() }
+        val addSampleButton = compactButton("Add as Sample") { addAsSample() }
+        val saveButton = compactButton("Save to Library") { saveToLibrary() }
         val buttonsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             addView(previewButton)
             addView(applyButton)
+            addView(addSampleButton)
             addView(saveButton)
         }
 
         addView(sampleNameLabel)
+        addView(hintLabel)
         addView(waveformsRow)
         addView(waveform, LayoutParams(LayoutParams.MATCH_PARENT, (80 * density).toInt()))
         addView(HorizontalScrollView(context).apply {
             isNestedScrollingEnabled = false
             addView(knobsRow)
         })
-        addView(buttonsRow)
+        addView(HorizontalScrollView(context).apply {
+            isNestedScrollingEnabled = false
+            addView(buttonsRow)
+        })
+    }
+
+    private fun compactButton(label: String, onClick: () -> Unit): Button {
+        val density = resources.displayMetrics.density
+        return Button(context).apply {
+            text = label
+            textSize = 11f
+            minHeight = 0
+            minimumHeight = 0
+            setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
+            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                setMargins((2 * density).toInt(), 0, (2 * density).toInt(), 0)
+            }
+            setOnClickListener { onClick() }
+        }
     }
 
     fun load(newWav: Wav, name: String) {
@@ -100,6 +135,7 @@ class SynthPanelView @JvmOverloads constructor(
     private fun loadWaveform(waveform: Waveform) {
         val name = Oscillator.displayName(waveform)
         load(Oscillator.generate(waveform), name)
+        preview()
     }
 
     private fun refreshWaveform() {
@@ -128,5 +164,14 @@ class SynthPanelView @JvmOverloads constructor(
     private fun saveToLibrary() {
         val result = processed() ?: return
         onSaveToLibrary?.invoke(sourceName, result)
+    }
+
+    private fun addAsSample() {
+        val result = processed()
+        if (result == null) {
+            Toast.makeText(context, "Load a sample or pick a waveform first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        onAddAsSample?.invoke(sourceName, result)
     }
 }

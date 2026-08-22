@@ -137,13 +137,34 @@ Load a sample or generate a waveform:
 | Triangle | Triangle |
 | Square | Square |
 
+Tapping a waveform button loads that shape **and plays it**.
+
+### Playing the sound
+
+**Tap the wave display** to hear the current sound with your knob settings applied. Use it like an instrument pad while you dial in the filter.
+
 Six knobs shape the sound:
 
 - **LOW CUT / HIGH CUT** — band limits
 - **CUTOFF / RES / CRUNCH** — filter character
 - **PITCH** — ±24 semitones
 
-**Apply** bakes the filter into the WAV. **Save to Library** stores the result under the Synth category.
+### Buttons
+
+| Button | Action |
+| --- | --- |
+| **Preview** | Play the current sound (same as tapping the wave) |
+| **Apply** | Bake the filter into the loaded WAV |
+| **Add as Sample** | Save to the library, then choose a module to place it in |
+| **Save to Library** | Save under the Synth category without placing it |
+
+**Add as Sample** asks where the new sound should go:
+
+- **Sampler** — loads it into the Sampler panel, ready to slice
+- **Channel Rack** — pick a channel and it becomes that channel's instrument
+- **Save only** — keep it in the library for later
+
+Only modules currently on screen are offered.
 
 ## Tracker Module
 
@@ -175,7 +196,7 @@ Inspired by FL Studio's Channel Rack. Each row is one channel:
 | **Pan knob** | Stereo pan (0.5 = center) |
 | **Mixer track** | Tap to cycle route `---` through `1`–`9` |
 | **Channel button** | Tap to assign a sample; red = unassigned |
-| **Step grid** | 16 steps; tap or drag to paint on/off |
+| **Step grid** | 16 square steps; tap or drag to paint on/off |
 
 ### Toolbar
 

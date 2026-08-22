@@ -48,8 +48,8 @@ class StepRowView(context: Context) : View(context) {
         style = Paint.Style.STROKE
         strokeWidth = 1.5f * context.resources.displayMetrics.density
     }
-    private val gapPx = 2.5f * context.resources.displayMetrics.density
-    private val cornerPx = 3f * context.resources.displayMetrics.density
+    private val gapPx = 2f * context.resources.displayMetrics.density
+    private val cornerPx = 2f * context.resources.displayMetrics.density
 
     fun setStates(newStates: BooleanArray) {
         states = newStates.copyOf(stepCount)
@@ -60,22 +60,25 @@ class StepRowView(context: Context) : View(context) {
         super.onDraw(canvas)
         if (stepCount <= 0 || width <= 0) return
         val cellWidth = width.toFloat() / stepCount
+        val side = minOf(cellWidth, height.toFloat()) - gapPx
+        if (side <= 0f) return
+        val top = (height - side) / 2f
+        val bottom = top + side
+
         for (i in 0 until stepCount) {
-            val left = i * cellWidth + gapPx / 2
-            val right = (i + 1) * cellWidth - gapPx / 2
+            val left = i * cellWidth + (cellWidth - side) / 2f
             val paint = when {
                 states.getOrElse(i) { false } -> onPaint
                 (i / 4) % 2 == 0 -> offGroupAPaint
                 else -> offGroupBPaint
             }
-            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, paint)
+            canvas.drawRoundRect(left, top, left + side, bottom, cornerPx, cornerPx, paint)
         }
 
         if (playheadStep in 0 until stepCount) {
-            val left = playheadStep * cellWidth + gapPx / 2
-            val right = (playheadStep + 1) * cellWidth - gapPx / 2
-            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, playheadPaint)
-            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, playheadBorderPaint)
+            val left = playheadStep * cellWidth + (cellWidth - side) / 2f
+            canvas.drawRoundRect(left, top, left + side, bottom, cornerPx, cornerPx, playheadPaint)
+            canvas.drawRoundRect(left, top, left + side, bottom, cornerPx, cornerPx, playheadBorderPaint)
         }
     }
 
