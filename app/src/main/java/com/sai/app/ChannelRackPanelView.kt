@@ -278,6 +278,28 @@ class ChannelRackPanelView @JvmOverloads constructor(
         refreshRows()
     }
 
+    /** Asks which channel should host [instrumentIndex], then assigns it there. */
+    fun promptAssignInstrument(instrumentIndex: Int, displayName: String) {
+        val visible = ChannelRackStore.visibleCount(context).coerceAtMost(channels.size)
+        if (visible <= 0) return
+        val entries = library.all()
+        val labels = (0 until visible).map { index ->
+            val current = channels[index].instrumentIndex
+                ?.let { entries.getOrNull(it)?.displayName }
+                ?: "Empty"
+            "Channel ${index + 1} - $current"
+        }.toTypedArray()
+
+        AlertDialog.Builder(context)
+            .setTitle("Place $displayName in")
+            .setItems(labels) { _, which ->
+                updateChannel(which) { it.withInstrument(instrumentIndex) }
+                refreshRows()
+                Toast.makeText(context, "$displayName on channel ${which + 1}", Toast.LENGTH_SHORT).show()
+            }
+            .show()
+    }
+
     private fun pickInstrument(channelIndex: Int) {
         val entries = library.all()
         if (entries.isEmpty()) {

@@ -24,11 +24,12 @@ class BeatMarkerView(context: Context) : View(context) {
         super.onDraw(canvas)
         if (stepCount <= 0 || width <= 0) return
         val cellWidth = width.toFloat() / stepCount
+        val side = cellWidth - gapPx
+        if (side <= 0f) return
         for (i in 0 until stepCount) {
-            val left = i * cellWidth + gapPx / 2
-            val right = (i + 1) * cellWidth - gapPx / 2
+            val left = i * cellWidth + (cellWidth - side) / 2f
             val paint = if ((i / 4) % 2 == 0) groupAPaint else groupBPaint
-            canvas.drawRoundRect(left, 0f, right, height.toFloat(), cornerPx, cornerPx, paint)
+            canvas.drawRoundRect(left, 0f, left + side, height.toFloat(), cornerPx, cornerPx, paint)
         }
     }
 }

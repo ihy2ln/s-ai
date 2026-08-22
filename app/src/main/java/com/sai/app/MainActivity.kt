@@ -702,6 +702,11 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this@MainActivity, "Saved ${saved.size} to your sample library", Toast.LENGTH_LONG).show()
                 refreshSampleList()
             }
+            onAddAsSample = { sourceName, wav ->
+                val saved = SliceExporter.saveToLibrary(this@MainActivity, sourceName, listOf(wav), SoundCategory.SYNTH)
+                refreshSampleList()
+                saved.firstOrNull()?.let { promptPlaceSample(it) }
+            }
         }
         synthPanel = panel
 
@@ -802,6 +807,43 @@ class MainActivity : ComponentActivity() {
             addView(accentStrip, LinearLayout.LayoutParams((6 * density).toInt(), LinearLayout.LayoutParams.MATCH_PARENT))
             addView(nameButton, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
+    }
+
+    /**
+     * A sound was just added to the library; offer to drop it straight into a module. Only modules
+     * that are actually on screen are listed, and "Save only" always leaves it in the library.
+     */
+    private fun promptPlaceSample(entry: SampleEntry) {
+        val labels = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+
+        if (samplerPanel != null) {
+            labels.add("Sampler")
+            actions.add { loadIntoSampler(entry) }
+        }
+        val rack = stepSequencerPanel
+        if (rack != null) {
+            labels.add("Channel Rack")
+            actions.add { assignToChannelRack(rack, entry) }
+        }
+        labels.add("Save only")
+        actions.add {
+            Toast.makeText(this, "${entry.displayName} saved to your sample library", Toast.LENGTH_SHORT).show()
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Place ${entry.displayName}")
+            .setItems(labels.toTypedArray()) { _, which -> actions[which].invoke() }
+            .show()
+    }
+
+    private fun assignToChannelRack(rack: ChannelRackPanelView, entry: SampleEntry) {
+        val instrumentIndex = library.all().indexOfFirst { it.uri == entry.uri }
+        if (instrumentIndex < 0) {
+            Toast.makeText(this, "Couldn't find ${entry.displayName} in the library", Toast.LENGTH_LONG).show()
+            return
+        }
+        rack.promptAssignInstrument(instrumentIndex, entry.displayName)
     }
 
     private fun loadIntoSampler(entry: SampleEntry) {
