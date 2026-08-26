@@ -58,6 +58,9 @@ class MainActivity : ComponentActivity() {
     // Synth module
     private var synthPanel: SynthPanelView? = null
 
+    // Pad bank
+    private var padBankPanel: PadBankPanelView? = null
+
     // Step sequencer module
     private var stepSequencerPanel: ChannelRackPanelView? = null
 
@@ -653,6 +656,9 @@ class MainActivity : ComponentActivity() {
                 ModuleType.SYNTH -> {
                     addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSynthSample.launch(arrayOf("audio/*")) } })
                 }
+                ModuleType.PADS -> {
+                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
+                }
                 ModuleType.TRACKER -> {
                     addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
                 }
@@ -688,6 +694,10 @@ class MainActivity : ComponentActivity() {
         val created = when (type) {
             ModuleType.SAMPLER -> buildSamplerContent()
             ModuleType.SYNTH -> buildSynthContent()
+            ModuleType.PADS -> PadBankPanelView(this).also { panel ->
+                padBankPanel = panel
+                panel.onPadPlay = { entry -> onPadTriggered(entry) }
+            }
             ModuleType.TRACKER -> buildTrackerContent()
             ModuleType.STEP_SEQUENCER -> ChannelRackPanelView(this).also { panel ->
                 stepSequencerPanel = panel
@@ -869,9 +879,10 @@ class MainActivity : ComponentActivity() {
             container.addView(label("No samples yet. Tap M > Samples or Sounds."))
             return
         }
-        for ((index, entry) in entries.withIndex()) {
+            for ((index, entry) in entries.withIndex()) {
             container.addView(sampleRow(entry, PALETTE[index % PALETTE.size]))
         }
+        padBankPanel?.refresh()
     }
 
     private fun sampleRow(entry: SampleEntry, accent: Int): LinearLayout {
@@ -945,6 +956,23 @@ class MainActivity : ComponentActivity() {
             .setTitle("Place ${entry.displayName}")
             .setItems(labels.toTypedArray()) { _, which -> actions[which].invoke() }
             .show()
+    }
+
+    private fun onPadTriggered(entry: SampleEntry) {
+        if (recordArmed && sequencer.isRunning) {
+            recordLiveHit(entry)
+            return
+        }
+        try {
+            val choke = ModuleLayoutStore.isChokeEnabled(this, ModuleType.PADS)
+            AudioPlayback.playOneShot(
+                SampleLoader.decode(contentResolver, entry.uri),
+                context = this,
+                chokeGroup = if (choke) "pads" else null,
+            )
+        } catch (e: Exception) {
+            Toast.makeText(this, "Couldn't play ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun assignToChannelRack(rack: ChannelRackPanelView, entry: SampleEntry) {

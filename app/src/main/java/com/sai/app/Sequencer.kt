@@ -1,6 +1,7 @@
 package com.sai.app
 
 import android.content.Context
+import com.sai.core.audio.Envelope
 import com.sai.core.audio.MixerMath
 import com.sai.core.audio.Oscillator
 import com.sai.core.audio.RackMix
@@ -90,7 +91,7 @@ class Sequencer(
                 for (event in events) {
                     val instrument = event.step.instrument ?: continue
                     val wav = sampleCache[instrument] ?: continue
-                    playOneShot(wav, event.step, event.track)
+                    playOneShot(wav, event.step, event.track, bpm)
                 }
                 elapsedMs += stepMillis * Swing.intervalFraction(playedStep, swingPercent)
                 SequencerClock.waitUntil(SequencerClock.deadlineNanos(startNanos, elapsedMs)) { running }
@@ -129,7 +130,7 @@ class Sequencer(
         }
     }
 
-    private fun playOneShot(wav: Wav, step: Step, track: Int) {
+    private fun playOneShot(wav: Wav, step: Step, track: Int, bpm: Int) {
         val rack = ChannelRackStore.channel(context, track)
         val anyRackSolo = ChannelRackStore.anySolo(context)
         if (!RackMix.isAudible(rack?.muted ?: false, rack?.soloed ?: false, anyRackSolo)) return
@@ -155,6 +156,11 @@ class Sequencer(
         )
         if (linear <= 0f) return
         var processed = com.sai.core.audio.SampleEditor.gain(wav, MixerMath.gainDb(linear))
+        val gateSteps = step.length?.takeIf { it > 0 }
+        if (gateSteps != null) {
+            val frames = (processed.sampleRate * 60.0 / bpm.coerceAtLeast(1) / 4.0 * gateSteps).toInt().coerceAtLeast(1)
+            processed = Envelope.gate(processed, frames)
+        }
 
         val pan = RackMix.shaperPan(channel.pan)
         if (abs(pan) > 0.02) {

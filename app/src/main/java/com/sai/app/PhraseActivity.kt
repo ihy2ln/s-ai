@@ -175,7 +175,7 @@ class PhraseActivity : ComponentActivity() {
     }
 
     private fun buildStepSection(): LinearLayout {
-        val header = gridRow(listOf("  ", "NOTE", "INS", "VOL"), Color.rgb(120, 140, 160))
+        val header = gridRow(listOf("  ", "NOTE", "INS", "VOL", "LEN"), Color.rgb(120, 140, 160))
         stepRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         return LinearLayout(this).apply {
@@ -256,6 +256,7 @@ class PhraseActivity : ComponentActivity() {
         val noteText = step.note?.let(NoteNames::format) ?: "---"
         val instrText = step.instrument?.let { "%02X".format(it) } ?: "--"
         val volText = step.volume?.let { "%03d".format(it) } ?: "---"
+        val lenText = step.length?.let { "%02d".format(it) } ?: "fl"
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -263,6 +264,7 @@ class PhraseActivity : ComponentActivity() {
             addView(cellValue(noteText) { editNote(stepIndex) }, cellParams(density, 60))
             addView(cellValue(instrText) { editInstrument(stepIndex) }, cellParams(density, 44))
             addView(cellValue(volText) { editVolume(stepIndex) }, cellParams(density, 48))
+            addView(cellValue(lenText) { editLength(stepIndex) }, cellParams(density, 40))
         }
     }
 
@@ -288,7 +290,7 @@ class PhraseActivity : ComponentActivity() {
 
     private fun gridRow(labels: List<String>, color: Int): LinearLayout {
         val density = resources.displayMetrics.density
-        val widths = listOf(28, 60, 44, 48)
+        val widths = listOf(28, 60, 44, 48, 40)
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             for ((index, text) in labels.withIndex()) {
@@ -342,6 +344,26 @@ class PhraseActivity : ComponentActivity() {
                 updateStep(stepIndex) { it.copy(volume = value) }
             }
             .setNeutralButton("Clear") { _, _ -> updateStep(stepIndex) { it.copy(volume = null) } }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun editLength(stepIndex: Int) {
+        val phrase = project.phrases[phraseId] ?: return
+        val current = phrase.steps[stepIndex].length
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(current?.toString().orEmpty())
+            hint = "1–32 16ths, blank = full sample"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Length (step %02X)".format(stepIndex))
+            .setView(input)
+            .setPositiveButton("Set") { _, _ ->
+                val value = input.text.toString().toIntOrNull()?.coerceIn(1, Phrase.MAX_STEPS)
+                updateStep(stepIndex) { it.copy(length = value) }
+            }
+            .setNeutralButton("Full") { _, _ -> updateStep(stepIndex) { it.copy(length = null) } }
             .setNegativeButton("Cancel", null)
             .show()
     }

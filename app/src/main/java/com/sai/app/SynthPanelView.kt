@@ -8,10 +8,12 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.sai.core.audio.Envelope
 import com.sai.core.audio.Filter
 import com.sai.core.audio.Oscillator
 import com.sai.core.audio.Waveform
 import com.sai.core.audio.Wav
+import kotlin.math.pow
 
 /** The SYNTH panel: loads a sample and shapes it with the 6-knob synth filter (same DSP as MX > Synth),
  *  live in the middle of the home screen instead of behind a dialog. */
@@ -33,6 +35,11 @@ class SynthPanelView @JvmOverloads constructor(
     private var resonance = 0.2f
     private var drive = 0f
     private var pitch = 0f
+    private var attack = 0.005f
+    private var decay = 0.08f
+    private var sustain = 0.85f
+    private var release = 0.12f
+    private var keyboardOctave = 4
 
     /** Invoked with the processed sound when the user wants to keep it as a usable instrument. */
     var onSaveToLibrary: ((sourceName: String, wav: Wav) -> Unit)? = null
@@ -84,6 +91,32 @@ class SynthPanelView @JvmOverloads constructor(
             addView(Knob.labeled(context, "PITCH", -24f, 24f, pitch, { "%+.0fst".format(it) }) { pitch = it })
         }
 
+        attack = SynthStore.attack(context)
+        decay = SynthStore.decay(context)
+        sustain = SynthStore.sustain(context)
+        release = SynthStore.release(context)
+        val envRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            addView(Knob.labeled(context, "ATK", 0f, 1f, attack, { "%.2fs".format(it) }) {
+                attack = it
+                SynthStore.setAttack(context, it)
+            })
+            addView(Knob.labeled(context, "DEC", 0f, 1f, decay, { "%.2fs".format(it) }) {
+                decay = it
+                SynthStore.setDecay(context, it)
+            })
+            addView(Knob.labeled(context, "SUS", 0f, 1f, sustain, { "%.2f".format(it) }) {
+                sustain = it
+                SynthStore.setSustain(context, it)
+            })
+            addView(Knob.labeled(context, "REL", 0f, 1.5f, release, { "%.2fs".format(it) }) {
+                release = it
+                SynthStore.setRelease(context, it)
+            })
+        }
+
+        val keyboard = buildKeyboard()
+
         val previewButton = compactButton("Preview") { preview() }
         val applyButton = compactButton("Apply") { applyInPlace() }
         val addSampleButton = compactButton("Add as Sample") { addAsSample() }
@@ -104,6 +137,11 @@ class SynthPanelView @JvmOverloads constructor(
             isNestedScrollingEnabled = false
             addView(knobsRow)
         })
+        addView(HorizontalScrollView(context).apply {
+            isNestedScrollingEnabled = false
+            addView(envRow)
+        })
+        addView(keyboard)
         addView(HorizontalScrollView(context).apply {
             isNestedScrollingEnabled = false
             addView(buttonsRow)
@@ -146,13 +184,66 @@ class SynthPanelView @JvmOverloads constructor(
 
     private fun processed(): Wav? {
         val current = wav ?: return null
-        return Filter.apply(current, lowCut.toDouble(), highCut.toDouble(), cutoff.toDouble(), resonance.toDouble(), drive.toDouble(), pitch.toDouble())
+        val filtered = Filter.apply(current, lowCut.toDouble(), highCut.toDouble(), cutoff.toDouble(), resonance.toDouble(), drive.toDouble(), pitch.toDouble())
+        return Envelope.apply(filtered, attack.toDouble(), decay.toDouble(), sustain.toDouble(), release.toDouble())
     }
 
     private fun preview() {
+        playLive(60)
+    }
+
+    private fun playLive(midiNote: Int) {
         val result = processed() ?: return
         val choke = ModuleLayoutStore.isChokeEnabled(context, ModuleType.SYNTH)
-        AudioPlayback.playOneShot(result, context = context, chokeGroup = if (choke) "synth" else null)
+        val rate = 2.0.pow((midiNote - 60) / 12.0).toFloat()
+        AudioPlayback.playOneShot(result, rate, context, chokeGroup = if (choke) "synth" else null)
+    }
+
+    private fun buildKeyboard(): LinearLayout {
+        val density = resources.displayMetrics.density
+        val names = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        val black = setOf(1, 3, 6, 8, 10)
+        val octaveLabel = TextView(context).apply {
+            text = "C$keyboardOctave"
+            setTextColor(Color.WHITE)
+            gravity = android.view.Gravity.CENTER
+            textSize = 11f
+        }
+        val keys = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            addView(compactButton("-") {
+                keyboardOctave = (keyboardOctave - 1).coerceIn(1, 7)
+                octaveLabel.text = "C$keyboardOctave"
+            })
+            addView(octaveLabel)
+            addView(compactButton("+") {
+                keyboardOctave = (keyboardOctave + 1).coerceIn(1, 7)
+                octaveLabel.text = "C$keyboardOctave"
+            })
+            for ((index, name) in names.withIndex()) {
+                addView(Button(context).apply {
+                    text = name
+                    textSize = 10f
+                    minHeight = 0
+                    minimumHeight = 0
+                    minWidth = 0
+                    setPadding((6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt())
+                    setTextColor(if (index in black) Color.WHITE else Color.BLACK)
+                    setBackgroundColor(if (index in black) Color.rgb(40, 42, 48) else Color.rgb(220, 220, 225))
+                    setOnClickListener { playLive((keyboardOctave + 1) * 12 + index) }
+                })
+            }
+        }
+        return LinearLayout(context).apply {
+            orientation = VERTICAL
+            addView(TextView(context).apply {
+                text = "Keys — POLY stacks notes; MONO cuts the previous one"
+                setTextColor(Color.rgb(140, 150, 165))
+                textSize = 10f
+            })
+            addView(HorizontalScrollView(context).apply { addView(keys) })
+        }
     }
 
     private fun applyInPlace() {

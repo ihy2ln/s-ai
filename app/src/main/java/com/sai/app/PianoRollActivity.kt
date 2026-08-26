@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -15,15 +16,21 @@ import com.sai.core.tracker.NoteNames
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
-/** A piano-roll editor for one phrase: notes on the vertical axis, up to 32 steps across. */
+/** Piano roll: notes on Y, steps on X, with octave range, paint velocity, and note length. */
 class PianoRollActivity : ComponentActivity() {
 
     private lateinit var project: TrackerProject
     private lateinit var library: SampleLibrary
     private var phraseId: Int = 0
     private var instrumentId: Int? = null
+    private var lowestNote = 48
+    private var paintVelocity = 100
+    private var paintLength = 0
 
     private lateinit var instrumentButton: Button
+    private lateinit var rangeLabel: TextView
+    private lateinit var velocityButton: Button
+    private lateinit var lengthButton: Button
     private lateinit var rowsContainer: LinearLayout
     private val rowViews = mutableMapOf<Int, StepRowView>()
 
@@ -68,6 +75,33 @@ class PianoRollActivity : ComponentActivity() {
             setOnClickListener { pickInstrument() }
         }
 
+        rangeLabel = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            gravity = Gravity.CENTER
+        }
+        velocityButton = Button(this).apply {
+            textSize = 11f
+            minHeight = 0
+            setOnClickListener { cycleVelocity() }
+        }
+        lengthButton = Button(this).apply {
+            textSize = 11f
+            minHeight = 0
+            setOnClickListener { cycleLength() }
+        }
+        refreshToolbarLabels()
+
+        val tools = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(compactButton("-8va") { shiftRange(-12) })
+            addView(rangeLabel)
+            addView(compactButton("+8va") { shiftRange(12) })
+            addView(velocityButton)
+            addView(lengthButton)
+        }
+
         rowsContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         return LinearLayout(this).apply {
@@ -75,11 +109,59 @@ class PianoRollActivity : ComponentActivity() {
             setPadding(pad, pad, pad, pad)
             addView(titleRow)
             addView(instrumentButton)
+            addView(HorizontalScrollView(this@PianoRollActivity).apply { addView(tools) })
             addView(
                 ScrollView(this@PianoRollActivity).apply { addView(rowsContainer) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }
+    }
+
+    private fun compactButton(label: String, onClick: () -> Unit): Button {
+        val density = resources.displayMetrics.density
+        return Button(this).apply {
+            text = label
+            textSize = 11f
+            minHeight = 0
+            minimumHeight = 0
+            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun refreshToolbarLabels() {
+        rangeLabel.text = " ${NoteNames.format(lowestNote)}–${NoteNames.format(highestNote())} "
+        velocityButton.text = "Vel $paintVelocity"
+        lengthButton.text = if (paintLength <= 0) "Len full" else "Len $paintLength"
+    }
+
+    private fun highestNote() = (lowestNote + RANGE_SEMITONES - 1).coerceAtMost(127)
+
+    private fun shiftRange(delta: Int) {
+        lowestNote = (lowestNote + delta).coerceIn(0, 127 - RANGE_SEMITONES + 1)
+        refreshToolbarLabels()
+        refreshRows()
+    }
+
+    private fun cycleVelocity() {
+        paintVelocity = when (paintVelocity) {
+            127 -> 50
+            50 -> 80
+            80 -> 100
+            else -> 127
+        }
+        refreshToolbarLabels()
+    }
+
+    private fun cycleLength() {
+        paintLength = when (paintLength) {
+            0 -> 1
+            1 -> 2
+            2 -> 4
+            4 -> 8
+            else -> 0
+        }
+        refreshToolbarLabels()
     }
 
     private fun pickInstrument() {
@@ -101,7 +183,7 @@ class PianoRollActivity : ComponentActivity() {
     private fun refreshRows() {
         rowsContainer.removeAllViews()
         rowViews.clear()
-        for (note in HIGHEST_NOTE downTo LOWEST_NOTE) {
+        for (note in highestNote() downTo lowestNote) {
             rowsContainer.addView(noteRow(note))
         }
     }
@@ -121,7 +203,7 @@ class PianoRollActivity : ComponentActivity() {
 
         val stepsRow = StepRowView(this).apply {
             stepCount = Phrase.MAX_STEPS
-            setStates(BooleanArray(Phrase.MAX_STEPS) { phrase?.steps?.get(it)?.note == note })
+            setStates(BooleanArray(Phrase.MAX_STEPS) { covers(phrase, it, note) })
             onStepToggleRequested = { index, desiredOn -> tryToggleNote(index, note, desiredOn) }
             layoutParams = LinearLayout.LayoutParams(0, (22 * density).toInt(), 1f)
         }
@@ -136,9 +218,19 @@ class PianoRollActivity : ComponentActivity() {
         }
     }
 
-    /** A step holds only one note, so setting a note here must also clear it from whichever
-     *  other row previously held that step - done by refreshing every row's own state in place
-     *  (never rebuilding the view tree, which would break a StepRowView mid-drag). */
+    private fun covers(phrase: Phrase?, stepIndex: Int, note: Int): Boolean {
+        val steps = phrase?.steps ?: return false
+        val here = steps.getOrNull(stepIndex) ?: return false
+        if (here.note == note) return true
+        for (start in 0 until stepIndex) {
+            val step = steps[start]
+            if (step.note != note) continue
+            val span = (step.length ?: 1).coerceAtLeast(1)
+            if (stepIndex < start + span) return true
+        }
+        return false
+    }
+
     private fun tryToggleNote(stepIndex: Int, note: Int, desiredOn: Boolean): Boolean {
         val instrument = instrumentId
         if (desiredOn && instrument == null) {
@@ -147,21 +239,27 @@ class PianoRollActivity : ComponentActivity() {
         }
         val phrase = project.phrases[phraseId] ?: Phrase.empty()
         val steps = phrase.steps.toMutableList()
-        steps[stepIndex] = if (desiredOn) Step(note = note, instrument = instrument, volume = steps[stepIndex].volume) else Step()
+        steps[stepIndex] = if (desiredOn) {
+            Step(
+                note = note,
+                instrument = instrument,
+                volume = paintVelocity,
+                length = paintLength.takeIf { it > 0 },
+            )
+        } else {
+            Step()
+        }
         val updated = Phrase(steps)
         project.putPhrase(phraseId, updated)
 
         for ((rowNote, rowView) in rowViews) {
-            if (rowNote != note) {
-                rowView.setStates(BooleanArray(Phrase.MAX_STEPS) { updated.steps[it].note == rowNote })
-            }
+            rowView.setStates(BooleanArray(Phrase.MAX_STEPS) { covers(updated, it, rowNote) })
         }
         return true
     }
 
     companion object {
         const val EXTRA_PHRASE_ID = "phrase_id"
-        private const val LOWEST_NOTE = 48
-        private const val HIGHEST_NOTE = 72
+        private const val RANGE_SEMITONES = 24
     }
 }
