@@ -54,4 +54,15 @@ class MixerMathTest {
         )
         assertEquals(0.25f, gain)
     }
+
+    @Test
+    fun `strip insert follows mixerTrack routing`() {
+        val insert = InsertSlot(InsertKind.REVERB, params = InsertFx.defaults(InsertKind.REVERB))
+        val strips = List(MixerMath.STRIP_COUNT) { i ->
+            MixerMath.Strip(insert = if (i == 2) insert else InsertSlot())
+        }
+        assertFalse(MixerMath.stripInsert(MixerMath.Channel(mixerTrack = 0), strips).isActive)
+        assertFalse(MixerMath.stripInsert(MixerMath.Channel(mixerTrack = 1), strips).isActive)
+        assertTrue(MixerMath.stripInsert(MixerMath.Channel(mixerTrack = 3), strips).isActive)
+    }
 }

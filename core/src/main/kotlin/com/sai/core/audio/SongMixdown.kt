@@ -26,6 +26,7 @@ object SongMixdown {
         masterMuted: Boolean,
         projectMaster: Float,
         pitchSemitones: Int,
+        masterInsert: InsertSlot = InsertSlot(),
         chokeSameTrack: Boolean = false,
         sampleRate: Int = 44100,
         patternLengthAt: (Int) -> Int = { Phrase.DEFAULT_LENGTH },
@@ -41,11 +42,14 @@ object SongMixdown {
         )
         val anyRackSolo = MixerMath.anyRackSolo(channels)
 
-        var extra = 0
+        var extra = InsertFx.tailFrames(masterInsert, sampleRate)
         for (hit in hits) {
             val wav = samplesById[hit.step.instrument] ?: continue
             val rate = if (hit.pitched) rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones) else 1.0
-            extra = maxOf(extra, (wav.frameCount / rate).toInt() + 1)
+            val channel = channels.getOrElse(hit.track) { MixerMath.Channel() }
+            val insert = MixerMath.stripInsert(channel, strips)
+            val stretched = (wav.frameCount * InsertFx.lengthFactor(insert) / rate).toInt() + 1
+            extra = maxOf(extra, stretched + InsertFx.tailFrames(insert, sampleRate))
         }
         val totalFrames = mixdownFrameCount(totalSteps, stepFrames, swingPercent) + extra
         val left = DoubleArray(totalFrames)
@@ -57,11 +61,10 @@ object SongMixdown {
             for (index in sorted.indices) {
                 val hit = sorted[index]
                 val nextHit = if (chokeSameTrack) sorted.getOrNull(index + 1)?.startFrame else null
-                val gateAt = hit.step.length?.takeIf { it > 0 }?.let { hit.startFrame + it * stepFrames }
-                val cutAt = listOfNotNull(nextHit, gateAt).minOrNull()
                 mixHit(
                     hit = hit,
-                    cutAt = cutAt,
+                    chokeAt = nextHit,
+                    stepFrames = stepFrames,
                     samplesById = samplesById,
                     channel = channels.getOrElse(track) { MixerMath.Channel() },
                     strips = strips,
@@ -81,7 +84,7 @@ object SongMixdown {
             samples[i * 2] = (left[i] * 32767.0).toInt().coerceIn(-32768, 32767).toShort()
             samples[i * 2 + 1] = (right[i] * 32767.0).toInt().coerceIn(-32768, 32767).toShort()
         }
-        return Wav(sampleRate, 2, samples)
+        return InsertFx.apply(Wav(sampleRate, 2, samples), masterInsert)
     }
 
     private data class Hit(
@@ -147,7 +150,8 @@ object SongMixdown {
 
     private fun mixHit(
         hit: Hit,
-        cutAt: Int?,
+        chokeAt: Int?,
+        stepFrames: Int,
         samplesById: Map<Int, Wav>,
         channel: MixerMath.Channel,
         strips: List<MixerMath.Strip>,
@@ -172,27 +176,32 @@ object SongMixdown {
         if (linear <= 0f) return
 
         val rate = if (hit.pitched) rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones) else 1.0
-        val pitched = if (rate == 1.0) source else SampleWarp.resample(source, rate)
+        var voice = if (rate == 1.0) source else SampleWarp.resample(source, rate)
+        val gateFrames = hit.step.length?.takeIf { it > 0 }?.let { (it * stepFrames).coerceAtLeast(1) }
+        if (gateFrames != null) {
+            voice = Envelope.gate(voice, gateFrames)
+        }
+        voice = InsertFx.apply(voice, MixerMath.stripInsert(channel, strips))
         val pan = RackMix.shaperPan(channel.pan)
         val angle = (pan + 1.0) / 2.0 * (PI / 2.0)
         val leftGain = cos(angle) * linear
         val rightGain = sin(angle) * linear
 
-        val frames = pitched.frameCount
-        val end = (cutAt ?: (hit.startFrame + frames)).coerceAtMost(left.size)
-        val channels = pitched.channels
+        val frames = voice.frameCount
+        val end = (chokeAt ?: (hit.startFrame + frames)).coerceAtMost(left.size)
+        val channels = voice.channels
         var frame = 0
         var dest = hit.startFrame
         while (frame < frames && dest < end) {
             val l: Double
             val r: Double
             if (channels == 1) {
-                val s = pitched.samples[frame] / 32768.0
+                val s = voice.samples[frame] / 32768.0
                 l = s
                 r = s
             } else {
-                l = pitched.samples[frame * channels] / 32768.0
-                r = pitched.samples[frame * channels + 1] / 32768.0
+                l = voice.samples[frame * channels] / 32768.0
+                r = voice.samples[frame * channels + 1] / 32768.0
             }
             left[dest] += l * leftGain
             right[dest] += r * rightGain

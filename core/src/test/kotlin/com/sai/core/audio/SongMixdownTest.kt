@@ -166,10 +166,55 @@ class SongMixdownTest {
         assertTrue(wav.samples.all { it == 0.toShort() })
     }
 
+    @Test
+    fun `strip compressor makeup raises the mixdown peak`() {
+        val dry = render()
+        val insert = InsertSlot(
+            kind = InsertKind.COMPRESSOR,
+            params = InsertFx.mergeDefaults(InsertKind.COMPRESSOR, mapOf("ratio" to 1.0, "makeup" to 12.0)),
+        )
+        val wet = render(
+            strips = List(MixerMath.STRIP_COUNT) { i ->
+                MixerMath.Strip(insert = if (i == 0) insert else InsertSlot())
+            },
+        )
+        val dryPeak = dry.samples.maxOf { abs(it.toInt()) }
+        val wetPeak = wet.samples.maxOf { abs(it.toInt()) }
+        assertTrue(wetPeak > dryPeak)
+    }
+
+    @Test
+    fun `master insert makeup raises the mixdown peak`() {
+        val dry = render()
+        val insert = InsertSlot(
+            kind = InsertKind.COMPRESSOR,
+            params = InsertFx.mergeDefaults(InsertKind.COMPRESSOR, mapOf("ratio" to 1.0, "makeup" to 12.0)),
+        )
+        val wet = render(masterInsert = insert)
+        val dryPeak = dry.samples.maxOf { abs(it.toInt()) }
+        val wetPeak = wet.samples.maxOf { abs(it.toInt()) }
+        assertTrue(wetPeak > dryPeak)
+    }
+
+    @Test
+    fun `bypassed strip insert matches the dry mixdown`() {
+        val dry = render()
+        val insert = InsertSlot(
+            kind = InsertKind.COMPRESSOR,
+            bypassed = true,
+            params = InsertFx.mergeDefaults(InsertKind.COMPRESSOR, mapOf("makeup" to 24.0)),
+        )
+        val wet = render(
+            strips = List(MixerMath.STRIP_COUNT) { MixerMath.Strip(insert = insert) },
+        )
+        assertTrue(dry.samples.contentEquals(wet.samples))
+    }
+
     private fun render(
         channel: MixerMath.Channel = MixerMath.Channel(volume = 1f, pan = 0.5f, mixerTrack = 1),
         strips: List<MixerMath.Strip> = List(MixerMath.STRIP_COUNT) { MixerMath.Strip() },
         patternLength: Int = Phrase.DEFAULT_LENGTH,
+        masterInsert: InsertSlot = InsertSlot(),
     ): Wav {
         val steps = MutableList(Phrase.MAX_STEPS) { Step() }
         steps[0] = Step(note = 60, instrument = 0, volume = 127)
@@ -187,6 +232,7 @@ class SongMixdownTest {
             masterMuted = false,
             projectMaster = 1f,
             pitchSemitones = 0,
+            masterInsert = masterInsert,
             sampleRate = 44100,
             patternLengthAt = { patternLength },
         )
