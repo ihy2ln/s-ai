@@ -29,6 +29,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.sai.core.layout.WorkspaceLayout
+import com.sai.core.layout.WorkspaceLayoutMath
 import com.sai.core.tracker.LoopMode
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
@@ -43,6 +45,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var modulesColumn: ModuleStackView
     private lateinit var modulesScroll: ModulesScrollView
     private lateinit var edgeScrollBar: EdgeScrollBar
+    private lateinit var modulesArea: FrameLayout
+    private lateinit var boxesCanvas: ModuleBoxesCanvas
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
     private val moduleBodies = mutableMapOf<ModuleType, View>()
@@ -53,7 +57,7 @@ class MainActivity : ComponentActivity() {
     // Sampler module (null when that module isn't on screen)
     private var samplerPanel: SamplerPanelView? = null
     private var sampleListContainer: LinearLayout? = null
-    private var recordAudioButton: Button? = null
+    private var recordAudioButton: TextView? = null
 
     // Synth module
     private var synthPanel: SynthPanelView? = null
@@ -83,7 +87,7 @@ class MainActivity : ComponentActivity() {
     private var highlightedPosition = -1
     private var lastLiveStep = 0
     private val songRowViews = mutableListOf<LinearLayout>()
-    private val chokeButtons = mutableMapOf<ModuleType, Button>()
+    private val chokeButtons = mutableMapOf<ModuleType, TextView>()
 
     private val audioRecorder = AudioRecorder()
     private lateinit var routeLabel: TextView
@@ -373,7 +377,17 @@ class MainActivity : ComponentActivity() {
             isFillViewport = false
             addView(modulesColumn, android.widget.FrameLayout.LayoutParams(android.widget.FrameLayout.LayoutParams.MATCH_PARENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT))
             viewTreeObserver.addOnGlobalLayoutListener {
-                if (isDraggingModuleHandle || keepUserModuleHeights) return@addOnGlobalLayoutListener
+                if (isDraggingModuleHandle) return@addOnGlobalLayoutListener
+                val workspace = ModuleLayoutStore.workspace(this@MainActivity)
+                if (workspace == WorkspaceLayout.FOCUS) {
+                    val h = height
+                    if (h > 0 && h != lastModuleScrollHeight) {
+                        lastModuleScrollHeight = h
+                        applyFocusHeights()
+                    }
+                    return@addOnGlobalLayoutListener
+                }
+                if (keepUserModuleHeights) return@addOnGlobalLayoutListener
                 val h = height
                 if (h > 0 && h != lastModuleScrollHeight) {
                     lastModuleScrollHeight = h
@@ -385,12 +399,20 @@ class MainActivity : ComponentActivity() {
 
         edgeScrollBar = EdgeScrollBar(this).apply { scrollTarget = modulesScroll }
 
-        val modulesArea = FrameLayout(this).apply {
+        boxesCanvas = ModuleBoxesCanvas(this).apply {
+            visibility = View.GONE
+            onFramesChanged = {
+                ModuleLayoutStore.saveBoxes(this@MainActivity, snapshot())
+            }
+        }
+
+        modulesArea = FrameLayout(this).apply {
             addView(modulesScroll, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
             addView(
                 edgeScrollBar,
                 FrameLayout.LayoutParams((22 * density).toInt(), FrameLayout.LayoutParams.MATCH_PARENT, Gravity.END),
             )
+            addView(boxesCanvas, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
 
         rootView = LinearLayout(this).apply {
@@ -577,39 +599,108 @@ class MainActivity : ComponentActivity() {
         refreshSongGrid()
     }
 
-    /** Rebuilds module wrappers (order, heights, fullscreen) but reuses Sampler/Synth/Tracker/Rack
+    /** Rebuilds module wrappers (order, heights, workspace mode) but reuses Sampler/Synth/Tracker/Rack
      *  bodies so a loaded sound and in-progress pattern are not wiped by add/remove/reorder. */
     private fun rebuildModulesColumn() {
+        val workspace = ModuleLayoutStore.workspace(this)
+        val useBoxes = workspace == WorkspaceLayout.BOXES
+        modulesScroll.visibility = if (useBoxes) View.GONE else View.VISIBLE
+        edgeScrollBar.visibility = if (useBoxes) View.GONE else View.VISIBLE
+        boxesCanvas.visibility = if (useBoxes) View.VISIBLE else View.GONE
+
+        if (useBoxes) {
+            rebuildBoxesCanvas()
+            refreshSampleList()
+            refreshSongGrid()
+            return
+        }
+
+        modulesScroll.isFillViewport = ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS
         modulesColumn.removeAllViews()
         chokeButtons.clear()
         val density = resources.displayMetrics.density
+        val focusMode = workspace == WorkspaceLayout.FOCUS
 
-        val full = fullScreenModule
-        if (full != null && moduleEntries.any { it.type == full }) {
-            modulesColumn.addView(
-                buildModuleWrapper(full),
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT),
-            )
-        } else {
+        if (!focusMode) {
+            val full = fullScreenModule
+            if (full != null && moduleEntries.any { it.type == full }) {
+                modulesColumn.addView(
+                    buildModuleWrapper(full, focused = true),
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT),
+                )
+                refreshSampleList()
+                refreshSongGrid()
+                return
+            }
             fullScreenModule = null
             for (entry in moduleEntries) {
                 val heightPx = (entry.heightDp * density).toInt()
-                modulesColumn.addView(buildModuleWrapper(entry.type), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx))
-                modulesColumn.addView(ResizeHandleView(this), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()))
+                modulesColumn.addView(
+                    buildModuleWrapper(entry.type, focused = false),
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx),
+                )
+                modulesColumn.addView(
+                    ResizeHandleView(this),
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()),
+                )
+            }
+        } else {
+            fullScreenModule = null
+            val focused = resolveFocusedModule()
+            for (entry in moduleEntries) {
+                modulesColumn.addView(
+                    buildModuleWrapper(entry.type, focused = entry.type == focused),
+                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (entry.heightDp * density).toInt()),
+                )
             }
         }
 
         refreshSampleList()
         refreshSongGrid()
-        if (keepUserModuleHeights) {
+        if (focusMode) {
+            applyFocusHeights()
+        } else if (keepUserModuleHeights) {
             applyStoredModuleHeights()
         } else {
             fitModulesToScreen()
         }
     }
 
+    private fun rebuildBoxesCanvas() {
+        chokeButtons.clear()
+        val stored = ModuleLayoutStore.loadBoxes(this)
+        boxesCanvas.setModules(moduleEntries.map { it.type }, stored) { type ->
+            buildBoxCard(type)
+        }
+    }
+
+    private fun resolveFocusedModule(): ModuleType {
+        val stored = ModuleLayoutStore.focusedType(this)
+        if (stored != null && moduleEntries.any { it.type == stored }) return stored
+        val first = moduleEntries.firstOrNull()?.type ?: ModuleType.SAMPLER
+        ModuleLayoutStore.setFocusedType(this, first)
+        return first
+    }
+
+    private fun focusModule(type: ModuleType) {
+        if (ModuleLayoutStore.focusedType(this) == type &&
+            ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS
+        ) {
+            applyFocusHeights()
+            return
+        }
+        ModuleLayoutStore.setFocusedType(this, type)
+        if (ModuleLayoutStore.workspace(this) != WorkspaceLayout.FOCUS) return
+        rebuildModulesColumn()
+    }
+
     private fun fitModulesToScreen() {
         if (!::modulesScroll.isInitialized || isDraggingModuleHandle || keepUserModuleHeights) return
+        if (ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS) {
+            applyFocusHeights()
+            return
+        }
+        if (ModuleLayoutStore.workspace(this) == WorkspaceLayout.BOXES) return
         ModuleLayoutFit.redistribute(
             scroll = modulesScroll,
             column = modulesColumn,
@@ -622,12 +713,35 @@ class MainActivity : ComponentActivity() {
         syncEntriesFromDisplayedHeights()
     }
 
+    private fun applyFocusHeights() {
+        if (!::modulesScroll.isInitialized) return
+        val availablePx = modulesScroll.height
+        if (availablePx <= 0) return
+        val density = resources.displayMetrics.density
+        val focused = resolveFocusedModule()
+        val focusedIndex = moduleEntries.indexOfFirst { it.type == focused }.coerceAtLeast(0)
+        val heights = WorkspaceLayoutMath.focusHeights(
+            count = moduleEntries.size,
+            focusedIndex = focusedIndex,
+            availableDp = availablePx / density,
+        )
+        for (index in moduleEntries.indices) {
+            val wrapper = modulesColumn.getChildAt(index) ?: continue
+            val heightPx = (heights[index] * density).toInt().coerceAtLeast(1)
+            wrapper.layoutParams = wrapper.layoutParams.apply { height = heightPx }
+            val body = (wrapper as? ViewGroup)?.getChildAt(1)
+            body?.visibility = if (index == focusedIndex) View.VISIBLE else View.GONE
+        }
+        modulesColumn.requestLayout()
+    }
+
     private fun applyStoredModuleHeights() {
         ModuleLayoutFit.applyStoredHeights(modulesColumn, moduleEntries, resources.displayMetrics.density)
     }
 
     /** Read current on-screen pixel heights back into [moduleEntries] so drag starts from what the user sees. */
     private fun syncEntriesFromDisplayedHeights() {
+        if (ModuleLayoutStore.workspace(this) != WorkspaceLayout.STACK) return
         val density = resources.displayMetrics.density
         for (index in moduleEntries.indices) {
             val wrapper = modulesColumn.getChildAt(index * 2) ?: continue
@@ -643,59 +757,126 @@ class MainActivity : ComponentActivity() {
         fitModulesToScreen()
     }
 
-    private fun buildModuleWrapper(type: ModuleType): LinearLayout {
+    private fun buildModuleWrapper(type: ModuleType, focused: Boolean): LinearLayout {
+        val density = resources.displayMetrics.density
+        val pad = (6 * density).toInt()
+        val workspace = ModuleLayoutStore.workspace(this)
+
         val titleText = TextView(this).apply {
             text = type.label
-            setTextColor(AppTheme.accentColor(this@MainActivity))
-            textSize = 16f
+            setTextColor(if (focused) Color.BLACK else AppTheme.accentColor(this@MainActivity))
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
+            if (focused) setBackgroundColor(AppTheme.accentColor(this@MainActivity))
+            setOnClickListener {
+                if (workspace == WorkspaceLayout.FOCUS) focusModule(type)
+            }
         }
-        val upButton = Button(this).apply { text = "▲"; setOnClickListener { moveModule(type, -1) } }
-        val downButton = Button(this).apply { text = "▼"; setOnClickListener { moveModule(type, 1) } }
-        val removeButton = Button(this).apply { text = "−"; setOnClickListener { removeModule(type) } }
-
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding((4 * density).toInt(), (2 * density).toInt(), (4 * density).toInt(), (2 * density).toInt())
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.module_header_bg)
             addView(titleText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            when (type) {
-                ModuleType.SAMPLER -> {
-                    val recordButton = Button(this@MainActivity).apply {
-                        text = "Record Audio"
-                        setOnClickListener { toggleAudioRecording() }
-                    }
-                    recordAudioButton = recordButton
-                    addView(recordButton)
-                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
-                }
-                ModuleType.SYNTH -> {
-                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSynthSample.launch(arrayOf("audio/*")) } })
-                }
-                ModuleType.PADS -> {
-                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
-                }
-                ModuleType.TRACKER -> {
-                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
-                }
-                ModuleType.STEP_SEQUENCER -> {
-                    addView(Button(this@MainActivity).apply { text = "+"; setOnClickListener { openSamples.launch(arrayOf("audio/*")) } })
-                }
+            addModuleHeaderActions(this, type)
+            if (workspace != WorkspaceLayout.FOCUS) {
+                addView(chromeButton("▲") { moveModule(type, -1) })
+                addView(chromeButton("▼") { moveModule(type, 1) })
             }
-            addView(buildChokeButton(type))
-            addView(upButton)
-            addView(downButton)
-            addView(removeButton)
+            addView(chromeButton("−") { removeModule(type) })
         }
 
         val content = bodyFor(type)
-
         val touchPanel = ModuleTouchPanel(this).apply {
             addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
         }
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.module_card_bg)
+            setPadding(pad, pad, pad, pad)
             addView(titleRow)
             addView(touchPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+    }
+
+    private fun buildBoxCard(type: ModuleType): View {
+        val density = resources.displayMetrics.density
+        val pad = (6 * density).toInt()
+        val titleText = TextView(this).apply {
+            text = type.label
+            setTextColor(AppTheme.accentColor(this@MainActivity))
+            textSize = 14f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
+        }
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.module_header_bg)
+            addView(titleText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addModuleHeaderActions(this, type)
+            addView(chromeButton("−") { removeModule(type) })
+        }
+        boxesCanvas.attachMoveHandle(type, titleText) { boxesCanvas.select(type) }
+
+        val content = bodyFor(type)
+        val touchPanel = ModuleTouchPanel(this).apply {
+            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
+        }
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(titleRow)
+            addView(touchPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+
+        val resizeNub = View(this).apply {
+            setBackgroundColor(AppTheme.accentColor(this@MainActivity))
+            contentDescription = "Resize"
+        }
+        boxesCanvas.attachResizeHandle(type, resizeNub)
+
+        return FrameLayout(this).apply {
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.module_card_bg)
+            setPadding(pad, pad, pad, pad)
+            elevation = 8f * density
+            addView(body, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(
+                resizeNub,
+                FrameLayout.LayoutParams((18 * density).toInt(), (18 * density).toInt(), Gravity.END or Gravity.BOTTOM),
+            )
+        }
+    }
+
+    private fun addModuleHeaderActions(row: LinearLayout, type: ModuleType) {
+        when (type) {
+            ModuleType.SAMPLER -> {
+                val recordButton = chromeButton("Rec") { toggleAudioRecording() }
+                recordAudioButton = recordButton
+                row.addView(recordButton)
+                row.addView(chromeButton("+") { openSamples.launch(arrayOf("audio/*")) })
+            }
+            ModuleType.SYNTH -> row.addView(chromeButton("+") { openSynthSample.launch(arrayOf("audio/*")) })
+            ModuleType.PADS, ModuleType.TRACKER, ModuleType.STEP_SEQUENCER ->
+                row.addView(chromeButton("+") { openSamples.launch(arrayOf("audio/*")) })
+        }
+        row.addView(buildChokeButton(type))
+    }
+
+    private fun chromeButton(label: String, onClick: () -> Unit): TextView {
+        val density = resources.displayMetrics.density
+        return TextView(this).apply {
+            text = label
+            setTextColor(Color.WHITE)
+            textSize = 12f
+            gravity = Gravity.CENTER
+            setPadding((10 * density).toInt(), (5 * density).toInt(), (10 * density).toInt(), (5 * density).toInt())
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.chrome_button_bg)
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = (4 * density).toInt()
+            }
+            setOnClickListener { onClick() }
         }
     }
 
@@ -728,8 +909,8 @@ class MainActivity : ComponentActivity() {
     /** "CUT" toggles Cut Itself (mono/poly) for this module - see [ModuleLayoutStore.chokeKey]:
      *  Tracker and Step Sequencer share one value since they play back the same song data
      *  through one engine, so toggling either one's button updates both in place. */
-    private fun buildChokeButton(type: ModuleType): Button {
-        val button = Button(this)
+    private fun buildChokeButton(type: ModuleType): TextView {
+        val button = chromeButton("POLY") {}
         styleChokeButton(button, ModuleLayoutStore.isChokeEnabled(this, type))
         button.setOnClickListener {
             val newValue = !ModuleLayoutStore.isChokeEnabled(this, type)
@@ -748,10 +929,10 @@ class MainActivity : ComponentActivity() {
         return button
     }
 
-    private fun styleChokeButton(button: Button, enabled: Boolean) {
+    private fun styleChokeButton(button: TextView, enabled: Boolean) {
         button.text = if (enabled) "MONO" else "POLY"
         button.setTextColor(if (enabled) Color.BLACK else Color.WHITE)
-        button.setBackgroundColor(if (enabled) AppTheme.accentColor(this) else Color.DKGRAY)
+        button.setBackgroundColor(if (enabled) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
     }
 
     private fun moveModule(type: ModuleType, delta: Int) {
@@ -1305,7 +1486,7 @@ class MainActivity : ComponentActivity() {
     private fun toggleAudioRecording() {
         if (audioRecorder.isRecording) {
             val wav = processRecordedWav(audioRecorder.stop(LatencyStore.recordOffsetMs(this)))
-            recordAudioButton?.text = "Record Audio"
+            recordAudioButton?.text = "Rec"
             val panel = samplerPanel
             if (panel == null) {
                 Toast.makeText(this, "Add the Sampler module first (Menu > Add Module)", Toast.LENGTH_LONG).show()
@@ -1323,7 +1504,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startAudioRecording() {
         audioRecorder.start()
-        recordAudioButton?.text = "Stop Recording"
+        recordAudioButton?.text = "Stop"
     }
 
     private fun processRecordedWav(wav: com.sai.core.audio.Wav): com.sai.core.audio.Wav =
@@ -1445,6 +1626,7 @@ class MainActivity : ComponentActivity() {
         val items = mutableListOf("Manual", "Samples", "Sounds")
         if (PluginRegistry.available.isNotEmpty()) items.add("Plugins")
         items.add("Theme")
+        items.add("Layout")
         items.add("Add Module")
         AlertDialog.Builder(this)
             .setTitle("Menu")
@@ -1455,9 +1637,49 @@ class MainActivity : ComponentActivity() {
                     "Sounds" -> startActivity(Intent(this, SoundLibraryActivity::class.java))
                     "Plugins" -> showPluginsDialog()
                     "Theme" -> showThemeDialog()
+                    "Layout" -> showLayoutDialog()
                     "Add Module" -> showAddModuleDialog()
                 }
             }
+            .show()
+    }
+
+    private fun showLayoutDialog() {
+        val current = ModuleLayoutStore.workspace(this)
+        val options = arrayOf(
+            "Stack — stacked modules, drag the divider to resize",
+            "Focus — the active module fills the screen; tap another title to switch",
+            "Boxes — each module is a card. Tap to grow, drag the title to move, corner to resize",
+        )
+        val selected = when (current) {
+            WorkspaceLayout.FOCUS -> 1
+            WorkspaceLayout.BOXES -> 2
+            else -> 0
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Layout")
+            .setSingleChoiceItems(options, selected) { dialog, which ->
+                val next = when (which) {
+                    1 -> WorkspaceLayout.FOCUS
+                    2 -> WorkspaceLayout.BOXES
+                    else -> WorkspaceLayout.STACK
+                }
+                ModuleLayoutStore.setWorkspace(this, next)
+                if (next == WorkspaceLayout.FOCUS) {
+                    val seed = fullScreenModule
+                        ?: ModuleLayoutStore.focusedType(this)
+                        ?: moduleEntries.firstOrNull()?.type
+                    if (seed != null) ModuleLayoutStore.setFocusedType(this, seed)
+                    fullScreenModule = null
+                }
+                if (next == WorkspaceLayout.STACK) {
+                    fullScreenModule = null
+                }
+                lastModuleScrollHeight = 0
+                rebuildModulesColumn()
+                dialog.dismiss()
+            }
+            .setNegativeButton("Close", null)
             .show()
     }
 
@@ -1544,8 +1766,14 @@ class MainActivity : ComponentActivity() {
         for (entry in moduleEntries) {
             labels.add("${entry.type.label} Full Screen")
             actions.add {
-                fullScreenModule = entry.type
-                rebuildModulesColumn()
+                when (ModuleLayoutStore.workspace(this)) {
+                    WorkspaceLayout.FOCUS -> focusModule(entry.type)
+                    WorkspaceLayout.BOXES -> boxesCanvas.select(entry.type)
+                    WorkspaceLayout.STACK -> {
+                        fullScreenModule = entry.type
+                        rebuildModulesColumn()
+                    }
+                }
             }
         }
         if (moduleEntries.none { it.type == ModuleType.STEP_SEQUENCER }) {
@@ -1554,7 +1782,9 @@ class MainActivity : ComponentActivity() {
         }
         labels.add("Split View")
         actions.add {
+            ModuleLayoutStore.setWorkspace(this, WorkspaceLayout.STACK)
             fullScreenModule = null
+            lastModuleScrollHeight = 0
             rebuildModulesColumn()
         }
         AlertDialog.Builder(this)
