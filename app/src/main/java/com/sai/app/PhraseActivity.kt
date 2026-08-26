@@ -59,6 +59,10 @@ class PhraseActivity : ComponentActivity() {
         if (uri != null) MixdownExporter.writeTo(this, uri)
     }
 
+    private val exportStemsLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) MixdownExporter.writeStems(this, uri)
+    }
+
     private val loadProjectLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) loadProjectFrom(uri)
     }
@@ -427,6 +431,7 @@ class PhraseActivity : ComponentActivity() {
                 onUndo = { project.undo(); refreshSteps() },
                 onRedo = { project.redo(); refreshSteps() },
                 onExportWav = { exportMixdownLauncher.launch("sai-mix-${System.currentTimeMillis()}.wav") },
+                onExportStems = { exportStemsLauncher.launch("sai-stems-${System.currentTimeMillis()}.zip") },
             ),
         )
     }
@@ -451,6 +456,7 @@ class PhraseActivity : ComponentActivity() {
             .setMessage("Clear the current song and all phrases? Your sample library is kept.")
             .setPositiveButton("New") { _, _ ->
                 project.resetProject()
+                PlaylistStore.clear(this)
                 refreshSteps()
             }
             .setNegativeButton("Cancel", null)

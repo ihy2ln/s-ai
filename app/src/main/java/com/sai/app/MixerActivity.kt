@@ -35,6 +35,10 @@ class MixerActivity : ComponentActivity() {
         if (uri != null) MixdownExporter.writeTo(this, uri)
     }
 
+    private val stemsLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) MixdownExporter.writeStems(this, uri)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         strips = MixerStore.loadStrips(this)
@@ -66,11 +70,17 @@ class MixerActivity : ComponentActivity() {
             textSize = 12f
             setOnClickListener { confirmExport() }
         }
+        val stemsButton = Button(this).apply {
+            text = "Stems"
+            textSize = 12f
+            setOnClickListener { confirmStems() }
+        }
         val titleRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(exportButton)
+            addView(stemsButton)
             addView(PillButton.create(this@MixerActivity, "N") { NavMenu.show(this@MixerActivity) })
         }
 
@@ -196,6 +206,17 @@ class MixerActivity : ComponentActivity() {
             .setMessage("Render the song through the mixer to a stereo WAV?")
             .setPositiveButton("Export") { _, _ ->
                 exportLauncher.launch("sai-mix-${System.currentTimeMillis()}.wav")
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun confirmStems() {
+        AlertDialog.Builder(this)
+            .setTitle("Export stems")
+            .setMessage("Render each tracker track plus playlist audio as a zip of WAV files?")
+            .setPositiveButton("Export") { _, _ ->
+                stemsLauncher.launch("sai-stems-${System.currentTimeMillis()}.zip")
             }
             .setNegativeButton("Cancel", null)
             .show()

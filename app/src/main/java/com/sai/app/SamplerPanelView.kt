@@ -1,13 +1,18 @@
 package com.sai.app
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.text.InputType
 import android.util.AttributeSet
 import android.view.Gravity
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.sai.core.audio.SampleEditor
+import com.sai.core.audio.SampleWarp
 import com.sai.core.audio.Wav
 
 class SamplerPanelView @JvmOverloads constructor(
@@ -55,6 +60,10 @@ class SamplerPanelView @JvmOverloads constructor(
             text = "To Rack"
             setOnClickListener { sendSlicesToRack() }
         }
+        val warpButton = Button(context).apply {
+            text = "Warp BPM"
+            setOnClickListener { warpToProjectBpm() }
+        }
         val controlsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -63,6 +72,7 @@ class SamplerPanelView @JvmOverloads constructor(
             addView(plusButton)
             addView(saveButton)
             addView(toRackButton)
+            addView(warpButton)
         }
 
         padContainer = LinearLayout(context).apply { orientation = VERTICAL }
@@ -154,6 +164,35 @@ class SamplerPanelView @JvmOverloads constructor(
         val bounds = sliceBounds(currentWav)
         val slices = bounds.map { range -> SampleEditor.trim(currentWav, range.first, range.last + 1) }
         onSendToRack?.invoke(sourceName, slices)
+    }
+
+    private fun warpToProjectBpm() {
+        val current = wav
+        if (current == null) {
+            Toast.makeText(context, "Load a sample first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val input = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hint = "Source BPM"
+        }
+        AlertDialog.Builder(context)
+            .setTitle("Warp to project BPM")
+            .setMessage("Enter the sample's original tempo. S.Ai time-stretches it to the project BPM (${TrackerProjectStore.get(context).bpm}).")
+            .setView(input)
+            .setPositiveButton("Warp") { _, _ ->
+                val sourceBpm = input.text.toString().toDoubleOrNull()
+                if (sourceBpm == null || sourceBpm <= 0.0) {
+                    Toast.makeText(context, "Enter a source BPM", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val target = TrackerProjectStore.get(context).bpm.toDouble()
+                wav = SampleWarp.bpmSync(current, sourceBpm, target)
+                refresh()
+                Toast.makeText(context, "Warped ${sourceBpm.toInt()} → ${target.toInt()} BPM", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     companion object {
