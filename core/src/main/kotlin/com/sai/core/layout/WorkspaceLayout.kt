@@ -27,8 +27,8 @@ object WorkspaceLayoutMath {
     const val GAP_DP = 10f
 
     /**
-     * Focus (accordion) mode: every module except [focusedIndex] is [collapsedDp] tall;
-     * the focused one takes the remaining viewport.
+     * Leftover-height split used by tests and any caller that still wants accordion math.
+     * The Home Focus UI uses a name strip plus one full-screen module instead.
      */
     fun focusHeights(
         count: Int,

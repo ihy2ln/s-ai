@@ -101,9 +101,11 @@ The Home screen holds your working modules. **M → Layout** picks how they sit 
 
 | Layout | How it works |
 | --- | --- |
-| **Stack** | The original stacked view. Drag the grey divider under a module to resize it. ▲ ▼ reorder; **−** removes (data is kept). |
-| **Focus** | The module you are working on fills the remaining height. Other modules collapse to a title bar. **Tap a title** to switch. |
+| **Stack** | The original stacked view, using the same filled-title chrome as fullscreen. Drag the grey divider under a module to resize it. ▲ ▼ reorder; **−** removes (data is kept). |
+| **Focus** | The working module fills the screen under the menu. Other modules show as **names in a strip** just under the transport. **Tap a name** to switch. |
 | **Boxes** | Each module is a floating card. **Tap the title** to grow it, **drag the title** to move, **drag the bottom-right corner** to resize. |
+
+**M → Layout → Reset** restores the default modules (Sampler, Synth, Tracker, Channel Rack), default heights, and box positions. It stays on the layout mode you are in.
 
 Adding, removing, reordering, or changing layout **keeps** the Sampler/Synth sound already loaded and the Channel Rack pattern you were editing.
 
@@ -460,7 +462,7 @@ See also: [Playlist](#playlist), [Project Save & Load](#project-save--load).
 | **Playlist** | Timeline of pattern clips and audio clips; empty playlist walks the tracker song |
 | **Punch** | Record-armed play: tapping a sample or pad writes a step on the armed track |
 | **Tape** | Mic recording dropped on the playlist as an audio clip |
-| **Layout** | Stack, Focus, or Boxes home arrangement |
+| **Layout** | Stack, Focus, or Boxes home arrangement; **Reset** restores the default modules and sizes |
 
 See also: [Tips & Shortcuts](#tips--shortcuts).
 
@@ -468,13 +470,13 @@ See also: [Tips & Shortcuts](#tips--shortcuts).
 
 - **Long-press Home screen** — open Navigate (N) menu
 - **Drag BPM label vertically** — scrub tempo without opening a dialog
-- **E button** — quickly full-screen any module for focused editing
+- **E button** — quickly full-screen any module; other modules sit as names under the menu
 - **MONO mode** — use on Sampler/Synth when you want choke-style one-shot playback
 - **Channel Rack + Tracker** share the same song data and playback engine
 - **Channel Rack Trk** numbers are mixer inserts 1–8
 - Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
 - **M → Manual** is this wiki: section list on the left, search at the top
-- **M → Layout** — Stack, Focus (tap a title to work on that module), or Boxes (move / grow / resize cards)
+- **M → Layout** — Stack, Focus (tap a name under the menu to switch), or Boxes (move / grow / resize cards). **Reset** restores the default arrangement.
 
 ---
 
