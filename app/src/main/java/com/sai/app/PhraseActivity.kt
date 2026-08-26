@@ -55,6 +55,10 @@ class PhraseActivity : ComponentActivity() {
         if (uri != null) saveProjectTo(uri)
     }
 
+    private val exportMixdownLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("audio/x-wav")) { uri ->
+        if (uri != null) MixdownExporter.writeTo(this, uri)
+    }
+
     private val loadProjectLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) loadProjectFrom(uri)
     }
@@ -389,6 +393,7 @@ class PhraseActivity : ComponentActivity() {
                 onNew = { confirmNewProject() },
                 onUndo = { project.undo(); refreshSteps() },
                 onRedo = { project.redo(); refreshSteps() },
+                onExportWav = { exportMixdownLauncher.launch("sai-mix-${System.currentTimeMillis()}.wav") },
             ),
         )
     }

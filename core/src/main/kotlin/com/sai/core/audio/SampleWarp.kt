@@ -110,6 +110,13 @@ object SampleWarp {
         return wav.copy(samples = out)
     }
 
+    /** Resamples by [rate] (>1 = higher pitch / shorter, <1 = lower / longer). Pitch and
+     *  duration both change — the same trick AudioTrack speed uses for tracker notes. */
+    fun resample(wav: Wav, rate: Double): Wav {
+        if (rate == 1.0 || wav.frameCount == 0) return wav
+        return resampleByRate(wav, rate.coerceAtLeast(0.01))
+    }
+
     private fun resampleByRate(wav: Wav, rate: Double): Wav {
         val srcFrames = wav.frameCount
         val dstFrames = (srcFrames / rate).toInt().coerceAtLeast(1)

@@ -2,6 +2,7 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.widget.Button
 import android.widget.HorizontalScrollView
@@ -23,20 +24,20 @@ class EffectsTarget(
     val onApplied: (Wav) -> Unit,
 )
 
-/** The "MX" menu: sound-shaping effects (synth filter, compressor, reverb, EQ, stereo shaper)
- *  applied on-demand to whatever [EffectsTarget] is passed in. Channel Rack lives under N. */
+/** The "MX" menu: the mixer, then sound-shaping effects applied to [EffectsTarget]. */
 object EffectsMenu {
 
     fun show(context: Context, target: EffectsTarget) {
         AlertDialog.Builder(context)
             .setTitle("MX")
-            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper")) { _, which ->
+            .setItems(arrayOf("Mixer", "Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper")) { _, which ->
                 when (which) {
-                    0 -> showFilterDialog(context, target)
-                    1 -> showCompressorDialog(context, target)
-                    2 -> showReverbDialog(context, target)
-                    3 -> showEqualizerDialog(context, target)
-                    4 -> showStereoShaperDialog(context, target)
+                    0 -> context.startActivity(Intent(context, MixerActivity::class.java))
+                    1 -> showFilterDialog(context, target)
+                    2 -> showCompressorDialog(context, target)
+                    3 -> showReverbDialog(context, target)
+                    4 -> showEqualizerDialog(context, target)
+                    5 -> showStereoShaperDialog(context, target)
                 }
             }
             .show()

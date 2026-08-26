@@ -25,7 +25,6 @@ class ChannelRackPanelView @JvmOverloads constructor(
 
     private val patternLabel: TextView
     private val rowsContainer: LinearLayout
-    private val beatMarker: BeatMarkerView
     private val stepRowViews = mutableListOf<StepRowView>()
     private val rackRows = mutableListOf<ChannelRackRowView>()
     private val controlsWidthPx: Int
@@ -98,12 +97,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
             addView(toolbarScroll)
         }
 
-        beatMarker = BeatMarkerView(context).apply {
-            stepCount = Phrase.STEP_COUNT
-            layoutParams = LayoutParams(0, (8 * density).toInt(), 1f)
-        }
-
-        val beatHeaderRow = LinearLayout(context).apply {
+        val labelRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(
@@ -114,7 +108,6 @@ class ChannelRackPanelView @JvmOverloads constructor(
                     layoutParams = LayoutParams(controlsWidthPx, LayoutParams.WRAP_CONTENT)
                 },
             )
-            addView(beatMarker)
         }
 
         rowsContainer = LinearLayout(context).apply { orientation = VERTICAL }
@@ -129,7 +122,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
         }
 
         addView(toolbar)
-        addView(beatHeaderRow)
+        addView(labelRow)
         addView(
             ScrollView(context).apply {
                 isNestedScrollingEnabled = false
@@ -191,7 +184,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
             }
             onMixerTrackClick = {
                 val current = channels[channelIndex].mixerTrack
-                updateChannel(channelIndex) { it.withMixerTrack((current + 1) % 10) }
+                updateChannel(channelIndex) { it.withMixerTrack((current + 1) % (MixerStore.STRIP_COUNT + 1)) }
                 refreshRows()
             }
             onChannelClick = { pickInstrument(channelIndex) }

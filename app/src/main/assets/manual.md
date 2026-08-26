@@ -12,6 +12,7 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 - [Synth Module](#synth-module)
 - [Tracker Module](#tracker-module)
 - [Channel Rack](#channel-rack)
+- [Mixer](#mixer)
 - [Phrase Editor](#phrase-editor)
 - [Piano Roll](#piano-roll)
 - [Sample Editor](#sample-editor)
@@ -64,9 +65,9 @@ Four pill buttons sit at the end of the transport row:
 | Button | Name | Opens |
 | --- | --- | --- |
 | **E** | Expand | Full-screen the current module, or return to Split View |
-| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Manual (long-press Home also opens this) |
-| **MX** | Mixer / Effects | Effects chain on the loaded sampler sound |
-| **P** | Project | Rename, save, load, new, undo, redo |
+| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Manual (long-press Home also opens this) |
+| **MX** | Mixer / Effects | Mixer first, then effects on the loaded sampler sound |
+| **P** | Project | Rename, save, load, new, undo, redo, export stereo WAV mixdown |
 | **M** | Menu | Manual, samples, sounds, theme, add module. **Plugins** is hidden until a plugin is registered. |
 
 ### Project Sound (blue square)
@@ -194,7 +195,7 @@ Inspired by FL Studio's Channel Rack. Each row is one channel:
 | **Mute LED** | Green = audible; tap to mute that channel in playback |
 | **Vol knob** | Channel volume (applied on top of step volume during playback) |
 | **Pan knob** | Stereo pan (0.5 = center; applied during playback) |
-| **Mixer track** | Tap to cycle route `---` through `1`–`9` |
+| **Mixer track** | Tap to cycle route `---` (master only) through mixer inserts `1`–`8` |
 | **Channel button** | Tap to assign a sample; red = unassigned |
 | **Step grid** | 16 square steps; tap or drag to paint on/off |
 
@@ -206,6 +207,23 @@ Inspired by FL Studio's Channel Rack. Each row is one channel:
 - **+ Add channel** — show more rows (up to 8)
 
 Open full-screen via **N → Channel Rack**. If the Channel Rack module isn't on Home, **E** also offers it.
+
+During playback, the **current step square lights up** — yellow if that step is on, teal if it is empty — so you can see which note is playing. There is no extra bar of rectangles above the grid.
+
+## Mixer
+
+**MX → Mixer**, **N → Mixer**, or the Mixer screen's **Export WAV** button.
+
+Eight insert strips plus **MST** (master):
+
+| Control | Function |
+| --- | --- |
+| **Meter** | Peak from sounds routed to this strip |
+| **Fader** | Strip (or master) level |
+| **M** | Mute |
+| **S** | Solo (inserts only; soloing one strip silences the others and unassigned channels) |
+
+Channel Rack **Trk** `1`–`8` routes that row into the matching insert. `---` sums straight to the master bus.
 
 ## Phrase Editor
 
@@ -258,7 +276,7 @@ Open via long-press on a library sample → **Edit**.
 
 ## Effects (MX)
 
-Available from **MX**, sample long-press → Mixer, or Sound Library long-press.
+**MX → Mixer** opens the mixer. The other MX items, sample long-press → Mixer, and Sound Library long-press → Mixer open the effects chain.
 
 | Effect | Controls |
 | --- | --- |
@@ -287,6 +305,7 @@ Your project **auto-saves** continuously (BPM, name, song, phrases, undo stack).
 Manual export/import:
 
 - **P → Save** or **P → Load** — JSON file
+- **P → Export WAV** — stereo mixdown of the song through the mixer
 - **P → New** — clear song and phrases (library untouched)
 
 **Undo / Redo** is available from **P → Project** on Home and Phrase Editor.
@@ -320,6 +339,7 @@ Disarm Record when finished.
 - **E button** — quickly full-screen any module for focused editing
 - **MONO mode** — use on Sampler/Synth when you want choke-style one-shot playback
 - **Channel Rack + Tracker** share the same song data and playback engine
+- **Channel Rack Trk** numbers are mixer inserts 1–8
 
 ---
 
