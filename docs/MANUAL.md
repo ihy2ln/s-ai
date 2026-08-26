@@ -50,6 +50,9 @@ The transport bar runs across the top of the Home screen.
 | **Record** | Red circle | Arm live punch-in recording |
 | **Sound** | Blue square | Project sound: global pitch and master volume |
 | **Tempo (Tap)** | Yellow **T** in yellow circle on black | Tap repeatedly to set BPM from your taps |
+| **CLK** | Text | Metronome clicks on the beat during playback (not in WAV export) |
+| **IN** | Text | One-bar count-in of clicks before the song starts |
+| **LOOP** | `SONG` / `PAT` / `RNG` | Loop the whole song, the current Channel Rack pattern, or a selected tracker row range |
 | **Route** | 🎧 📶 🔊 | Shows current audio output (headphones, Bluetooth, speaker) |
 
 When you tap a transport shape button, its label appears for **one second** then fades out.
@@ -100,7 +103,7 @@ Drag the **grey divider bar** under a module to resize it freely. Drag down to e
 | **SAMPLER** | Waveform view, slice pads, record audio |
 | **SYNTH** | Filter and waveform generator on loaded audio |
 | **TRACKER** | 32-position song grid with 8 tracks |
-| **CHANNEL RACK** | FL-style step sequencer with mute, vol, pan, mixer route |
+| **CHANNEL RACK** | Step sequencer with mute, solo, vol, pan, mixer route, pattern length, swing |
 
 Add removed modules back via **M → Add Module**.
 
@@ -117,6 +120,7 @@ Add removed modules back via **M → Add Module**.
 - Adjust slice count with **−** and **+** (1–16 equal divisions)
 - Colored pads **00–0F** preview each slice
 - **Save Slices** exports slices to your sample library as separate WAV files
+- **To Rack** saves those slices **and** assigns them to Channel Rack rows (empty rows first, then new rows up to 8). Extra slices stay in the library.
 
 ### Sample list
 
@@ -184,27 +188,35 @@ The tracker is a classic hex-style song arrangement grid.
 | Empty | **New Phrase** or **Assign Existing #** |
 | Filled | **Edit** (Phrase Editor) or **Clear** |
 
-Phrases contain 16 steps with note, instrument, and volume data.
+Phrases store up to **32 steps** (older 16-step projects are padded). Playback uses each pattern's length (8, 16, or 32).
+
+Long-press a row number to set a **loop range** (`Loop this row`, `Set loop start`, `Set loop end`). Transport **LOOP** shows `RNG` when a range is active. The looped rows get a faint green tint.
 
 ## Channel Rack
 
-Inspired by FL Studio's Channel Rack. Each row is one channel:
+Each row is one channel:
 
 | Control | Function |
 | --- | --- |
 | **Mute LED** | Green = audible; tap to mute that channel in playback |
+| **Solo LED** | Yellow = soloed; if any row is soloed, only soloed rows play (mute still silences a soloed row) |
 | **Vol knob** | Channel volume (applied on top of step volume during playback) |
 | **Pan knob** | Stereo pan (0.5 = center; applied during playback) |
 | **Mixer track** | Tap to cycle route `---` (master only) through mixer inserts `1`–`8` |
 | **Channel button** | Tap to assign a sample; red = unassigned |
-| **Step grid** | 16 square steps; tap or drag to paint on/off |
+| **Step grid** | Square steps for this pattern's length; tap or drag to paint on/off |
 
 ### Toolbar
 
 - **< / >** — change song pattern (position 0–31)
-- **...** — Mute all, Unmute all, Delete empty channels
+- **N steps** — tap to cycle this pattern's length **8 / 16 / 32**
+- **Swing** — delay offbeat 16ths (0 = straight, 50 = shuffle, 100 = halfway to the next even step). Applied in playback and WAV mixdown
+- **Loop** — cycle song / this pattern / selected tracker rows
+- **...** — Duplicate pattern, Mute all, Unmute all, Solo none, Delete empty channels
 - **− / +** — zoom row height
 - **+ Add channel** — show more rows (up to 8)
+
+**Duplicate pattern** copies this pattern's phrases into the next empty song row (or the following row if none are empty) so you can edit the copy without changing the original.
 
 Open full-screen via **N → Channel Rack**. If the Channel Rack module isn't on Home, **E** also offers it.
 
@@ -243,11 +255,11 @@ Split layout with **E (Expand)**:
 | **INS** | Stable instrument ID from the library (not a sorted-list index) |
 | **VOL** | Volume 0–127 |
 
-Tap any cell value to edit it. **M → Piano Roll** opens the note-based editor.
+Tap any cell value to edit it. **M → Piano Roll** opens the note-based editor. The grid lists all 32 stored steps; playback only uses this pattern's length (8 / 16 / 32).
 
 ## Piano Roll
 
-Vertical piano keys (C3–C5) with 16 horizontal step columns.
+Vertical piano keys (C3–C5) with up to 32 horizontal step columns.
 
 - Pick an instrument first
 - Tap or drag on a row to place a note at that step

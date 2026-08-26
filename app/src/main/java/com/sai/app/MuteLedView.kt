@@ -6,7 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.view.View
 
-/** FL Studio-style track mute LED (green = audible, dim = muted). */
+/** Track mute/solo LED (green = audible, yellow = soloed, dim = off). */
 class MuteLedView(context: Context) : View(context) {
 
     var muted: Boolean = false
@@ -17,9 +17,18 @@ class MuteLedView(context: Context) : View(context) {
             }
         }
 
+    var onColor: Int = Color.rgb(40, 200, 80)
+        set(value) {
+            if (field != value) {
+                field = value
+                onPaint.color = value
+                invalidate()
+            }
+        }
+
     var onToggle: (() -> Unit)? = null
 
-    private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(40, 200, 80) }
+    private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onColor }
     private val offPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(50, 55, 60) }
     private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE

@@ -14,6 +14,7 @@ object MixerMath {
 
     data class Channel(
         val muted: Boolean = false,
+        val soloed: Boolean = false,
         val volume: Float = 1f,
         val pan: Float = 0.5f,
         val mixerTrack: Int = 0,
@@ -26,8 +27,16 @@ object MixerMath {
 
     fun anySolo(strips: List<Strip>): Boolean = strips.any { it.soloed }
 
-    fun isAudible(channel: Channel, strips: List<Strip>, masterMuted: Boolean): Boolean {
+    fun anyRackSolo(channels: List<Channel>): Boolean = channels.any { it.soloed }
+
+    fun isAudible(
+        channel: Channel,
+        strips: List<Strip>,
+        masterMuted: Boolean,
+        anyRackSolo: Boolean = false,
+    ): Boolean {
         if (masterMuted || channel.muted) return false
+        if (anyRackSolo && !channel.soloed) return false
         val index = stripIndex(channel.mixerTrack)
         val soloing = anySolo(strips)
         if (index == null) return !soloing

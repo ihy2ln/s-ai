@@ -25,6 +25,7 @@ class SamplerPanelView @JvmOverloads constructor(
     private var sliceCount = 8
 
     var onSaveSlices: ((sourceName: String, slices: List<Wav>) -> Unit)? = null
+    var onSendToRack: ((sourceName: String, slices: List<Wav>) -> Unit)? = null
 
     init {
         orientation = VERTICAL
@@ -50,6 +51,10 @@ class SamplerPanelView @JvmOverloads constructor(
             text = "Save Slices"
             setOnClickListener { saveSlices() }
         }
+        val toRackButton = Button(context).apply {
+            text = "To Rack"
+            setOnClickListener { sendSlicesToRack() }
+        }
         val controlsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -57,6 +62,7 @@ class SamplerPanelView @JvmOverloads constructor(
             addView(sliceCountLabel)
             addView(plusButton)
             addView(saveButton)
+            addView(toRackButton)
         }
 
         padContainer = LinearLayout(context).apply { orientation = VERTICAL }
@@ -141,6 +147,13 @@ class SamplerPanelView @JvmOverloads constructor(
         val bounds = sliceBounds(currentWav)
         val slices = bounds.map { range -> SampleEditor.trim(currentWav, range.first, range.last + 1) }
         onSaveSlices?.invoke(sourceName, slices)
+    }
+
+    private fun sendSlicesToRack() {
+        val currentWav = wav ?: return
+        val bounds = sliceBounds(currentWav)
+        val slices = bounds.map { range -> SampleEditor.trim(currentWav, range.first, range.last + 1) }
+        onSendToRack?.invoke(sourceName, slices)
     }
 
     companion object {

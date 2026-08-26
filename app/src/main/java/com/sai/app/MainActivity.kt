@@ -28,6 +28,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.sai.core.tracker.LoopMode
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
@@ -69,6 +70,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var recordArmButton: TransportShapeButtonView
     private lateinit var tempoDot: ImageView
     private lateinit var tempoBouncer: TempoBouncer
+    private lateinit var metronomeButton: Button
+    private lateinit var countInButton: Button
+    private lateinit var loopButton: Button
     private val tapTimestamps = mutableListOf<Long>()
 
     private var highlightedPosition = -1
@@ -286,6 +290,11 @@ class MainActivity : ComponentActivity() {
             TransportShapeButton.EDIT_BLUE,
         ) { ProjectSoundMenu.show(this) }
 
+        metronomeButton = compactTransportButton("CLK") { toggleMetronome() }
+        countInButton = compactTransportButton("IN") { toggleCountIn() }
+        loopButton = compactTransportButton("LOOP") { cycleLoopMode() }
+        updateTransportToggles()
+
         val transportControls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -294,6 +303,9 @@ class MainActivity : ComponentActivity() {
             addView(recordArmButtonView)
             addView(projectSoundButton)
             addView(tapButton)
+            addView(metronomeButton)
+            addView(countInButton)
+            addView(loopButton)
         }
 
         val transportScroll = HorizontalScrollView(this).apply {
@@ -377,6 +389,72 @@ class MainActivity : ComponentActivity() {
 
         rebuildModulesColumn()
         return rootView
+    }
+
+    private fun compactTransportButton(label: String, onClick: () -> Unit): Button {
+        val density = resources.displayMetrics.density
+        return Button(this).apply {
+            text = label
+            textSize = 10f
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun updateTransportToggles() {
+        val on = Color.rgb(76, 217, 100)
+        val off = Color.rgb(140, 150, 165)
+        metronomeButton.setTextColor(if (TransportStore.metronome(this)) on else off)
+        countInButton.setTextColor(if (TransportStore.countIn(this)) on else off)
+        loopButton.text = when (project.loopMode) {
+            LoopMode.SONG -> "SONG"
+            LoopMode.PATTERN -> "PAT"
+            LoopMode.RANGE -> "RNG"
+        }
+        loopButton.setTextColor(if (project.loopMode == LoopMode.SONG) off else on)
+    }
+
+    private fun toggleMetronome() {
+        val next = !TransportStore.metronome(this)
+        TransportStore.setMetronome(this, next)
+        updateTransportToggles()
+        Toast.makeText(this, if (next) "Metronome on" else "Metronome off", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun toggleCountIn() {
+        val next = !TransportStore.countIn(this)
+        TransportStore.setCountIn(this, next)
+        updateTransportToggles()
+        Toast.makeText(this, if (next) "Count-in 1 bar" else "Count-in off", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun cycleLoopMode() {
+        project.loopMode = when (project.loopMode) {
+            LoopMode.SONG -> {
+                val pattern = stepSequencerPanel?.currentPattern ?: 0
+                project.loopStart = pattern
+                project.loopEnd = pattern
+                LoopMode.PATTERN
+            }
+            LoopMode.PATTERN -> LoopMode.RANGE
+            LoopMode.RANGE -> LoopMode.SONG
+        }
+        updateTransportToggles()
+        stepSequencerPanel?.refreshRows()
+        refreshSongGrid()
+        val message = when (project.loopMode) {
+            LoopMode.SONG -> "Looping the whole song"
+            LoopMode.PATTERN -> "Looping the current pattern"
+            LoopMode.RANGE -> "Looping rows %02X–%02X (long-press a tracker row to change)".format(project.loopStart, project.loopEnd)
+        }
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun updatePlayButtonAppearance() {
@@ -593,7 +671,13 @@ class MainActivity : ComponentActivity() {
             ModuleType.SAMPLER -> buildSamplerContent()
             ModuleType.SYNTH -> buildSynthContent()
             ModuleType.TRACKER -> buildTrackerContent()
-            ModuleType.STEP_SEQUENCER -> ChannelRackPanelView(this).also { stepSequencerPanel = it }
+            ModuleType.STEP_SEQUENCER -> ChannelRackPanelView(this).also { panel ->
+                stepSequencerPanel = panel
+                panel.onSongChanged = {
+                    updateTransportToggles()
+                    refreshSongGrid()
+                }
+            }
         }
 
         val touchPanel = ModuleTouchPanel(this).apply {
@@ -687,6 +771,7 @@ class MainActivity : ComponentActivity() {
                 Toast.makeText(this@MainActivity, "Saved ${saved.size} slices to your sample library", Toast.LENGTH_LONG).show()
                 refreshSampleList()
             }
+            onSendToRack = { sourceName, slices -> sendSlicesToRack(sourceName, slices) }
         }
         samplerPanel = panel
 
@@ -860,6 +945,20 @@ class MainActivity : ComponentActivity() {
         rack.promptAssignInstrument(entry.id, entry.displayName)
     }
 
+    private fun sendSlicesToRack(sourceName: String, slices: List<com.sai.core.audio.Wav>) {
+        val saved = SliceExporter.saveToLibrary(this, sourceName, slices)
+        refreshSampleList()
+        val placed = ChannelRackStore.sendToRack(this, saved.map { it.id })
+        stepSequencerPanel?.syncFromStore()
+        val extra = saved.size - placed
+        val message = if (extra > 0) {
+            "Sent $placed slices to Channel Rack ($extra stayed in the library — 8 channel max)"
+        } else {
+            "Sent $placed slices to Channel Rack"
+        }
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
     private fun loadIntoSampler(entry: SampleEntry) {
         val panel = samplerPanel
         if (panel == null) {
@@ -944,6 +1043,11 @@ class MainActivity : ComponentActivity() {
                 setTextColor(Color.rgb(90, 110, 130))
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams((28 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+                isLongClickable = true
+                setOnLongClickListener {
+                    promptLoopRow(position)
+                    true
+                }
             }
         )
 
@@ -968,12 +1072,63 @@ class MainActivity : ComponentActivity() {
                 }
             )
         }
+        val (loopStart, loopEnd) = project.loopBounds(stepSequencerPanel?.currentPattern ?: project.loopStart)
+        if (project.loopMode != LoopMode.SONG && position in loopStart..loopEnd) {
+            row.setBackgroundColor(Color.rgb(28, 40, 32))
+        }
         return row
     }
 
+    private fun promptLoopRow(position: Int) {
+        AlertDialog.Builder(this)
+            .setTitle("Loop row %02X".format(position))
+            .setItems(arrayOf("Loop this row", "Set loop start", "Set loop end")) { _, which ->
+                when (which) {
+                    0 -> {
+                        project.loopStart = position
+                        project.loopEnd = position
+                        project.loopMode = LoopMode.RANGE
+                    }
+                    1 -> {
+                        project.loopStart = position
+                        if (project.loopEnd < position) project.loopEnd = position
+                        project.loopMode = LoopMode.RANGE
+                    }
+                    2 -> {
+                        project.loopEnd = position
+                        if (project.loopStart > position) project.loopStart = position
+                        project.loopMode = LoopMode.RANGE
+                    }
+                }
+                updateTransportToggles()
+                stepSequencerPanel?.refreshRows()
+                refreshSongGrid()
+                Toast.makeText(
+                    this,
+                    "Looping rows %02X–%02X".format(project.loopStart, project.loopEnd),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            .show()
+    }
+
     private fun highlightPosition(position: Int, step: Int) {
+        fun loopTint(index: Int): Int {
+            val (loopStart, loopEnd) = project.loopBounds(stepSequencerPanel?.currentPattern ?: project.loopStart)
+            return if (project.loopMode != LoopMode.SONG && index in loopStart..loopEnd) {
+                Color.rgb(28, 40, 32)
+            } else {
+                Color.TRANSPARENT
+            }
+        }
+        if (position < 0) {
+            statusText?.text = " COUNT-IN %d".format(step + 1)
+            stepSequencerPanel?.setPlayhead(-1)
+            tempoBouncer.pulseOnce()
+            return
+        }
         if (highlightedPosition in songRowViews.indices) {
-            songRowViews[highlightedPosition].setBackgroundColor(Color.TRANSPARENT)
+            songRowViews[highlightedPosition].setBackgroundColor(loopTint(highlightedPosition))
         }
         if (position in songRowViews.indices) {
             songRowViews[position].setBackgroundColor(Color.rgb(0, 50, 55))
@@ -1136,10 +1291,21 @@ class MainActivity : ComponentActivity() {
             sequencer.onPositionChanged = { position, step ->
                 runOnUiThread {
                     highlightPosition(position, step)
-                    if (step % 4 == 0) tempoBouncer.pulseOnce()
+                    if (position >= 0 && step % 4 == 0) tempoBouncer.pulseOnce()
                 }
             }
-            sequencer.start(project.song, project.phrases, project.bpm)
+            val (loopStart, loopEnd) = project.loopBounds(stepSequencerPanel?.currentPattern ?: project.loopStart)
+            sequencer.start(
+                song = project.song,
+                phrases = project.phrases,
+                bpm = project.bpm,
+                patternLengthAt = { project.patternLength(it) },
+                swingPercent = project.swing,
+                loopStart = loopStart,
+                loopEnd = loopEnd,
+                metronome = TransportStore.metronome(this),
+                countInBars = if (TransportStore.countIn(this)) 1 else 0,
+            )
             updatePlayButtonAppearance()
             tempoBouncer.stop()
         }
@@ -1215,6 +1381,7 @@ class MainActivity : ComponentActivity() {
             project.importProjectJson(raw)
             refreshSongGrid()
             stepSequencerPanel?.refreshRows()
+            updateTransportToggles()
             Toast.makeText(this, "Project loaded", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Load failed: ${e.message}", Toast.LENGTH_LONG).show()
@@ -1229,6 +1396,7 @@ class MainActivity : ComponentActivity() {
                 project.resetProject()
                 refreshSongGrid()
                 stepSequencerPanel?.refreshRows()
+                updateTransportToggles()
             }
             .setNegativeButton("Cancel", null)
             .show()

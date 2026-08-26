@@ -30,6 +30,7 @@ object MixdownExporter {
             val rack = racks.getOrNull(track)
             MixerMath.Channel(
                 muted = rack?.muted ?: false,
+                soloed = rack?.soloed ?: false,
                 volume = rack?.volume ?: 1f,
                 pan = rack?.pan ?: 0.5f,
                 mixerTrack = rack?.mixerTrack ?: 0,
@@ -47,6 +48,8 @@ object MixdownExporter {
             projectMaster = ProjectPlayback.masterVolume(context) / 127f,
             pitchSemitones = ProjectPlayback.pitchSemitones(context),
             chokeSameTrack = ModuleLayoutStore.isChokeEnabled(context, ModuleType.TRACKER),
+            patternLengthAt = { project.patternLength(it) },
+            swingPercent = project.swing,
         )
     }
 

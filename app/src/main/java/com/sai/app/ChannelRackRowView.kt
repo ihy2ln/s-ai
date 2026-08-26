@@ -7,12 +7,15 @@ import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.sai.core.tracker.Phrase
 
-/** One FL Studio Channel Rack row: mute, pan, volume, mixer route, channel button, step grid. */
+/** One Channel Rack row: mute, solo, pan, volume, mixer route, channel button, step grid. */
 class ChannelRackRowView(context: Context) : LinearLayout(context) {
 
     val muteLed = MuteLedView(context)
+    val soloLed = MuteLedView(context).apply {
+        onColor = Color.rgb(220, 180, 40)
+        muted = true
+    }
     val volumeKnob = Knob(context, 0f, 1f)
     val panKnob = Knob(context, 0f, 1f)
     val mixerTrackLabel = TextView(context)
@@ -53,6 +56,9 @@ class ChannelRackRowView(context: Context) : LinearLayout(context) {
         addView(muteLed, LayoutParams((22 * density).toInt(), LayoutParams.MATCH_PARENT).apply {
             setMargins(controlGap, 0, controlGap, 0)
         })
+        addView(soloLed, LayoutParams((22 * density).toInt(), LayoutParams.MATCH_PARENT).apply {
+            setMargins(0, 0, controlGap, 0)
+        })
         addView(volumeKnob, LayoutParams(knobSize, LayoutParams.MATCH_PARENT).apply {
             setMargins(0, (2 * density).toInt(), 0, (2 * density).toInt())
         })
@@ -66,17 +72,18 @@ class ChannelRackRowView(context: Context) : LinearLayout(context) {
         addView(stepRow, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
     }
 
-    fun bind(state: RackChannelState, channelIndex: Int, displayName: String, rowHeightPx: Int) {
+    fun bind(state: RackChannelState, channelIndex: Int, displayName: String, rowHeightPx: Int, stepCount: Int) {
         val density = resources.displayMetrics.density
         val vPad = (2 * density).toInt().coerceAtMost(rowHeightPx / 4)
         muteLed.muted = state.muted
+        soloLed.muted = !state.soloed
         volumeKnob.setValue(state.volume)
         panKnob.setValue(state.pan)
         mixerTrackLabel.text = if (state.mixerTrack <= 0) "---" else state.mixerTrack.toString()
         channelButton.text = displayName
         channelButton.setBackgroundColor(ChannelRackStore.channelColor(channelIndex, state.instrumentId != null))
         channelButton.setPadding((4 * density).toInt(), vPad, (4 * density).toInt(), vPad)
-        stepRow.stepCount = Phrase.STEP_COUNT
+        stepRow.stepCount = stepCount
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, rowHeightPx)
     }
 }

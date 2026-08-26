@@ -9,12 +9,14 @@ import org.json.JSONObject
 data class RackChannelState(
     val instrumentId: Int? = null,
     val muted: Boolean = false,
+    val soloed: Boolean = false,
     val volume: Float = 0.78f,
     val pan: Float = 0.5f,
     val mixerTrack: Int = 0,
 ) {
     fun withInstrument(id: Int?) = copy(instrumentId = id)
     fun withMuted(value: Boolean) = copy(muted = value)
+    fun withSoloed(value: Boolean) = copy(soloed = value)
     fun withVolume(value: Float) = copy(volume = value.coerceIn(0f, 1f))
     fun withPan(value: Float) = copy(pan = value.coerceIn(0f, 1f))
     fun withMixerTrack(value: Int) = copy(mixerTrack = value.coerceIn(0, 99))
@@ -44,6 +46,7 @@ object ChannelRackStore {
                 RackChannelState(
                     instrumentId = if (obj.has("instrument") && !obj.isNull("instrument")) obj.getInt("instrument") else null,
                     muted = obj.optBoolean("muted", false),
+                    soloed = obj.optBoolean("soloed", false),
                     volume = obj.optDouble("volume", 0.78).toFloat(),
                     pan = obj.optDouble("pan", 0.5).toFloat(),
                     mixerTrack = obj.optInt("mixerTrack", 0),
@@ -77,6 +80,7 @@ object ChannelRackStore {
                 JSONObject()
                     .put("instrument", channel.instrumentId ?: JSONObject.NULL)
                     .put("muted", channel.muted)
+                    .put("soloed", channel.soloed)
                     .put("volume", channel.volume.toDouble())
                     .put("pan", channel.pan.toDouble())
                     .put("mixerTrack", channel.mixerTrack),
@@ -84,6 +88,42 @@ object ChannelRackStore {
         }
         prefs(context).edit().putString(KEY_CHANNELS, array.toString()).apply()
     }
+
+    /**
+     * Assigns [instrumentIds] onto rack channels: empty visible rows first, then newly shown
+     * rows up to [MAX_CHANNELS]. Leftover ids are ignored. Returns how many were placed.
+     */
+    fun sendToRack(context: Context, instrumentIds: List<Int>): Int {
+        if (instrumentIds.isEmpty()) return 0
+        val channels = loadChannels(context)
+        var visible = visibleCount(context)
+        val targets = mutableListOf<Int>()
+        for (i in 0 until visible) {
+            if (channels.getOrNull(i)?.instrumentId == null) targets.add(i)
+        }
+        var next = visible
+        while (targets.size < instrumentIds.size && next < MAX_CHANNELS) {
+            targets.add(next)
+            next++
+        }
+        var overwrite = 0
+        while (targets.size < instrumentIds.size && overwrite < MAX_CHANNELS) {
+            if (overwrite !in targets) targets.add(overwrite)
+            overwrite++
+        }
+        val placed = minOf(instrumentIds.size, targets.size, MAX_CHANNELS)
+        for (i in 0 until placed) {
+            val index = targets[i]
+            while (channels.size <= index) channels.add(RackChannelState())
+            channels[index] = channels[index].withInstrument(instrumentIds[i])
+            visible = maxOf(visible, index + 1)
+        }
+        setVisibleCount(context, visible.coerceIn(MIN_VISIBLE, MAX_CHANNELS))
+        saveChannels(context, channels)
+        return placed
+    }
+
+    fun anySolo(context: Context): Boolean = loadChannels(context).any { it.soloed }
 
     fun defaultChannels(context: Context): MutableList<RackChannelState> {
         val count = visibleCount(context)

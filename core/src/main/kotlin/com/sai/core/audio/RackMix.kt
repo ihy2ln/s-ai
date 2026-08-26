@@ -5,6 +5,13 @@ object RackMix {
 
     fun shouldPlay(muted: Boolean): Boolean = !muted
 
+    /** Channel Rack mute + solo: if any row is soloed, only soloed (and unmuted) rows play. */
+    fun isAudible(muted: Boolean, soloed: Boolean, anySolo: Boolean): Boolean {
+        if (muted) return false
+        if (anySolo && !soloed) return false
+        return true
+    }
+
     /** Step volume is 0–127; rack volume is 0–1 linear. */
     fun combinedStepVolume(stepVolume: Int, rackVolume: Float): Int {
         val step = stepVolume.coerceIn(0, 127)
