@@ -54,5 +54,55 @@ object ModuleLayoutStore {
         prefs(context).edit().putString(KEY_ENTRIES, raw).apply()
     }
 
+    fun exportJson(context: Context, entries: List<ModuleEntry>): String {
+        val array = org.json.JSONArray()
+        for (entry in entries) {
+            array.put(
+                org.json.JSONObject()
+                    .put("type", entry.type.name)
+                    .put("heightDp", entry.heightDp.toDouble()),
+            )
+        }
+        val choke = org.json.JSONObject()
+        for (type in ModuleType.values()) {
+            if (chokeKey(type) != type) continue
+            choke.put(type.name, isChokeEnabled(context, type))
+        }
+        return org.json.JSONObject().put("entries", array).put("choke", choke).toString()
+    }
+
+    fun importJson(context: Context, raw: String): MutableList<ModuleEntry>? {
+        if (raw.isBlank()) return null
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val array = obj.optJSONArray("entries") ?: return null
+            val loaded = (0 until array.length()).mapNotNull { i ->
+                val item = array.getJSONObject(i)
+                val type = try {
+                    ModuleType.valueOf(item.getString("type"))
+                } catch (e: IllegalArgumentException) {
+                    return@mapNotNull null
+                }
+                ModuleEntry(type, item.optDouble("heightDp", defaultHeight(type).toDouble()).toFloat())
+            }
+            if (loaded.isEmpty()) return null
+            val choke = obj.optJSONObject("choke")
+            if (choke != null) {
+                for (key in choke.keys()) {
+                    val type = try {
+                        ModuleType.valueOf(key)
+                    } catch (e: IllegalArgumentException) {
+                        continue
+                    }
+                    setChokeEnabled(context, type, choke.optBoolean(key, false))
+                }
+            }
+            save(context, loaded)
+            loaded.toMutableList()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 }

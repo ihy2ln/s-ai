@@ -46,5 +46,24 @@ object AppTheme {
             .apply()
     }
 
+    fun exportJson(context: Context): String =
+        org.json.JSONObject()
+            .put("accent", accentColor(context))
+            .put("opacity", opacityPercent(context))
+            .put("backgroundOpacity", backgroundOpacityPercent(context))
+            .toString()
+
+    fun importJson(context: Context, raw: String) {
+        if (raw.isBlank()) return
+        try {
+            val obj = org.json.JSONObject(raw)
+            if (obj.has("accent")) setAccentColor(context, obj.getInt("accent"))
+            if (obj.has("opacity")) setOpacityPercent(context, obj.getInt("opacity"))
+            if (obj.has("backgroundOpacity")) setBackgroundOpacityPercent(context, obj.getInt("backgroundOpacity"))
+        } catch (e: Exception) {
+            // Keep the current theme if the package chunk is malformed.
+        }
+    }
+
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 }

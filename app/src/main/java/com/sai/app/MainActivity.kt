@@ -16,6 +16,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var edgeScrollBar: EdgeScrollBar
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
+    private val moduleBodies = mutableMapOf<ModuleType, View>()
     private var isDraggingModuleHandle = false
     private var lastModuleScrollHeight = 0
     private var keepUserModuleHeights = false
@@ -98,7 +100,7 @@ class MainActivity : ComponentActivity() {
         if (uris.isNotEmpty()) importSamples(uris)
     }
 
-    private val saveProjectLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    private val saveProjectLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) saveProjectTo(uri)
     }
 
@@ -501,7 +503,7 @@ class MainActivity : ComponentActivity() {
             ProjectMenu.Actions(
                 onRename = { editProjectName() },
                 onSave = { saveProjectLauncher.launch(suggestedProjectFileName()) },
-                onLoad = { loadProjectLauncher.launch(arrayOf("application/json")) },
+                onLoad = { loadProjectLauncher.launch(arrayOf("application/zip", "application/json", "*/*")) },
                 onNew = { confirmNewProject() },
                 onUndo = { project.undo(); refreshSongGrid() },
                 onRedo = { project.redo(); refreshSongGrid() },
@@ -558,14 +560,11 @@ class MainActivity : ComponentActivity() {
         refreshSongGrid()
     }
 
-    /** Rebuilds every module (and the resize handles between them) from [moduleEntries] /
-     *  [fullScreenModule], then repopulates the sample list and song grid into the fresh views.
-     *  Note: this recreates the Sampler/Synth panels, so a loaded-but-unsaved sound is cleared -
-     *  an accepted trade-off for keeping add/remove/reorder simple and reliable. */
+    /** Rebuilds module wrappers (order, heights, fullscreen) but reuses Sampler/Synth/Tracker/Rack
+     *  bodies so a loaded sound and in-progress pattern are not wiped by add/remove/reorder. */
     private fun rebuildModulesColumn() {
         modulesColumn.removeAllViews()
         chokeButtons.clear()
-        stepSequencerPanel = null
         val density = resources.displayMetrics.density
 
         val full = fullScreenModule
@@ -667,7 +666,26 @@ class MainActivity : ComponentActivity() {
             addView(removeButton)
         }
 
-        val content = when (type) {
+        val content = bodyFor(type)
+
+        val touchPanel = ModuleTouchPanel(this).apply {
+            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(titleRow)
+            addView(touchPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
+    }
+
+    private fun bodyFor(type: ModuleType): View {
+        val existing = moduleBodies[type]
+        if (existing != null) {
+            (existing.parent as? ViewGroup)?.removeView(existing)
+            return existing
+        }
+        val created = when (type) {
             ModuleType.SAMPLER -> buildSamplerContent()
             ModuleType.SYNTH -> buildSynthContent()
             ModuleType.TRACKER -> buildTrackerContent()
@@ -679,16 +697,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
-        val touchPanel = ModuleTouchPanel(this).apply {
-            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
-        }
-
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(titleRow)
-            addView(touchPanel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
-        }
+        moduleBodies[type] = created
+        return created
     }
 
     /** "CUT" toggles Cut Itself (mono/poly) for this module - see [ModuleLayoutStore.chokeKey]:
@@ -1364,12 +1374,15 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun suggestedProjectFileName(): String = "sai-project-${System.currentTimeMillis()}.json"
+    private fun suggestedProjectFileName(): String {
+        val slug = project.name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifBlank { "project" }
+        return "sai-$slug.sai.zip"
+    }
 
     private fun saveProjectTo(uri: Uri) {
         try {
-            contentResolver.openOutputStream(uri)!!.use { out -> out.write(project.exportProjectJson().toByteArray()) }
-            Toast.makeText(this, "Project saved", Toast.LENGTH_SHORT).show()
+            contentResolver.openOutputStream(uri)!!.use { out -> out.write(ProjectBundle.export(this, moduleEntries)) }
+            Toast.makeText(this, "Project package saved", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -1377,12 +1390,21 @@ class MainActivity : ComponentActivity() {
 
     private fun loadProjectFrom(uri: Uri) {
         try {
-            val raw = contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-            project.importProjectJson(raw)
+            val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+            val result = ProjectBundle.import(this, bytes)
+            if (result.layout != null) {
+                moduleEntries = result.layout
+                keepUserModuleHeights = true
+            }
             refreshSongGrid()
-            stepSequencerPanel?.refreshRows()
+            stepSequencerPanel?.syncFromStore()
             updateTransportToggles()
-            Toast.makeText(this, "Project loaded", Toast.LENGTH_SHORT).show()
+            if (result.jsonOnly) {
+                Toast.makeText(this, "Project loaded", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Project package loaded", Toast.LENGTH_SHORT).show()
+                recreate()
+            }
         } catch (e: Exception) {
             Toast.makeText(this, "Load failed: ${e.message}", Toast.LENGTH_LONG).show()
         }

@@ -67,6 +67,59 @@ object AppBackground {
         prefs(context).edit().putString(KEY_TYPE, TYPE_DEFAULT).putBoolean(KEY_MIRROR, false).apply()
     }
 
+    fun exportJson(context: Context): String {
+        val p = prefs(context)
+        return org.json.JSONObject()
+            .put("type", p.getString(KEY_TYPE, TYPE_DEFAULT))
+            .put("color", p.getInt(KEY_COLOR, BASE_COLOR))
+            .put("mirror", p.getBoolean(KEY_MIRROR, false))
+            .put("imageUri", p.getString(KEY_IMAGE_URI, "") ?: "")
+            .put("videoUri", p.getString(KEY_VIDEO_URI, "") ?: "")
+            .toString()
+    }
+
+    fun importJson(context: Context, raw: String, bundledUri: Uri? = null) {
+        if (raw.isBlank()) return
+        try {
+            val obj = org.json.JSONObject(raw)
+            val type = obj.optString("type", TYPE_DEFAULT)
+            val editor = prefs(context).edit()
+            editor.putBoolean(KEY_MIRROR, obj.optBoolean("mirror", false))
+            when (type) {
+                TYPE_COLOR -> {
+                    editor.putString(KEY_TYPE, TYPE_COLOR)
+                    editor.putInt(KEY_COLOR, obj.optInt("color", BASE_COLOR))
+                }
+                TYPE_IMAGE -> {
+                    editor.putString(KEY_TYPE, TYPE_IMAGE)
+                    val uri = bundledUri?.toString() ?: obj.optString("imageUri", "")
+                    if (uri.isNotBlank()) editor.putString(KEY_IMAGE_URI, uri)
+                }
+                TYPE_VIDEO -> {
+                    editor.putString(KEY_TYPE, TYPE_VIDEO)
+                    val uri = bundledUri?.toString() ?: obj.optString("videoUri", "")
+                    if (uri.isNotBlank()) editor.putString(KEY_VIDEO_URI, uri)
+                }
+                else -> editor.putString(KEY_TYPE, TYPE_DEFAULT)
+            }
+            editor.apply()
+        } catch (e: Exception) {
+            // Keep the current background if the package chunk is malformed.
+        }
+    }
+
+    fun currentType(context: Context): String = prefs(context).getString(KEY_TYPE, TYPE_DEFAULT) ?: TYPE_DEFAULT
+
+    fun currentMediaUri(context: Context): Uri? {
+        val p = prefs(context)
+        val raw = when (p.getString(KEY_TYPE, TYPE_DEFAULT)) {
+            TYPE_IMAGE -> p.getString(KEY_IMAGE_URI, null)
+            TYPE_VIDEO -> p.getString(KEY_VIDEO_URI, null)
+            else -> null
+        }
+        return raw?.let { Uri.parse(it) }
+    }
+
     /** Wraps [content] with the chosen background layered behind it; call this instead of
      *  setting content's own background, and pass the result to setContentView. */
     fun wrap(context: Context, content: View): View {

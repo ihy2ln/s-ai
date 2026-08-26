@@ -125,6 +125,48 @@ object ChannelRackStore {
 
     fun anySolo(context: Context): Boolean = loadChannels(context).any { it.soloed }
 
+    fun exportJson(context: Context): String {
+        val array = JSONArray()
+        for (channel in loadChannels(context)) {
+            array.put(
+                JSONObject()
+                    .put("instrument", channel.instrumentId ?: JSONObject.NULL)
+                    .put("muted", channel.muted)
+                    .put("soloed", channel.soloed)
+                    .put("volume", channel.volume.toDouble())
+                    .put("pan", channel.pan.toDouble())
+                    .put("mixerTrack", channel.mixerTrack),
+            )
+        }
+        return JSONObject()
+            .put("visibleCount", visibleCount(context))
+            .put("channels", array)
+            .toString()
+    }
+
+    fun importJson(context: Context, raw: String) {
+        if (raw.isBlank()) return
+        try {
+            val obj = JSONObject(raw)
+            val array = obj.optJSONArray("channels") ?: JSONArray(raw)
+            val loaded = (0 until array.length()).map { i ->
+                val item = array.getJSONObject(i)
+                RackChannelState(
+                    instrumentId = if (item.has("instrument") && !item.isNull("instrument")) item.getInt("instrument") else null,
+                    muted = item.optBoolean("muted", false),
+                    soloed = item.optBoolean("soloed", false),
+                    volume = item.optDouble("volume", 0.78).toFloat(),
+                    pan = item.optDouble("pan", 0.5).toFloat(),
+                    mixerTrack = item.optInt("mixerTrack", 0),
+                )
+            }
+            if (obj.has("visibleCount")) setVisibleCount(context, obj.getInt("visibleCount"))
+            saveChannels(context, loaded)
+        } catch (e: Exception) {
+            // Leave the current rack if the package chunk is malformed.
+        }
+    }
+
     fun defaultChannels(context: Context): MutableList<RackChannelState> {
         val count = visibleCount(context)
         return MutableList(count) { RackChannelState() }

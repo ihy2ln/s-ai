@@ -4,6 +4,7 @@ import android.content.Context
 import com.sai.core.audio.MixerMath
 import com.sai.core.audio.Oscillator
 import com.sai.core.audio.RackMix
+import com.sai.core.audio.SequencerClock
 import com.sai.core.audio.StereoShaper
 import com.sai.core.audio.Swing
 import com.sai.core.audio.Wav
@@ -65,7 +66,19 @@ class Sequencer(
 
         running = true
         thread = Thread {
-            if (countInBars > 0) playCountIn(countInBars, stepMillis)
+            val startNanos = System.nanoTime()
+            var elapsedMs = 0.0
+            if (countInBars > 0) {
+                val beatMillis = stepMillis * 4.0
+                val beats = countInBars.coerceAtLeast(1) * 4
+                for (beat in 0 until beats) {
+                    if (!running) return@Thread
+                    onPositionChanged?.invoke(-1, beat)
+                    playClick(accent = beat % 4 == 0)
+                    elapsedMs += beatMillis
+                    SequencerClock.waitUntil(SequencerClock.deadlineNanos(startNanos, elapsedMs)) { running }
+                }
+            }
             while (running) {
                 val playedPosition = engine.songPosition
                 val playedStep = engine.stepIndex
@@ -79,14 +92,8 @@ class Sequencer(
                     val wav = sampleCache[instrument] ?: continue
                     playOneShot(wav, event.step, event.track)
                 }
-                val sleepMs = (stepMillis * Swing.intervalFraction(playedStep, swingPercent))
-                    .toLong()
-                    .coerceAtLeast(10)
-                try {
-                    Thread.sleep(sleepMs)
-                } catch (e: InterruptedException) {
-                    break
-                }
+                elapsedMs += stepMillis * Swing.intervalFraction(playedStep, swingPercent)
+                SequencerClock.waitUntil(SequencerClock.deadlineNanos(startNanos, elapsedMs)) { running }
             }
         }.apply {
             isDaemon = true
@@ -98,21 +105,6 @@ class Sequencer(
         running = false
         thread?.interrupt()
         thread = null
-    }
-
-    private fun playCountIn(bars: Int, stepMillis: Double) {
-        val beatMillis = (stepMillis * 4.0).toLong().coerceAtLeast(20)
-        val beats = bars.coerceAtLeast(1) * 4
-        for (beat in 0 until beats) {
-            if (!running) return
-            onPositionChanged?.invoke(-1, beat)
-            playClick(accent = beat % 4 == 0)
-            try {
-                Thread.sleep(beatMillis)
-            } catch (e: InterruptedException) {
-                return
-            }
-        }
     }
 
     private fun playClick(accent: Boolean) {

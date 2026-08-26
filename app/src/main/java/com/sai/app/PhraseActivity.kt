@@ -51,7 +51,7 @@ class PhraseActivity : ComponentActivity() {
         }
     }
 
-    private val saveProjectLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+    private val saveProjectLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) saveProjectTo(uri)
     }
 
@@ -399,8 +399,8 @@ class PhraseActivity : ComponentActivity() {
             this,
             ProjectMenu.Actions(
                 onRename = { editProjectName() },
-                onSave = { saveProjectLauncher.launch("sai-project-${System.currentTimeMillis()}.json") },
-                onLoad = { loadProjectLauncher.launch(arrayOf("application/json")) },
+                onSave = { saveProjectLauncher.launch("sai-project.sai.zip") },
+                onLoad = { loadProjectLauncher.launch(arrayOf("application/zip", "application/json", "*/*")) },
                 onNew = { confirmNewProject() },
                 onUndo = { project.undo(); refreshSteps() },
                 onRedo = { project.redo(); refreshSteps() },
@@ -461,8 +461,10 @@ class PhraseActivity : ComponentActivity() {
 
     private fun saveProjectTo(uri: Uri) {
         try {
-            contentResolver.openOutputStream(uri)!!.use { out -> out.write(project.exportProjectJson().toByteArray()) }
-            Toast.makeText(this, "Project saved", Toast.LENGTH_SHORT).show()
+            contentResolver.openOutputStream(uri)!!.use { out ->
+                out.write(ProjectBundle.export(this, ModuleLayoutStore.load(this)))
+            }
+            Toast.makeText(this, "Project package saved", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -470,8 +472,8 @@ class PhraseActivity : ComponentActivity() {
 
     private fun loadProjectFrom(uri: Uri) {
         try {
-            val raw = contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-            project.importProjectJson(raw)
+            val bytes = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+            ProjectBundle.import(this, bytes)
             refreshSteps()
             Toast.makeText(this, "Project loaded", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
