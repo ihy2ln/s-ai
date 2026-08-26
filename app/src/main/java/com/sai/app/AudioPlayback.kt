@@ -42,6 +42,7 @@ object AudioPlayback {
         }
 
         val minBufferSize = AudioTrack.getMinBufferSize(effective.sampleRate, channelMask, AudioFormat.ENCODING_PCM_16BIT)
+        val multiplier = context?.let { LatencyStore.bufferMultiplier(it) } ?: 1
         val track = AudioTrack(
             AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -52,7 +53,7 @@ object AudioPlayback {
                 .setSampleRate(effective.sampleRate)
                 .setChannelMask(channelMask)
                 .build(),
-            max(minBufferSize, pcmBytes.size),
+            max(minBufferSize * multiplier.coerceIn(1, 4), pcmBytes.size),
             AudioTrack.MODE_STATIC,
             AudioManager.AUDIO_SESSION_ID_GENERATE,
         )

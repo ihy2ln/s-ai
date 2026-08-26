@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -18,6 +19,7 @@ class SoundLibraryActivity : ComponentActivity() {
 
     private lateinit var library: SampleLibrary
     private lateinit var listContainer: LinearLayout
+    private lateinit var searchInput: EditText
 
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (uris.isNotEmpty()) promptCategoryThenImport(uris)
@@ -42,6 +44,17 @@ class SoundLibraryActivity : ComponentActivity() {
             setOnClickListener { importLauncher.launch(arrayOf("audio/*")) }
         }
 
+        searchInput = EditText(this).apply {
+            hint = "Search name, category, tags"
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.rgb(100, 110, 120))
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = refresh()
+                override fun afterTextChanged(s: android.text.Editable?) = Unit
+            })
+        }
+
         listContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         val root = LinearLayout(this).apply {
@@ -50,6 +63,7 @@ class SoundLibraryActivity : ComponentActivity() {
             setBackgroundColor(Color.BLACK)
             addView(title)
             addView(addButton)
+            addView(searchInput)
             addView(
                 ScrollView(this@SoundLibraryActivity).apply { addView(listContainer) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
@@ -65,6 +79,29 @@ class SoundLibraryActivity : ComponentActivity() {
 
     private fun refresh() {
         listContainer.removeAllViews()
+        val query = if (::searchInput.isInitialized) searchInput.text.toString() else ""
+        val filtered = library.search(query)
+        if (query.isNotBlank()) {
+            listContainer.addView(
+                TextView(this).apply {
+                    text = "Results (${filtered.size})"
+                    setTextColor(Color.rgb(120, 140, 160))
+                    typeface = Typeface.MONOSPACE
+                    textSize = 14f
+                },
+            )
+            if (filtered.isEmpty()) {
+                listContainer.addView(
+                    TextView(this).apply {
+                        text = "  (no matches)"
+                        setTextColor(Color.rgb(80, 80, 85))
+                    },
+                )
+            } else {
+                for (entry in filtered) listContainer.addView(entryRow(entry))
+            }
+            return
+        }
         for (category in SoundCategory.ALL) {
             val entries = library.byCategory(category)
             listContainer.addView(
@@ -89,17 +126,18 @@ class SoundLibraryActivity : ComponentActivity() {
     }
 
     private fun entryRow(entry: SampleEntry): TextView = TextView(this).apply {
-        text = "  ${entry.displayName}"
+        text = if (entry.tags.isBlank()) "  ${entry.displayName}" else "  ${entry.displayName}  [${entry.tags}]"
         setTextColor(Color.WHITE)
         setPadding(8, 8, 8, 8)
         setOnClickListener { preview(entry) }
         setOnLongClickListener {
             AlertDialog.Builder(this@SoundLibraryActivity)
                 .setTitle(entry.displayName)
-                .setItems(arrayOf("Move to Category", "Mixer")) { _, which ->
+                .setItems(arrayOf("Move to Category", "Mixer", "Tags")) { _, which ->
                     when (which) {
                         0 -> showRecategorizeDialog(entry)
                         1 -> EffectsMenu.show(this@SoundLibraryActivity, libraryEffectsTarget(entry))
+                        2 -> editTags(entry)
                     }
                 }
                 .show()
@@ -129,6 +167,22 @@ class SoundLibraryActivity : ComponentActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Couldn't play ${entry.displayName}: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun editTags(entry: SampleEntry) {
+        val input = EditText(this).apply {
+            setText(entry.tags)
+            hint = "kick, dry, 808"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Tags")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                library.setTags(entry, input.text.toString())
+                refresh()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showRecategorizeDialog(entry: SampleEntry) {

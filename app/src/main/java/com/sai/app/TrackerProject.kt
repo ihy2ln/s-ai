@@ -83,6 +83,14 @@ class TrackerProject(context: Context) {
         persist()
     }
 
+    fun setAllPatternLengths(length: Int) {
+        ensurePatternLengths()
+        pushUndo()
+        val coerced = Phrase.coerceLength(length)
+        for (i in patternLengths.indices) patternLengths[i] = coerced
+        persist()
+    }
+
     fun setSongSlot(position: Int, track: Int, phraseId: Int?) {
         pushUndo()
         val rows = song.positions.toMutableList()

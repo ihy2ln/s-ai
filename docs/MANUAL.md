@@ -83,6 +83,9 @@ Tap the blue square in the transport bar to open **Project Sound**:
 | --- | --- | --- |
 | **PITCH** | ±24 semitones | Transposes all song playback |
 | **MASTER** | 0–127 | Overall mix level for playback |
+| **BUF** | 1–4× | AudioTrack buffer multiplier |
+| **LAT** | 0–200 ms | Skip this many milliseconds at the start of a mic recording (compensation) |
+| **VOX** | off/on | Light vocal FX (high-pass + compressor) on recorded takes |
 
 These settings apply to tracker/sequencer playback and are saved with your project.
 
@@ -298,7 +301,7 @@ Vertical piano keys (two octaves at a time) with up to 32 horizontal step column
 Add via **M → Add Module → PADS**.
 
 - 16 pads in a 4×4 grid
-- **Tap** plays the assigned sample (**MONO** chokes the previous pad; **POLY** layers)
+- **Tap** plays the assigned sample (**MONO** chokes the previous pad; **POLY** layers) and a short haptic
 - **Long-press** assigns (or clears) a library sound
 - Empty pads prompt you to pick a sample
 - While Record is armed and the song is playing, a pad punch-in writes to the armed Tracker track like the sample list
@@ -349,6 +352,8 @@ Categories: Kicks, Snares, Hats, Percussion, Vocals, SFX, Synth, Samples.
 - **Tap** — preview
 - **Long-press → Move to Category**
 - **Long-press → Mixer** — effects
+- **Long-press → Tags** — free-text tags (searchable)
+- Search box filters name, category, and tags
 
 ## Project Save & Load
 
@@ -360,7 +365,7 @@ Manual export/import via **P → Save** / **P → Load**:
 - **Load** accepts that package, or an older JSON-only song file
 - **P → Export WAV** — stereo mixdown of the song through the mixer (includes playlist)
 - **P → Export Stems** — zip of per-track WAVs plus playlist audio
-- **P → New** — clear song, phrases, and playlist (library untouched)
+- **P → New** — pick Empty, 16-step grid, 32-step grid, or Beat (places an empty phrase on song row 00)
 
 **Undo / Redo** is available from **P → Project** on Home and Phrase Editor.
 
@@ -379,10 +384,12 @@ Manual export/import via **P → Save** / **P → Load**:
 
 ## Live Recording
 
-1. Tap the **red Record circle** and pick which Tracker track (1–8) to punch into
-2. Start **Play**
-3. Tap any sample in the list — it plays immediately and writes to the armed track at the current step
-4. While armed, tap a song-grid cell to change which track punches in
+1. Tap the **red Record circle**
+2. Choose **Punch track 1–8** or **Playlist tape (mic)**
+3. For punch: start **Play**, then tap samples (or pads) to write hits at the current step
+4. For tape: start **Play** — the mic records until you stop Play or disarm Record. The take is saved as a Vocal library sound and dropped on playlist lane 8 at the start step. **LAT** and **VOX** in Project Sound apply.
+
+Sampler **Record Audio** still loads a take into the Sampler (also using LAT / VOX).
 
 Disarm Record when finished.
 

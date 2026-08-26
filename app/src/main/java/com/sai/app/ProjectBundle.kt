@@ -28,6 +28,7 @@ object ProjectBundle {
                     .put("id", entry.id)
                     .put("name", entry.displayName)
                     .put("category", entry.category)
+                    .put("tags", entry.tags)
                     .put("file", file),
             )
         }
@@ -92,6 +93,7 @@ object ProjectBundle {
                     displayName = item.optString("name", "sample $id"),
                     category = item.optString("category", SoundCategory.DEFAULT),
                     id = id,
+                    tags = item.optString("tags", ""),
                 ),
             )
         }

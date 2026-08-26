@@ -72,6 +72,7 @@ class PadBankPanelView @JvmOverloads constructor(
             return
         }
         val handled = onPadPlay
+        Haptics.tap(context)
         if (handled != null) {
             handled.invoke(entry)
             return
