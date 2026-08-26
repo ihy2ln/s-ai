@@ -17,6 +17,7 @@ import com.sai.core.audio.SampleEditor
 import com.sai.core.audio.SampleWarp
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
+import com.sai.core.project.StableIds
 
 /** Full sample-editing surface: trim/gain/reverse/normalize plus a small "warp" toolkit -
  *  cut/paste, tempo change, pitch shift, granulate, and BPM sync - for reshaping a sample
@@ -26,6 +27,7 @@ class SampleEditorActivity : ComponentActivity() {
     /** The working "tape": Cut/Paste splice this in place. Everything else (trim/gain/reverse/
      *  normalize/tempo/pitch/granulate) is a non-destructive live preview computed on top of it. */
     private lateinit var working: Wav
+    private var libraryId: Int = StableIds.UNASSIGNED
 
     private lateinit var waveform: WaveformView
     private lateinit var statusText: TextView
@@ -51,6 +53,7 @@ class SampleEditorActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val uri = intent.getParcelableExtra<Uri>(EXTRA_SAMPLE_URI)
+        libraryId = intent.getIntExtra(EXTRA_SAMPLE_ID, StableIds.UNASSIGNED)
         if (uri == null) {
             finish()
             return
@@ -150,6 +153,10 @@ class SampleEditorActivity : ComponentActivity() {
         }
         val saveButton = Button(this).apply {
             text = "Save"
+            setOnClickListener { saveToLibrary() }
+        }
+        val exportButton = Button(this).apply {
+            text = "Export"
             setOnClickListener { saveLauncher.launch(suggestedFileName()) }
         }
 
@@ -182,6 +189,7 @@ class SampleEditorActivity : ComponentActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     addView(playButton)
                     addView(saveButton)
+                    addView(exportButton)
                 }
             )
         }
@@ -280,6 +288,25 @@ class SampleEditorActivity : ComponentActivity() {
 
     private fun suggestedFileName(): String = "sai-edited-${System.currentTimeMillis()}.wav"
 
+    private fun saveToLibrary() {
+        try {
+            val edited = currentEdit()
+            if (libraryId >= 0) {
+                val entry = SampleLibrary(this).get(libraryId)
+                if (entry != null) {
+                    SliceExporter.replaceLibraryEntry(this, entry, edited)
+                    Toast.makeText(this, "Updated ${entry.displayName} in the library", Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+            val saved = SliceExporter.saveToLibrary(this, suggestedFileName().removeSuffix(".wav"), listOf(edited))
+            saved.firstOrNull()?.let { libraryId = it.id }
+            Toast.makeText(this, "Saved to library", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun saveEditedWav(uri: Uri) {
         try {
             contentResolver.openOutputStream(uri)!!.use { out -> WavIO.write(currentEdit(), out) }
@@ -291,5 +318,6 @@ class SampleEditorActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SAMPLE_URI = "sample_uri"
+        const val EXTRA_SAMPLE_ID = "sample_id"
     }
 }

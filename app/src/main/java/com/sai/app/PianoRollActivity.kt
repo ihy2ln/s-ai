@@ -22,7 +22,7 @@ class PianoRollActivity : ComponentActivity() {
     private lateinit var project: TrackerProject
     private lateinit var library: SampleLibrary
     private var phraseId: Int = 0
-    private var instrumentIndex: Int? = null
+    private var instrumentId: Int? = null
 
     private lateinit var instrumentButton: Button
     private lateinit var rowsContainer: LinearLayout
@@ -61,7 +61,7 @@ class PianoRollActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(PillButton.create(this@PianoRollActivity, "N") { onBackPressedDispatcher.onBackPressed() })
+            addView(PillButton.create(this@PianoRollActivity, "N") { NavMenu.show(this@PianoRollActivity) })
         }
 
         instrumentButton = Button(this).apply {
@@ -93,7 +93,7 @@ class PianoRollActivity : ComponentActivity() {
         AlertDialog.Builder(this)
             .setTitle("Instrument")
             .setItems(labels) { _, which ->
-                instrumentIndex = which
+                instrumentId = entries[which].id
                 instrumentButton.text = entries[which].displayName
             }
             .show()
@@ -141,7 +141,7 @@ class PianoRollActivity : ComponentActivity() {
      *  other row previously held that step - done by refreshing every row's own state in place
      *  (never rebuilding the view tree, which would break a StepRowView mid-drag). */
     private fun tryToggleNote(stepIndex: Int, note: Int, desiredOn: Boolean): Boolean {
-        val instrument = instrumentIndex
+        val instrument = instrumentId
         if (desiredOn && instrument == null) {
             Toast.makeText(this, "Pick an instrument first", Toast.LENGTH_SHORT).show()
             return false

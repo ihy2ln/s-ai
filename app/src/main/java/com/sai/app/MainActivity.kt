@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
     private val audioRecorder = AudioRecorder()
     private lateinit var routeLabel: TextView
     private var recordArmed = false
-    private val recordTrack = 0
+    private var recordTrack = 0
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
@@ -146,7 +146,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         library = SampleLibrary(this)
         project = TrackerProjectStore.get(this)
-        sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
+        sequencer = Sequencer(this, library.byId(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
         sequencer.onPositionChanged = { position, step ->
             runOnUiThread {
                 highlightPosition(position, step)
@@ -265,9 +265,12 @@ class MainActivity : ComponentActivity() {
             ShapeIconView.Shape.CIRCLE,
             TransportShapeButton.RECORD_RED,
         ) {
-            recordArmed = !recordArmed
-            updateRecordButton()
-            if (recordArmed) Toast.makeText(this@MainActivity, "Live record armed: tap a sample to punch it in while playing", Toast.LENGTH_LONG).show()
+            if (recordArmed) {
+                recordArmed = false
+                updateRecordButton()
+            } else {
+                promptPunchTrack()
+            }
         }
         recordArmButton = recordArmButtonView
         updateRecordButton()
@@ -303,7 +306,7 @@ class MainActivity : ComponentActivity() {
                         setMargins((8 * density).toInt(), 0, 0, 0)
                     })
                     addView(PillButton.create(this@MainActivity, "E") { showExpand() })
-                    addView(PillButton.create(this@MainActivity, "N") { showNav() })
+                    addView(PillButton.create(this@MainActivity, "N") { NavMenu.show(this@MainActivity) })
                     addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
                     addView(PillButton.create(this@MainActivity, "P") { showProjectMenu() })
                     addView(PillButton.create(this@MainActivity, "M") { showMenu() })
@@ -365,7 +368,7 @@ class MainActivity : ComponentActivity() {
             })
             addView(modulesArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             isLongClickable = true
-            setOnLongClickListener { showNav(); true }
+            setOnLongClickListener { NavMenu.show(this@MainActivity); true }
         }
 
         rebuildModulesColumn()
@@ -608,6 +611,9 @@ class MainActivity : ComponentActivity() {
         button.setOnClickListener {
             val newValue = !ModuleLayoutStore.isChokeEnabled(this, type)
             ModuleLayoutStore.setChokeEnabled(this, type, newValue)
+            if (ModuleLayoutStore.chokeKey(type) == ModuleType.TRACKER) {
+                sequencer.chokeSameTrack = newValue
+            }
             val key = ModuleLayoutStore.chokeKey(type)
             for (candidate in ModuleType.values()) {
                 if (ModuleLayoutStore.chokeKey(candidate) == key) {
@@ -764,11 +770,11 @@ class MainActivity : ComponentActivity() {
             return
         }
         for ((index, entry) in entries.withIndex()) {
-            container.addView(sampleRow(entry, index, PALETTE[index % PALETTE.size]))
+            container.addView(sampleRow(entry, PALETTE[index % PALETTE.size]))
         }
     }
 
-    private fun sampleRow(entry: SampleEntry, instrumentIndex: Int, accent: Int): LinearLayout {
+    private fun sampleRow(entry: SampleEntry, accent: Int): LinearLayout {
         val density = resources.displayMetrics.density
 
         val accentStrip = View(this).apply { setBackgroundColor(accent) }
@@ -779,7 +785,7 @@ class MainActivity : ComponentActivity() {
             background = null
             setOnClickListener {
                 if (recordArmed && sequencer.isRunning) {
-                    recordLiveHit(entry, instrumentIndex)
+                    recordLiveHit(entry)
                 } else {
                     loadIntoSampler(entry)
                 }
@@ -789,7 +795,11 @@ class MainActivity : ComponentActivity() {
                     .setTitle(entry.displayName)
                     .setItems(arrayOf("Edit", "Mixer")) { _, which ->
                         when (which) {
-                            0 -> startActivity(Intent(this@MainActivity, SampleEditorActivity::class.java).putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri))
+                            0 -> startActivity(
+                                Intent(this@MainActivity, SampleEditorActivity::class.java)
+                                    .putExtra(SampleEditorActivity.EXTRA_SAMPLE_URI, entry.uri)
+                                    .putExtra(SampleEditorActivity.EXTRA_SAMPLE_ID, entry.id),
+                            )
                             1 -> EffectsMenu.show(this@MainActivity, libraryEffectsTarget(entry))
                         }
                     }
@@ -838,12 +848,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun assignToChannelRack(rack: ChannelRackPanelView, entry: SampleEntry) {
-        val instrumentIndex = library.all().indexOfFirst { it.uri == entry.uri }
-        if (instrumentIndex < 0) {
+        if (entry.id < 0) {
             Toast.makeText(this, "Couldn't find ${entry.displayName} in the library", Toast.LENGTH_LONG).show()
             return
         }
-        rack.promptAssignInstrument(instrumentIndex, entry.displayName)
+        rack.promptAssignInstrument(entry.id, entry.displayName)
     }
 
     private fun loadIntoSampler(entry: SampleEntry) {
@@ -878,7 +887,7 @@ class MainActivity : ComponentActivity() {
         },
         getName = { entry.displayName },
         onApplied = { processed ->
-            SliceExporter.saveToLibrary(this, entry.displayName, listOf(processed))
+            SliceExporter.replaceLibraryEntry(this, entry, processed)
             refreshSampleList()
         },
     )
@@ -943,7 +952,14 @@ class MainActivity : ComponentActivity() {
                     gravity = Gravity.CENTER
                     setPadding(4, 8, 4, 8)
                     layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
-                    setOnClickListener { onSlotTapped(position, track) }
+                    setOnClickListener {
+                        if (recordArmed) {
+                            recordTrack = track
+                            Toast.makeText(this@MainActivity, "Punching track ${track + 1}", Toast.LENGTH_SHORT).show()
+                        } else {
+                            onSlotTapped(position, track)
+                        }
+                    }
                 }
             )
         }
@@ -964,8 +980,8 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Records a live "session" hit: plays the sample immediately and writes it into the phrase
-     *  at the sequencer's current position/step, similar to punching in a pad hit while playing. */
-    private fun recordLiveHit(entry: SampleEntry, instrumentIndex: Int) {
+     *  at the sequencer's current position/step on [recordTrack]. */
+    private fun recordLiveHit(entry: SampleEntry) {
         try {
             val choke = ModuleLayoutStore.isChokeEnabled(this, ModuleType.SAMPLER)
             AudioPlayback.playOneShot(SampleLoader.decode(contentResolver, entry.uri), context = this, chokeGroup = if (choke) "sampler" else null)
@@ -975,20 +991,37 @@ class MainActivity : ComponentActivity() {
 
         val position = highlightedPosition
         if (position !in project.song.positions.indices) return
+        val track = recordTrack.coerceIn(0, project.song.trackCount - 1)
 
-        val existingPhraseId = project.song.positions[position][recordTrack]
+        val existingPhraseId = project.song.positions[position][track]
         val phraseId = existingPhraseId ?: run {
             val id = project.nextPhraseId()
             project.putPhrase(id, Phrase.empty())
-            project.setSongSlot(position, recordTrack, id)
+            project.setSongSlot(position, track, id)
             id
         }
         val phrase = project.phrases[phraseId] ?: Phrase.empty()
         val steps = phrase.steps.toMutableList()
         val stepIndex = lastLiveStep.coerceIn(0, steps.size - 1)
-        steps[stepIndex] = Step(instrument = instrumentIndex)
+        steps[stepIndex] = Step(instrument = entry.id)
         project.putPhrase(phraseId, Phrase(steps))
         refreshSongGrid()
+    }
+
+    private fun promptPunchTrack() {
+        val labels = Array(project.song.trackCount) { index ->
+            val mark = if (index == recordTrack) " (current)" else ""
+            "Track ${index + 1}$mark"
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Punch into track")
+            .setItems(labels) { _, which ->
+                recordTrack = which
+                recordArmed = true
+                updateRecordButton()
+                Toast.makeText(this, "Live record armed: tap a sample to punch track ${recordTrack + 1}", Toast.LENGTH_LONG).show()
+            }
+            .show()
     }
 
     private fun toggleAudioRecording() {
@@ -1094,7 +1127,7 @@ class MainActivity : ComponentActivity() {
             stepSequencerPanel?.setPlayhead(-1)
             tempoBouncer.startIdle()
         } else {
-            sequencer = Sequencer(this, library.all(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
+            sequencer = Sequencer(this, library.byId(), ModuleLayoutStore.isChokeEnabled(this, ModuleType.TRACKER))
             sequencer.onPositionChanged = { position, step ->
                 runOnUiThread {
                     highlightPosition(position, step)
@@ -1110,16 +1143,20 @@ class MainActivity : ComponentActivity() {
     // --- Menu (M) -------------------------------------------------------------
 
     private fun showMenu() {
+        val items = mutableListOf("Manual", "Samples", "Sounds")
+        if (PluginRegistry.available.isNotEmpty()) items.add("Plugins")
+        items.add("Theme")
+        items.add("Add Module")
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Manual", "Samples", "Sounds", "Plugins", "Theme", "Add Module")) { _, which ->
-                when (which) {
-                    0 -> startActivity(Intent(this, ManualActivity::class.java))
-                    1 -> openSamples.launch(arrayOf("audio/*"))
-                    2 -> startActivity(Intent(this, SoundLibraryActivity::class.java))
-                    3 -> showPluginsDialog()
-                    4 -> showThemeDialog()
-                    5 -> showAddModuleDialog()
+            .setItems(items.toTypedArray()) { _, which ->
+                when (items[which]) {
+                    "Manual" -> startActivity(Intent(this, ManualActivity::class.java))
+                    "Samples" -> openSamples.launch(arrayOf("audio/*"))
+                    "Sounds" -> startActivity(Intent(this, SoundLibraryActivity::class.java))
+                    "Plugins" -> showPluginsDialog()
+                    "Theme" -> showThemeDialog()
+                    "Add Module" -> showAddModuleDialog()
                 }
             }
             .show()
@@ -1192,29 +1229,30 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    // --- Nav (N) ----------------------------------------------------------------
-
-    private fun showNav() {
-        AlertDialog.Builder(this)
-            .setTitle("Navigate")
-            .setItems(arrayOf("Back")) { _, which ->
-                when (which) {
-                    0 -> onBackPressedDispatcher.onBackPressed()
-                }
-            }
-            .show()
-    }
-
     // --- Expand (E) ---------------------------------------------------------------
 
     private fun showExpand() {
-        val options = moduleEntries.map { "${it.type.label} Full Screen" } + "Split View"
-        AlertDialog.Builder(this)
-            .setTitle("Expand")
-            .setItems(options.toTypedArray()) { _, which ->
-                fullScreenModule = if (which == options.size - 1) null else moduleEntries[which].type
+        val labels = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+        for (entry in moduleEntries) {
+            labels.add("${entry.type.label} Full Screen")
+            actions.add {
+                fullScreenModule = entry.type
                 rebuildModulesColumn()
             }
+        }
+        if (moduleEntries.none { it.type == ModuleType.STEP_SEQUENCER }) {
+            labels.add("Channel Rack")
+            actions.add { startActivity(Intent(this, StepSequencerActivity::class.java)) }
+        }
+        labels.add("Split View")
+        actions.add {
+            fullScreenModule = null
+            rebuildModulesColumn()
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Expand")
+            .setItems(labels.toTypedArray()) { _, which -> actions[which].invoke() }
             .show()
     }
 

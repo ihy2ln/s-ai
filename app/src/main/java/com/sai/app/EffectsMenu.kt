@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.widget.Button
 import android.widget.HorizontalScrollView
@@ -25,20 +24,19 @@ class EffectsTarget(
 )
 
 /** The "MX" menu: sound-shaping effects (synth filter, compressor, reverb, EQ, stereo shaper)
- *  plus the step sequencer, all applied on-demand to whatever [EffectsTarget] is passed in. */
+ *  applied on-demand to whatever [EffectsTarget] is passed in. Channel Rack lives under N. */
 object EffectsMenu {
 
     fun show(context: Context, target: EffectsTarget) {
         AlertDialog.Builder(context)
             .setTitle("MX")
-            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper", "Channel Rack")) { _, which ->
+            .setItems(arrayOf("Synth (Filter)", "Compressor", "Reverb", "Equalizer", "Stereo Shaper")) { _, which ->
                 when (which) {
                     0 -> showFilterDialog(context, target)
                     1 -> showCompressorDialog(context, target)
                     2 -> showReverbDialog(context, target)
                     3 -> showEqualizerDialog(context, target)
                     4 -> showStereoShaperDialog(context, target)
-                    5 -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
                 }
             }
             .show()
