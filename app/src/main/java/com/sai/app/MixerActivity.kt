@@ -12,9 +12,9 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
+import com.sai.core.audio.InsertSlot
 
-/** Landscape mixer: 8 insert faders + master, mute/solo, meters. Export writes a stereo WAV mixdown. */
+/** Landscape mixer: 8 insert faders + master, mute/solo, meters, live insert FX. Export writes a stereo WAV mixdown. */
 class MixerActivity : ComponentActivity() {
 
     private lateinit var strips: MutableList<MixerStripState>
@@ -107,7 +107,7 @@ class MixerActivity : ComponentActivity() {
 
     private fun stripColumn(index: Int, label: String, isMaster: Boolean): LinearLayout {
         val density = resources.displayMetrics.density
-        val colW = (52 * density).toInt()
+        val colW = (56 * density).toInt()
         val meter = MeterView(this).apply {
             layoutParams = LinearLayout.LayoutParams((10 * density).toInt(), (48 * density).toInt()).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -157,6 +157,7 @@ class MixerActivity : ComponentActivity() {
                 textSize = 11f
                 gravity = Gravity.CENTER
             })
+            addView(fxButton(index, isMaster))
             addView(meter)
             addView(fader, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             addView(mute)
@@ -175,6 +176,31 @@ class MixerActivity : ComponentActivity() {
         }
 
         return column
+    }
+
+    private fun fxButton(index: Int, isMaster: Boolean): Button {
+        val slot = if (isMaster) MixerStore.masterInsert(this) else strips[index].insert
+        val button = compactToggle(slot.shortLabel(), slot.isActive, AppTheme.accentColor(this))
+        styleFx(button, slot)
+        button.setOnClickListener {
+            val current = if (isMaster) MixerStore.masterInsert(this) else strips[index].insert
+            val title = if (isMaster) "Master insert" else "Insert ${index + 1}"
+            InsertFxMenu.show(this, title, current) { next ->
+                if (isMaster) MixerStore.setMasterInsert(this, next)
+                else {
+                    strips[index] = strips[index].withInsert(next)
+                    MixerStore.saveStrips(this, strips)
+                }
+                styleFx(button, next)
+            }
+        }
+        return button
+    }
+
+    private fun styleFx(button: Button, slot: InsertSlot) {
+        button.text = slot.shortLabel()
+        button.setTextColor(if (slot.isActive) Color.BLACK else Color.WHITE)
+        button.setBackgroundColor(if (slot.isActive) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
     }
 
     private fun compactToggle(text: String, lit: Boolean, litColor: Int): Button {

@@ -242,12 +242,13 @@ Eight insert strips plus **MST** (master):
 
 | Control | Function |
 | --- | --- |
+| **FX** | Live insert: Filter, Compressor, Reverb, Equalizer, or Stereo Shaper (or Off). Lit when active. Bypass keeps the slot without processing. |
 | **Meter** | Peak from sounds routed to this strip |
 | **Fader** | Strip (or master) level |
 | **M** | Mute |
 | **S** | Solo (inserts only; soloing one strip silences the others and unassigned channels) |
 
-Channel Rack **Trk** `1`–`8` routes that row into the matching insert. `---` sums straight to the master bus.
+Channel Rack **Trk** `1`–`8` routes that row into the matching insert. `---` sums straight to the master bus (master insert still applies). Strip FX is heard on **Play** and in **Export WAV**; it does **not** rewrite the library sample. MX Filter/Compressor/… **Apply** still bakes into the sound.
 
 **Stems** (mixer **Stems** or **P → Export Stems**) writes a zip with `trk-1.wav`…`trk-8.wav` plus `audio.wav` for playlist audio clips.
 
@@ -343,6 +344,8 @@ Open via long-press on a library sample → **Edit**.
 
 Each dialog has **Preview** (one-shot), **Apply** (writes back), and **Close**. Apply on a library sound **replaces that entry** (same ID); it does not add a second copy.
 
+For FX you want on a mixer strip (or master) without changing the sample, use the mixer **FX** button instead.
+
 ## Sound Library
 
 **M → Sounds** opens the categorized browser.
@@ -401,6 +404,7 @@ Disarm Record when finished.
 - **MONO mode** — use on Sampler/Synth when you want choke-style one-shot playback
 - **Channel Rack + Tracker** share the same song data and playback engine
 - **Channel Rack Trk** numbers are mixer inserts 1–8
+- Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
 
 ---
 

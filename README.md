@@ -9,8 +9,10 @@ bundled samples, loops, or presets.
 
 ## Status
 
-Phase 0: project scaffold, signing, and the release pipeline. See
-[`docs/RELEASING.md`](docs/RELEASING.md) for how tagged releases work.
+Usable sampler + tracker on Android: Channel Rack, hex tracker, slicer, synth,
+mixer (live insert FX), playlist, and WAV/stem export. Bring your own audio —
+no bundled samples. See [`docs/RELEASING.md`](docs/RELEASING.md) for tagged
+releases.
 
 ## Documentation
 

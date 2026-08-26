@@ -2,9 +2,12 @@ package com.sai.app
 
 import android.content.Context
 import com.sai.core.audio.Envelope
+import com.sai.core.audio.InsertFx
 import com.sai.core.audio.MixerMath
 import com.sai.core.audio.Oscillator
 import com.sai.core.audio.RackMix
+import com.sai.core.audio.SampleEditor
+import com.sai.core.audio.SampleWarp
 import com.sai.core.audio.SequencerClock
 import com.sai.core.audio.StereoShaper
 import com.sai.core.audio.Swing
@@ -33,6 +36,7 @@ class Sequencer(
     @Volatile private var running = false
     private var thread: Thread? = null
     private val sampleCache = mutableMapOf<Int, Wav>()
+    private val insertCache = mutableMapOf<String, Wav>()
     private val clickAccent: Wav = Oscillator.generate(
         Waveform.SQUARE,
         durationSec = 0.04,
@@ -135,6 +139,7 @@ class Sequencer(
 
     private fun preloadSamples(phrases: Map<Int, Phrase>, clips: List<PlaylistClip> = emptyList()) {
         sampleCache.clear()
+        insertCache.clear()
         val usedInstruments = phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet() +
             clips.mapNotNull { it.sampleId }
         for (id in usedInstruments) {
@@ -177,21 +182,37 @@ class Sequencer(
             projectMaster = ProjectPlayback.masterVolume(context) / 127f,
         )
         if (linear <= 0f) return
-        var processed = com.sai.core.audio.SampleEditor.gain(wav, MixerMath.gainDb(linear))
+
         val gateSteps = step.length?.takeIf { it > 0 }
-        if (gateSteps != null) {
-            val frames = (processed.sampleRate * 60.0 / bpm.coerceAtLeast(1) / 4.0 * gateSteps).toInt().coerceAtLeast(1)
-            processed = Envelope.gate(processed, frames)
+        val gateFrames = if (gateSteps != null) {
+            (wav.sampleRate * 60.0 / bpm.coerceAtLeast(1) / 4.0 * gateSteps).toInt().coerceAtLeast(1)
+        } else {
+            null
         }
+        val stripInsert = MixerMath.stripInsert(channel, strips)
+        val masterInsert = MixerStore.masterInsert(context)
+        val cacheKey = "${step.instrument}|$pitched|$note|${gateFrames ?: 0}|${stripInsert.fingerprint()}"
+        var processed = insertCache.getOrPut(cacheKey) {
+            var shaped = wav
+            if (kotlin.math.abs(rate - 1.0f) > 0.0001f) {
+                shaped = SampleWarp.resample(shaped, rate.toDouble())
+            }
+            if (gateFrames != null) {
+                shaped = Envelope.gate(shaped, gateFrames)
+            }
+            InsertFx.apply(shaped, stripInsert)
+        }
+        processed = SampleEditor.gain(processed, MixerMath.gainDb(linear))
 
         val pan = RackMix.shaperPan(channel.pan)
         if (abs(pan) > 0.02) {
             processed = StereoShaper.apply(processed, pan, 1.0, 0.0)
         }
+        processed = InsertFx.apply(processed, masterInsert)
 
         MixerStore.hit(MixerMath.stripIndex(channel.mixerTrack), linear)
         val chokeGroup = if (chokeSameTrack) "tracker-track-$track" else null
-        AudioPlayback.playOneShot(processed, rate, context, chokeGroup)
+        AudioPlayback.playOneShot(processed, 1.0f, context, chokeGroup)
     }
 
     companion object {
