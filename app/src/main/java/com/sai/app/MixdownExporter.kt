@@ -1,0 +1,69 @@
+package com.sai.app
+
+import android.content.Context
+import android.net.Uri
+import android.widget.Toast
+import com.sai.core.audio.MixerMath
+import com.sai.core.audio.SongMixdown
+import com.sai.core.audio.Wav
+import com.sai.core.audio.WavIO
+import kotlin.concurrent.thread
+
+object MixdownExporter {
+
+    fun render(context: Context): Wav {
+        val project = TrackerProjectStore.get(context)
+        val library = SampleLibrary(context).byId()
+        val used = project.phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet()
+        val samples = mutableMapOf<Int, Wav>()
+        val resolver = context.contentResolver
+        for (id in used) {
+            val entry = library[id] ?: continue
+            try {
+                samples[id] = SampleLoader.decode(resolver, entry.uri)
+            } catch (e: Exception) {
+                // Skip a sample that fails to decode rather than aborting the mix.
+            }
+        }
+        val racks = ChannelRackStore.loadChannels(context)
+        val channels = (0 until project.song.trackCount).map { track ->
+            val rack = racks.getOrNull(track)
+            MixerMath.Channel(
+                muted = rack?.muted ?: false,
+                volume = rack?.volume ?: 1f,
+                pan = rack?.pan ?: 0.5f,
+                mixerTrack = rack?.mixerTrack ?: 0,
+            )
+        }
+        return SongMixdown.render(
+            song = project.song,
+            phrases = project.phrases,
+            bpm = project.bpm,
+            samplesById = samples,
+            channels = channels,
+            strips = MixerStore.mathStrips(context),
+            mixerMaster = MixerStore.masterVolume(context),
+            masterMuted = MixerStore.masterMuted(context),
+            projectMaster = ProjectPlayback.masterVolume(context) / 127f,
+            pitchSemitones = ProjectPlayback.pitchSemitones(context),
+            chokeSameTrack = ModuleLayoutStore.isChokeEnabled(context, ModuleType.TRACKER),
+        )
+    }
+
+    fun writeTo(context: Context, uri: Uri) {
+        Toast.makeText(context, "Rendering mixdown…", Toast.LENGTH_SHORT).show()
+        thread {
+            try {
+                val wav = render(context)
+                context.contentResolver.openOutputStream(uri)!!.use { out -> WavIO.write(wav, out) }
+                (context as? android.app.Activity)?.runOnUiThread {
+                    Toast.makeText(context, "Exported stereo WAV", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                (context as? android.app.Activity)?.runOnUiThread {
+                    Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+}

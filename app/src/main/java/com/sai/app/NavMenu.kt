@@ -6,14 +6,14 @@ import android.content.Intent
 import android.widget.Toast
 import com.sai.core.tracker.Phrase
 
-/** Shared N-menu: Home / Phrase / Piano Roll / Sample Editor / Sounds / Channel Rack / Manual. */
+/** Shared N-menu: Home / Phrase / Piano Roll / Sample Editor / Sounds / Channel Rack / Mixer / Manual. */
 object NavMenu {
 
     fun show(context: Context) {
         AlertDialog.Builder(context)
             .setTitle("Navigate")
             .setItems(
-                arrayOf("Home", "Phrase", "Piano Roll", "Sample Editor", "Sounds", "Channel Rack", "Manual"),
+                arrayOf("Home", "Phrase", "Piano Roll", "Sample Editor", "Sounds", "Channel Rack", "Mixer", "Manual"),
             ) { _, which ->
                 when (which) {
                     0 -> goHome(context)
@@ -22,7 +22,8 @@ object NavMenu {
                     3 -> pickSample(context)
                     4 -> context.startActivity(Intent(context, SoundLibraryActivity::class.java))
                     5 -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
-                    6 -> context.startActivity(Intent(context, ManualActivity::class.java))
+                    6 -> context.startActivity(Intent(context, MixerActivity::class.java))
+                    7 -> context.startActivity(Intent(context, ManualActivity::class.java))
                 }
             }
             .show()

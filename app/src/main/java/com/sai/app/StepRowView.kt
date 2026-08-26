@@ -37,17 +37,10 @@ class StepRowView(context: Context) : View(context) {
     private var lastIndex = -1
 
     private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(235, 110, 130) }
+    private val playheadOnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 230, 90) }
+    private val playheadOffPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(70, 130, 160) }
     private val offGroupAPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(38, 42, 50) }
     private val offGroupBPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(48, 32, 36) }
-    private val playheadPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(90, 255, 255, 255)
-        style = Paint.Style.FILL
-    }
-    private val playheadBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(180, 255, 255, 255)
-        style = Paint.Style.STROKE
-        strokeWidth = 1.5f * context.resources.displayMetrics.density
-    }
     private val gapPx = 2f * context.resources.displayMetrics.density
     private val cornerPx = 2f * context.resources.displayMetrics.density
 
@@ -67,18 +60,16 @@ class StepRowView(context: Context) : View(context) {
 
         for (i in 0 until stepCount) {
             val left = i * cellWidth + (cellWidth - side) / 2f
+            val isPlayhead = i == playheadStep
+            val isOn = states.getOrElse(i) { false }
             val paint = when {
-                states.getOrElse(i) { false } -> onPaint
+                isPlayhead && isOn -> playheadOnPaint
+                isPlayhead -> playheadOffPaint
+                isOn -> onPaint
                 (i / 4) % 2 == 0 -> offGroupAPaint
                 else -> offGroupBPaint
             }
             canvas.drawRoundRect(left, top, left + side, bottom, cornerPx, cornerPx, paint)
-        }
-
-        if (playheadStep in 0 until stepCount) {
-            val left = playheadStep * cellWidth + (cellWidth - side) / 2f
-            canvas.drawRoundRect(left, top, left + side, bottom, cornerPx, cornerPx, playheadPaint)
-            canvas.drawRoundRect(left, top, left + side, bottom, cornerPx, cornerPx, playheadBorderPaint)
         }
     }
 

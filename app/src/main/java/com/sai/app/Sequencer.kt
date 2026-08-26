@@ -1,6 +1,7 @@
 package com.sai.app
 
 import android.content.Context
+import com.sai.core.audio.MixerMath
 import com.sai.core.audio.RackMix
 import com.sai.core.audio.StereoShaper
 import com.sai.core.audio.Wav
@@ -40,10 +41,10 @@ class Sequencer(
         running = true
         thread = Thread {
             while (running) {
+                val playedPosition = engine.songPosition
+                val playedStep = engine.stepIndex
                 val events = engine.advance()
-                val position = engine.songPosition
-                val step = engine.stepIndex
-                onPositionChanged?.invoke(position, step)
+                onPositionChanged?.invoke(playedPosition, playedStep)
                 for (event in events) {
                     val instrument = event.step.instrument ?: continue
                     val wav = sampleCache[instrument] ?: continue
@@ -87,19 +88,33 @@ class Sequencer(
 
     private fun playOneShot(wav: Wav, step: Step, track: Int) {
         val rack = ChannelRackStore.channel(context, track)
-        if (rack != null && !RackMix.shouldPlay(rack.muted)) return
+        val channel = MixerMath.Channel(
+            muted = rack?.muted ?: false,
+            volume = rack?.volume ?: 1f,
+            pan = rack?.pan ?: 0.5f,
+            mixerTrack = rack?.mixerTrack ?: 0,
+        )
+        val strips = MixerStore.mathStrips(context)
+        if (!MixerMath.isAudible(channel, strips, MixerStore.masterMuted(context))) return
 
         val note = step.note ?: ROOT_NOTE
         val rate = ProjectPlayback.rateForNote(context, note, ROOT_NOTE)
-        val mixedVolume = RackMix.combinedStepVolume(step.volume ?: 127, rack?.volume ?: 1f)
-        if (mixedVolume <= 0) return
-        var processed = com.sai.core.audio.SampleEditor.gain(wav, ProjectPlayback.gainDb(context, mixedVolume))
+        val linear = MixerMath.linearGain(
+            stepVolume = step.volume ?: 127,
+            rackVolume = channel.volume,
+            stripVolume = MixerMath.stripVolume(channel, strips),
+            mixerMaster = MixerStore.masterVolume(context),
+            projectMaster = ProjectPlayback.masterVolume(context) / 127f,
+        )
+        if (linear <= 0f) return
+        var processed = com.sai.core.audio.SampleEditor.gain(wav, MixerMath.gainDb(linear))
 
-        val pan = RackMix.shaperPan(rack?.pan ?: 0.5f)
+        val pan = RackMix.shaperPan(channel.pan)
         if (abs(pan) > 0.02) {
             processed = StereoShaper.apply(processed, pan, 1.0, 0.0)
         }
 
+        MixerStore.hit(MixerMath.stripIndex(channel.mixerTrack), linear)
         val chokeGroup = if (chokeSameTrack) "tracker-track-$track" else null
         AudioPlayback.playOneShot(processed, rate, context, chokeGroup)
     }
