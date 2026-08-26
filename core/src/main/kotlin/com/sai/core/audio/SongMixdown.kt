@@ -50,7 +50,9 @@ object SongMixdown {
             val sorted = trackHits.sortedBy { it.startFrame }
             for (index in sorted.indices) {
                 val hit = sorted[index]
-                val cutAt = if (chokeSameTrack) sorted.getOrNull(index + 1)?.startFrame else null
+                val nextHit = if (chokeSameTrack) sorted.getOrNull(index + 1)?.startFrame else null
+                val gateAt = hit.step.length?.takeIf { it > 0 }?.let { hit.startFrame + it * stepFrames }
+                val cutAt = listOfNotNull(nextHit, gateAt).minOrNull()
                 mixHit(
                     hit = hit,
                     cutAt = cutAt,

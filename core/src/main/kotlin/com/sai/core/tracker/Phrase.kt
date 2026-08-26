@@ -4,6 +4,8 @@ data class Step(
     val note: Int? = null,
     val instrument: Int? = null,
     val volume: Int? = null,
+    /** Gate length in 16th notes. Null means play the sample to its end. */
+    val length: Int? = null,
 ) {
     val isEmpty: Boolean get() = note == null && instrument == null
 }

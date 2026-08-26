@@ -15,6 +15,7 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 - [Mixer](#mixer)
 - [Phrase Editor](#phrase-editor)
 - [Piano Roll](#piano-roll)
+- [Pad Bank](#pad-bank)
 - [Sample Editor](#sample-editor)
 - [Effects (MX)](#effects-mx)
 - [Sound Library](#sound-library)
@@ -103,7 +104,8 @@ Drag the **grey divider bar** under a module to resize it freely. Drag down to e
 | Module | Purpose |
 | --- | --- |
 | **SAMPLER** | Waveform view, slice pads, record audio |
-| **SYNTH** | Filter and waveform generator on loaded audio |
+| **SYNTH** | Filter, ADSR, waveform generator, live keyboard |
+| **PADS** | 4×4 sample pad bank (add via **M → Add Module**) |
 | **TRACKER** | 32-position song grid with 8 tracks |
 | **CHANNEL RACK** | Step sequencer with mute, solo, vol, pan, mixer route, pattern length, swing |
 
@@ -150,11 +152,14 @@ Tapping a waveform button loads that shape **and plays it**.
 
 **Tap the wave display** to hear the current sound with your knob settings applied. Use it like an instrument pad while you dial in the filter.
 
-Six knobs shape the sound:
+Six knobs shape the sound, then four envelope knobs:
 
 - **LOW CUT / HIGH CUT** — band limits
 - **CUTOFF / RES / CRUNCH** — filter character
 - **PITCH** — ±24 semitones
+- **ATK / DEC / SUS / REL** — amplitude envelope (applied to preview, live keys, and **Apply**)
+
+The **keyboard** plays the current sound at each pitch. **POLY** stacks notes; **MONO** cuts the previous note. Use **− / +** to change octave.
 
 ### Buttons
 
@@ -255,17 +260,34 @@ Split layout with **E (Expand)**:
 | --- | --- |
 | **NOTE** | MIDI note 0–127 |
 | **INS** | Stable instrument ID from the library (not a sorted-list index) |
-| **VOL** | Volume 0–127 |
+| **VOL** | Velocity 0–127 |
+| **LEN** | Gate length in 16ths, or full sample |
 
-Tap any cell value to edit it. **M → Piano Roll** opens the note-based editor. The grid lists all 32 stored steps; playback only uses this pattern's length (8 / 16 / 32).
+Tap any cell value to edit it. **LEN** is gate length in 16th notes (`fl` = play the sample to the end). **M → Piano Roll** opens the note-based editor. The grid lists all 32 stored steps; playback only uses this pattern's length (8 / 16 / 32).
 
 ## Piano Roll
 
-Vertical piano keys (C3–C5) with up to 32 horizontal step columns.
+Vertical piano keys (two octaves at a time) with up to 32 horizontal step columns.
 
+- **−8va / +8va** — move the visible note range
+- **Vel** — velocity written onto new notes (50 / 80 / 100 / 127)
+- **Len** — gate length for new notes (`full` plays the sample out, or 1 / 2 / 4 / 8 sixteenths)
 - Pick an instrument first
 - Tap or drag on a row to place a note at that step
+- Longer notes light the cells they cover
 - Only one note per step (placing a note clears others on that step)
+
+## Pad Bank
+
+Add via **M → Add Module → PADS**.
+
+- 16 pads in a 4×4 grid
+- **Tap** plays the assigned sample (**MONO** chokes the previous pad; **POLY** layers)
+- **Long-press** assigns (or clears) a library sound
+- Empty pads prompt you to pick a sample
+- While Record is armed and the song is playing, a pad punch-in writes to the armed Tracker track like the sample list
+
+Pad assignments are stored with the project package.
 
 ## Sample Editor
 
@@ -318,7 +340,7 @@ Your project **auto-saves** continuously (BPM, name, song, phrases, undo stack).
 
 Manual export/import via **P → Save** / **P → Load**:
 
-- **Save** writes a **project package** (`.sai.zip`) with the song, sample library audio, Channel Rack, mixer, module layout, and theme
+- **Save** writes a **project package** (`.sai.zip`) with the song, sample library audio, Channel Rack, mixer, module layout, theme, and pad bank
 - **Load** accepts that package, or an older JSON-only song file
 - **P → Export WAV** — stereo mixdown of the song through the mixer
 - **P → New** — clear song and phrases (library untouched)

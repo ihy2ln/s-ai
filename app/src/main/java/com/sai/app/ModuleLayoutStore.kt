@@ -3,7 +3,7 @@ package com.sai.app
 import android.content.Context
 
 enum class ModuleType(val label: String) {
-    SAMPLER("SAMPLER"), SYNTH("SYNTH"), TRACKER("TRACKER"), STEP_SEQUENCER("CHANNEL RACK"),
+    SAMPLER("SAMPLER"), SYNTH("SYNTH"), PADS("PADS"), TRACKER("TRACKER"), STEP_SEQUENCER("CHANNEL RACK"),
 }
 
 data class ModuleEntry(val type: ModuleType, var heightDp: Float)
@@ -18,6 +18,7 @@ object ModuleLayoutStore {
     private val DEFAULT_HEIGHTS = mapOf(
         ModuleType.SAMPLER to 260f,
         ModuleType.SYNTH to 260f,
+        ModuleType.PADS to 280f,
         ModuleType.TRACKER to 280f,
         ModuleType.STEP_SEQUENCER to 360f,
     )
@@ -38,7 +39,9 @@ object ModuleLayoutStore {
     fun load(context: Context): MutableList<ModuleEntry> {
         val raw = prefs(context).getString(KEY_ENTRIES, null)
         if (raw.isNullOrBlank()) {
-            return ModuleType.values().map { ModuleEntry(it, defaultHeight(it)) }.toMutableList()
+            return listOf(ModuleType.SAMPLER, ModuleType.SYNTH, ModuleType.TRACKER, ModuleType.STEP_SEQUENCER)
+                .map { ModuleEntry(it, defaultHeight(it)) }
+                .toMutableList()
         }
         val loaded = raw.split("|").mapNotNull { token ->
             val parts = token.split(":")

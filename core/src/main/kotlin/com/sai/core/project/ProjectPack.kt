@@ -15,6 +15,7 @@ data class ProjectArchive(
     val layoutJson: String = "{}",
     val themeJson: String = "{}",
     val backgroundJson: String = "{}",
+    val padsJson: String = "{}",
     val samples: Map<String, ByteArray> = emptyMap(),
     val backgroundBytes: ByteArray? = null,
     val backgroundName: String? = null,
@@ -32,6 +33,7 @@ object ProjectPack {
     const val LAYOUT = "layout.json"
     const val THEME = "theme.json"
     const val BACKGROUND = "background.json"
+    const val PADS = "pads.json"
     const val SAMPLES_DIR = "samples/"
     const val BACKGROUND_FILE = "background.bin"
 
@@ -49,6 +51,7 @@ object ProjectPack {
             put(zip, LAYOUT, archive.layoutJson.toByteArray(Charsets.UTF_8))
             put(zip, THEME, archive.themeJson.toByteArray(Charsets.UTF_8))
             put(zip, BACKGROUND, archive.backgroundJson.toByteArray(Charsets.UTF_8))
+            put(zip, PADS, archive.padsJson.toByteArray(Charsets.UTF_8))
             for ((name, bytes) in archive.samples) {
                 val path = if (name.startsWith(SAMPLES_DIR)) name else SAMPLES_DIR + name
                 put(zip, path, bytes)
@@ -69,6 +72,7 @@ object ProjectPack {
         var layoutJson = "{}"
         var themeJson = "{}"
         var backgroundJson = "{}"
+        var padsJson = "{}"
         val samples = mutableMapOf<String, ByteArray>()
         var backgroundBytes: ByteArray? = null
         var backgroundName: String? = null
@@ -88,6 +92,7 @@ object ProjectPack {
                     name == LAYOUT -> layoutJson = data.toString(Charsets.UTF_8)
                     name == THEME -> themeJson = data.toString(Charsets.UTF_8)
                     name == BACKGROUND -> backgroundJson = data.toString(Charsets.UTF_8)
+                    name == PADS -> padsJson = data.toString(Charsets.UTF_8)
                     name.startsWith(SAMPLES_DIR) && !entry.isDirectory -> {
                         val file = name.removePrefix(SAMPLES_DIR)
                         if (file.isNotBlank()) samples[file] = data
@@ -107,6 +112,7 @@ object ProjectPack {
             layoutJson = layoutJson,
             themeJson = themeJson,
             backgroundJson = backgroundJson,
+            padsJson = padsJson,
             samples = samples,
             backgroundBytes = backgroundBytes,
             backgroundName = backgroundName,

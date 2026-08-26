@@ -307,6 +307,7 @@ class TrackerProject(context: Context) {
                 step.note?.let { s.put("note", it) }
                 step.instrument?.let { s.put("instrument", it) }
                 step.volume?.let { s.put("volume", it) }
+                step.length?.let { s.put("length", it) }
                 steps.put(s)
             }
             obj.put(id.toString(), steps)
@@ -325,6 +326,7 @@ class TrackerProject(context: Context) {
                     note = if (s.has("note")) s.getInt("note") else null,
                     instrument = if (s.has("instrument")) s.getInt("instrument") else null,
                     volume = if (s.has("volume")) s.getInt("volume") else null,
+                    length = if (s.has("length")) s.getInt("length") else null,
                 )
             }
             result[key.toInt()] = Phrase.fromSteps(steps)
