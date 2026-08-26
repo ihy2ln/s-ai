@@ -3,18 +3,21 @@ package com.sai.app
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.text.InputType
 import android.util.AttributeSet
 import android.view.Gravity
 import android.widget.Button
+import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.sai.core.tracker.LoopMode
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
-/** FL Studio-style Channel Rack & Step Sequencer panel (see Image-Line manual: Channel Rack). */
+/** Channel Rack & Step Sequencer panel: mute/solo, length, swing, loop, duplicate. */
 class ChannelRackPanelView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -24,6 +27,9 @@ class ChannelRackPanelView @JvmOverloads constructor(
     private val library = SampleLibrary(context)
 
     private val patternLabel: TextView
+    private val patternLengthButton: Button
+    private val swingButton: Button
+    private val loopButton: Button
     private val rowsContainer: LinearLayout
     private val stepRowViews = mutableListOf<StepRowView>()
     private val rackRows = mutableListOf<ChannelRackRowView>()
@@ -33,10 +39,14 @@ class ChannelRackPanelView @JvmOverloads constructor(
     private var rowHeightDp = 40f
     private var channels = ChannelRackStore.loadChannels(context)
 
+    val currentPattern: Int get() = pattern
+
+    var onSongChanged: (() -> Unit)? = null
+
     init {
         orientation = VERTICAL
         val density = resources.displayMetrics.density
-        controlsWidthPx = (162 * density).toInt()
+        controlsWidthPx = (188 * density).toInt()
 
         if (channels.size < ChannelRackStore.visibleCount(context)) {
             while (channels.size < ChannelRackStore.visibleCount(context)) {
@@ -59,13 +69,9 @@ class ChannelRackPanelView @JvmOverloads constructor(
         }
         val nextPattern = compactButton(">") { movePattern(1) }
 
-        val patternLengthLabel = TextView(context).apply {
-            text = "${Phrase.STEP_COUNT} steps"
-            setTextColor(Color.rgb(130, 140, 155))
-            textSize = 10f
-            setPadding((8 * density).toInt(), 0, 0, 0)
-        }
-
+        patternLengthButton = compactButton(lengthLabel()) { cyclePatternLength() }
+        swingButton = compactButton(swingLabel()) { editSwing() }
+        loopButton = compactButton(loopLabel()) { cycleLoopMode() }
         val optionsButton = compactButton("...") { showRackOptions() }
         val zoomOutButton = compactButton("-") { changeZoom(-4f) }
         val zoomInButton = compactButton("+") { changeZoom(4f) }
@@ -80,7 +86,9 @@ class ChannelRackPanelView @JvmOverloads constructor(
                     addView(prevPattern)
                     addView(patternLabel)
                     addView(nextPattern)
-                    addView(patternLengthLabel)
+                    addView(patternLengthButton)
+                    addView(swingButton)
+                    addView(loopButton)
                     addView(optionsButton)
                     addView(zoomOutButton)
                     addView(zoomInButton)
@@ -102,7 +110,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
             gravity = Gravity.CENTER_VERTICAL
             addView(
                 TextView(context).apply {
-                    text = "Mute Vol Pan Trk"
+                    text = "Mute Solo Vol Pan Trk"
                     setTextColor(Color.rgb(90, 100, 115))
                     textSize = 8f
                     layoutParams = LayoutParams(controlsWidthPx, LayoutParams.WRAP_CONTENT)
@@ -139,8 +147,16 @@ class ChannelRackPanelView @JvmOverloads constructor(
         for (row in stepRowViews) row.playheadStep = step
     }
 
+    fun syncFromStore() {
+        channels = ChannelRackStore.loadChannels(context)
+        refreshRows()
+    }
+
     fun refreshRows() {
         patternLabel.text = "Pattern %02X".format(pattern)
+        patternLengthButton.text = lengthLabel()
+        swingButton.text = swingLabel()
+        loopButton.text = loopLabel()
         rowsContainer.removeAllViews()
         stepRowViews.clear()
         rackRows.clear()
@@ -166,15 +182,21 @@ class ChannelRackPanelView @JvmOverloads constructor(
         val displayName = instrumentId
             ?.let { library.get(it)?.displayName }
             ?: "Empty"
+        val length = project.patternLength(pattern)
 
         val row = ChannelRackRowView(context).apply {
-            bind(channels[channelIndex], channelIndex, displayName, rowHeightPx)
-            stepRow.setStates(BooleanArray(Phrase.STEP_COUNT) { phrase?.steps?.get(it)?.instrument != null })
+            bind(channels[channelIndex], channelIndex, displayName, rowHeightPx, length)
+            stepRow.setStates(BooleanArray(length) { phrase?.steps?.get(it)?.instrument != null })
             stepRow.onStepToggleRequested = { index, desiredOn -> trySetStep(channelIndex, index, desiredOn) }
             muteLed.onToggle = {
                 val next = !channels[channelIndex].muted
                 updateChannel(channelIndex) { it.withMuted(next) }
                 muteLed.muted = next
+            }
+            soloLed.onToggle = {
+                val next = !channels[channelIndex].soloed
+                updateChannel(channelIndex) { it.withSoloed(next) }
+                soloLed.muted = !next
             }
             volumeKnob.onChange = { value ->
                 updateChannel(channelIndex) { it.withVolume(value) }
@@ -236,23 +258,108 @@ class ChannelRackPanelView @JvmOverloads constructor(
         }
     }
 
+    private fun lengthLabel(): String = "${project.patternLength(pattern)} steps"
+
+    private fun swingLabel(): String = "Swing ${project.swing}"
+
+    private fun loopLabel(): String = when (project.loopMode) {
+        LoopMode.SONG -> "Loop song"
+        LoopMode.PATTERN -> "Loop pat"
+        LoopMode.RANGE -> "Loop %02X–%02X".format(project.loopStart, project.loopEnd)
+    }
+
+    private fun cyclePatternLength() {
+        val current = project.patternLength(pattern)
+        val next = Phrase.LENGTHS[(Phrase.LENGTHS.indexOf(current) + 1) % Phrase.LENGTHS.size]
+        project.setPatternLength(pattern, next)
+        refreshRows()
+        onSongChanged?.invoke()
+        Toast.makeText(context, "Pattern ${"%02X".format(pattern)} is $next steps", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun editSwing() {
+        val input = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(project.swing.toString())
+            hint = "0–100"
+        }
+        AlertDialog.Builder(context)
+            .setTitle("Swing")
+            .setMessage("0 is straight 16ths. 50 is a light shuffle. 100 delays offbeats halfway to the next even step.")
+            .setView(input)
+            .setPositiveButton("Set") { _, _ ->
+                project.swing = input.text.toString().toIntOrNull()?.coerceIn(0, 100) ?: 0
+                refreshRows()
+                onSongChanged?.invoke()
+            }
+            .setNeutralButton("0") { _, _ ->
+                project.swing = 0
+                refreshRows()
+                onSongChanged?.invoke()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun cycleLoopMode() {
+        project.loopMode = when (project.loopMode) {
+            LoopMode.SONG -> {
+                project.loopStart = pattern
+                project.loopEnd = pattern
+                LoopMode.PATTERN
+            }
+            LoopMode.PATTERN -> LoopMode.RANGE
+            LoopMode.RANGE -> LoopMode.SONG
+        }
+        refreshRows()
+        onSongChanged?.invoke()
+        Toast.makeText(context, loopToast(), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun loopToast(): String = when (project.loopMode) {
+        LoopMode.SONG -> "Looping the whole song"
+        LoopMode.PATTERN -> "Looping pattern %02X".format(pattern)
+        LoopMode.RANGE -> "Looping rows %02X–%02X (long-press a tracker row to change)".format(project.loopStart, project.loopEnd)
+    }
+
     private fun showRackOptions() {
         AlertDialog.Builder(context)
             .setTitle("Channel Rack")
-            .setItems(arrayOf("Mute all", "Unmute all", "Delete empty channels")) { _, which ->
+            .setItems(
+                arrayOf(
+                    "Duplicate pattern",
+                    "Mute all",
+                    "Unmute all",
+                    "Solo none",
+                    "Delete empty channels",
+                ),
+            ) { _, which ->
                 when (which) {
-                    0 -> {
+                    0 -> duplicatePattern()
+                    1 -> {
                         channels = channels.map { it.withMuted(true) }.toMutableList()
                         refreshRows()
                     }
-                    1 -> {
+                    2 -> {
                         channels = channels.map { it.withMuted(false) }.toMutableList()
                         refreshRows()
                     }
-                    2 -> deleteEmptyChannels()
+                    3 -> {
+                        channels = channels.map { it.withSoloed(false) }.toMutableList()
+                        refreshRows()
+                    }
+                    4 -> deleteEmptyChannels()
                 }
             }
             .show()
+    }
+
+    private fun duplicatePattern() {
+        val dest = project.duplicatePattern(pattern) ?: return
+        pattern = dest
+        refreshRows()
+        onSongChanged?.invoke()
+        Toast.makeText(context, "Copied to pattern %02X".format(dest), Toast.LENGTH_SHORT).show()
     }
 
     private fun deleteEmptyChannels() {
@@ -311,6 +418,8 @@ class ChannelRackPanelView @JvmOverloads constructor(
     }
 
     private fun trySetStep(channelIndex: Int, stepIndex: Int, on: Boolean): Boolean {
+        val length = project.patternLength(pattern)
+        if (stepIndex !in 0 until length) return false
         val instrumentId = channels.getOrNull(channelIndex)?.instrumentId
         if (on && instrumentId == null) {
             Toast.makeText(context, "Assign a sample to this channel first", Toast.LENGTH_SHORT).show()
@@ -328,7 +437,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
         val phrase = project.phrases[phraseId] ?: Phrase.empty()
         val steps = phrase.steps.toMutableList()
         steps[stepIndex] = if (on) Step(instrument = instrumentId) else Step()
-        project.putPhrase(phraseId, Phrase(steps))
+        project.putPhrase(phraseId, Phrase.fromSteps(steps))
         return true
     }
 }

@@ -15,8 +15,7 @@ import com.sai.core.tracker.NoteNames
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
 
-/** A piano-roll editor for one phrase, mimicking FL Studio's layout: a note on the vertical axis
- *  (with the familiar black/white key row shading), the 16 steps on the horizontal axis. */
+/** A piano-roll editor for one phrase: notes on the vertical axis, up to 32 steps across. */
 class PianoRollActivity : ComponentActivity() {
 
     private lateinit var project: TrackerProject
@@ -121,8 +120,8 @@ class PianoRollActivity : ComponentActivity() {
         }
 
         val stepsRow = StepRowView(this).apply {
-            stepCount = Phrase.STEP_COUNT
-            setStates(BooleanArray(Phrase.STEP_COUNT) { phrase?.steps?.get(it)?.note == note })
+            stepCount = Phrase.MAX_STEPS
+            setStates(BooleanArray(Phrase.MAX_STEPS) { phrase?.steps?.get(it)?.note == note })
             onStepToggleRequested = { index, desiredOn -> tryToggleNote(index, note, desiredOn) }
             layoutParams = LinearLayout.LayoutParams(0, (22 * density).toInt(), 1f)
         }
@@ -154,7 +153,7 @@ class PianoRollActivity : ComponentActivity() {
 
         for ((rowNote, rowView) in rowViews) {
             if (rowNote != note) {
-                rowView.setStates(BooleanArray(Phrase.STEP_COUNT) { updated.steps[it].note == rowNote })
+                rowView.setStates(BooleanArray(Phrase.MAX_STEPS) { updated.steps[it].note == rowNote })
             }
         }
         return true

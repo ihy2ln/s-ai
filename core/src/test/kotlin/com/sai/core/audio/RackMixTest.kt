@@ -14,6 +14,14 @@ class RackMixTest {
     }
 
     @Test
+    fun `rack solo silences non-soloed rows`() {
+        assertTrue(RackMix.isAudible(muted = false, soloed = true, anySolo = true))
+        assertFalse(RackMix.isAudible(muted = false, soloed = false, anySolo = true))
+        assertFalse(RackMix.isAudible(muted = true, soloed = true, anySolo = true))
+        assertTrue(RackMix.isAudible(muted = false, soloed = false, anySolo = false))
+    }
+
+    @Test
     fun `rack volume scales step volume`() {
         assertEquals(127, RackMix.combinedStepVolume(127, 1f))
         assertEquals(50, RackMix.combinedStepVolume(100, 0.5f))

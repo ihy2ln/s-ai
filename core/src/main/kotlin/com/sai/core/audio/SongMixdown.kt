@@ -27,10 +27,13 @@ object SongMixdown {
         pitchSemitones: Int,
         chokeSameTrack: Boolean = false,
         sampleRate: Int = 44100,
+        patternLengthAt: (Int) -> Int = { Phrase.DEFAULT_LENGTH },
+        swingPercent: Int = 0,
     ): Wav {
         val stepFrames = (sampleRate * 60.0 / bpm.coerceAtLeast(1) / 4.0).toInt().coerceAtLeast(1)
-        val totalSteps = song.positions.size * Phrase.STEP_COUNT
-        val hits = collectHits(song, phrases, stepFrames, totalSteps)
+        val totalSteps = song.positions.indices.sumOf { Phrase.coerceLength(patternLengthAt(it)) }
+        val hits = collectHits(song, phrases, stepFrames, totalSteps, patternLengthAt, swingPercent)
+        val anyRackSolo = MixerMath.anyRackSolo(channels)
 
         var extra = 0
         for (hit in hits) {
@@ -38,7 +41,7 @@ object SongMixdown {
             val rate = rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones)
             extra = maxOf(extra, (wav.frameCount / rate).toInt() + 1)
         }
-        val totalFrames = totalSteps * stepFrames + extra
+        val totalFrames = mixdownFrameCount(song, patternLengthAt, stepFrames, swingPercent) + extra
         val left = DoubleArray(totalFrames)
         val right = DoubleArray(totalFrames)
 
@@ -58,6 +61,7 @@ object SongMixdown {
                     masterMuted = masterMuted,
                     projectMaster = projectMaster,
                     pitchSemitones = pitchSemitones,
+                    anyRackSolo = anyRackSolo,
                     left = left,
                     right = right,
                 )
@@ -79,16 +83,37 @@ object SongMixdown {
         phrases: Map<Int, Phrase>,
         stepFrames: Int,
         totalSteps: Int,
+        patternLengthAt: (Int) -> Int,
+        swingPercent: Int,
     ): List<Hit> {
-        val engine = TrackerEngine(song, phrases)
+        val engine = TrackerEngine(song, phrases, patternLengthAt)
         val hits = mutableListOf<Hit>()
-        repeat(totalSteps) { index ->
+        var frame = 0
+        repeat(totalSteps) {
+            val step = engine.stepIndex
             val events = engine.advance()
             for (event in events) {
-                hits.add(Hit(index * stepFrames, event.track, event.step))
+                hits.add(Hit(frame, event.track, event.step))
             }
+            frame += (Swing.intervalFraction(step, swingPercent) * stepFrames).toInt().coerceAtLeast(1)
         }
         return hits
+    }
+
+    private fun mixdownFrameCount(
+        song: Song,
+        patternLengthAt: (Int) -> Int,
+        stepFrames: Int,
+        swingPercent: Int,
+    ): Int {
+        var frames = 0
+        for (position in song.positions.indices) {
+            val length = Phrase.coerceLength(patternLengthAt(position))
+            for (step in 0 until length) {
+                frames += (Swing.intervalFraction(step, swingPercent) * stepFrames).toInt().coerceAtLeast(1)
+            }
+        }
+        return frames
     }
 
     private fun mixHit(
@@ -101,10 +126,11 @@ object SongMixdown {
         masterMuted: Boolean,
         projectMaster: Float,
         pitchSemitones: Int,
+        anyRackSolo: Boolean,
         left: DoubleArray,
         right: DoubleArray,
     ) {
-        if (!MixerMath.isAudible(channel, strips, masterMuted)) return
+        if (!MixerMath.isAudible(channel, strips, masterMuted, anyRackSolo)) return
         val id = hit.step.instrument ?: return
         val source = samplesById[id] ?: return
         val linear = MixerMath.linearGain(

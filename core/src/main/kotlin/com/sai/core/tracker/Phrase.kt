@@ -10,11 +10,24 @@ data class Step(
 
 data class Phrase(val steps: List<Step>) {
     init {
-        require(steps.size == STEP_COUNT) { "Phrase must have exactly $STEP_COUNT steps" }
+        require(steps.size == MAX_STEPS) { "Phrase must have exactly $MAX_STEPS steps" }
     }
 
     companion object {
-        const val STEP_COUNT = 16
-        fun empty() = Phrase(List(STEP_COUNT) { Step() })
+        const val MAX_STEPS = 32
+        const val DEFAULT_LENGTH = 16
+        val LENGTHS = listOf(8, 16, 32)
+
+        fun empty() = Phrase(List(MAX_STEPS) { Step() })
+
+        /** Pads or trims [steps] so a Phrase is always [MAX_STEPS] long (older projects stored 16). */
+        fun fromSteps(steps: List<Step>): Phrase =
+            Phrase(List(MAX_STEPS) { i -> steps.getOrNull(i) ?: Step() })
+
+        fun coerceLength(value: Int): Int = when {
+            value <= 8 -> 8
+            value <= 16 -> 16
+            else -> 32
+        }
     }
 }

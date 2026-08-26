@@ -35,6 +35,15 @@ class MixerMathTest {
     }
 
     @Test
+    fun `rack solo silences non-soloed channels`() {
+        val open = MixerMath.Channel(soloed = true, mixerTrack = 1)
+        val closed = MixerMath.Channel(soloed = false, mixerTrack = 2)
+        assertTrue(MixerMath.isAudible(open, strips, false, anyRackSolo = true))
+        assertFalse(MixerMath.isAudible(closed, strips, false, anyRackSolo = true))
+        assertTrue(MixerMath.isAudible(closed, strips, false, anyRackSolo = false))
+    }
+
+    @Test
     fun `linear gain multiplies every fader`() {
         val gain = MixerMath.linearGain(
             stepVolume = 127,

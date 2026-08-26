@@ -154,6 +154,17 @@ class PhraseActivity : ComponentActivity() {
                 val saved = SliceExporter.saveToLibrary(this@PhraseActivity, sourceName, slices)
                 Toast.makeText(this@PhraseActivity, "Saved ${saved.size} slices to your sample library", Toast.LENGTH_LONG).show()
             }
+            onSendToRack = { sourceName, slices ->
+                val saved = SliceExporter.saveToLibrary(this@PhraseActivity, sourceName, slices)
+                val placed = ChannelRackStore.sendToRack(this@PhraseActivity, saved.map { it.id })
+                val extra = saved.size - placed
+                val message = if (extra > 0) {
+                    "Sent $placed slices to Channel Rack ($extra stayed in the library)"
+                } else {
+                    "Sent $placed slices to Channel Rack"
+                }
+                Toast.makeText(this@PhraseActivity, message, Toast.LENGTH_LONG).show()
+            }
         }
 
         return LinearLayout(this).apply {
