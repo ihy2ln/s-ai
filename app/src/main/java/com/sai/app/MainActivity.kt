@@ -89,6 +89,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var routeLabel: TextView
     private var recordArmed = false
     private var recordTrack = 0
+    private var tapeArmed = false
+    private var tapeStartStep = 0
+    private var pendingRecord: (() -> Unit)? = null
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
@@ -135,10 +138,14 @@ class MainActivity : ComponentActivity() {
 
     private val requestRecordAudioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            startAudioRecording()
+            pendingRecord?.invoke()
         } else {
             Toast.makeText(this, "Microphone permission is needed to record audio", Toast.LENGTH_LONG).show()
+            tapeArmed = false
+            recordArmed = false
+            updateRecordButton()
         }
+        pendingRecord = null
     }
 
     private val openSynthSample = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -283,10 +290,12 @@ class MainActivity : ComponentActivity() {
             TransportShapeButton.RECORD_RED,
         ) {
             if (recordArmed) {
+                if (tapeArmed) finishTapeTake()
                 recordArmed = false
+                tapeArmed = false
                 updateRecordButton()
             } else {
-                promptPunchTrack()
+                promptRecordMode()
             }
         }
         recordArmButton = recordArmButtonView
@@ -1216,25 +1225,86 @@ class MainActivity : ComponentActivity() {
         refreshSongGrid()
     }
 
-    private fun promptPunchTrack() {
-        val labels = Array(project.song.trackCount) { index ->
-            val mark = if (index == recordTrack) " (current)" else ""
-            "Track ${index + 1}$mark"
+    private fun promptRecordMode() {
+        val items = Array(project.song.trackCount + 1) { index ->
+            if (index < project.song.trackCount) {
+                val mark = if (index == recordTrack) " (current)" else ""
+                "Punch track ${index + 1}$mark"
+            } else {
+                "Playlist tape (mic)"
+            }
         }
         AlertDialog.Builder(this)
-            .setTitle("Punch into track")
-            .setItems(labels) { _, which ->
-                recordTrack = which
-                recordArmed = true
-                updateRecordButton()
-                Toast.makeText(this, "Live record armed: tap a sample to punch track ${recordTrack + 1}", Toast.LENGTH_LONG).show()
+            .setTitle("Record")
+            .setItems(items) { _, which ->
+                if (which < project.song.trackCount) {
+                    recordTrack = which
+                    recordArmed = true
+                    tapeArmed = false
+                    updateRecordButton()
+                    Toast.makeText(this, "Live record armed: tap a sample to punch track ${recordTrack + 1}", Toast.LENGTH_LONG).show()
+                } else {
+                    armTapeRecording()
+                }
             }
             .show()
     }
 
+    private fun armTapeRecording() {
+        val start = {
+            tapeArmed = true
+            recordArmed = true
+            updateRecordButton()
+            Toast.makeText(this, "Tape armed: press Play to record into the playlist", Toast.LENGTH_LONG).show()
+            if (sequencer.isRunning) startTapeRecording()
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            start()
+        } else {
+            pendingRecord = start
+            requestRecordAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun startTapeRecording() {
+        if (audioRecorder.isRecording) return
+        tapeStartStep = ArrangementClock.globalStep.coerceAtLeast(0)
+        audioRecorder.start()
+        Toast.makeText(this, "Recording playlist tape…", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun finishTapeTake() {
+        if (!audioRecorder.isRecording) return
+        val skip = LatencyStore.recordOffsetMs(this)
+        var wav = audioRecorder.stop(skip)
+        if (LatencyStore.vocalFx(this)) {
+            wav = com.sai.core.audio.VocalFx.apply(wav)
+        }
+        val name = "tape-${System.currentTimeMillis()}"
+        val saved = SliceExporter.saveToLibrary(this, name, listOf(wav), SoundCategory.VOCALS)
+        val entry = saved.firstOrNull()
+        if (entry != null) {
+            val clips = PlaylistStore.load(this)
+            val length = com.sai.core.tracker.Arrangement.lengthStepsFor(wav.frameCount, wav.sampleRate, project.bpm)
+            PlaylistStore.add(
+                this,
+                com.sai.core.tracker.PlaylistClip(
+                    id = com.sai.core.tracker.Arrangement.nextId(clips),
+                    kind = com.sai.core.tracker.ClipKind.AUDIO,
+                    lane = 7,
+                    startStep = tapeStartStep,
+                    lengthSteps = length,
+                    sampleId = entry.id,
+                ),
+            )
+            Toast.makeText(this, "Tape clip on playlist lane 8 (${entry.displayName})", Toast.LENGTH_LONG).show()
+        }
+        refreshSampleList()
+    }
+
     private fun toggleAudioRecording() {
         if (audioRecorder.isRecording) {
-            val wav = audioRecorder.stop()
+            val wav = processRecordedWav(audioRecorder.stop(LatencyStore.recordOffsetMs(this)))
             recordAudioButton?.text = "Record Audio"
             val panel = samplerPanel
             if (panel == null) {
@@ -1246,6 +1316,7 @@ class MainActivity : ComponentActivity() {
         } else if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             startAudioRecording()
         } else {
+            pendingRecord = { startAudioRecording() }
             requestRecordAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
@@ -1254,6 +1325,9 @@ class MainActivity : ComponentActivity() {
         audioRecorder.start()
         recordAudioButton?.text = "Stop Recording"
     }
+
+    private fun processRecordedWav(wav: com.sai.core.audio.Wav): com.sai.core.audio.Wav =
+        if (LatencyStore.vocalFx(this)) com.sai.core.audio.VocalFx.apply(wav) else wav
 
     private fun onSlotTapped(position: Int, track: Int) {
         val current = project.song.positions[position][track]
@@ -1332,6 +1406,7 @@ class MainActivity : ComponentActivity() {
         if (sequencer.isRunning) {
             sequencer.stop()
             ArrangementClock.clear()
+            if (tapeArmed && audioRecorder.isRecording) finishTapeTake()
             updatePlayButtonAppearance()
             stepSequencerPanel?.setPlayhead(-1)
             tempoBouncer.startIdle()
@@ -1360,6 +1435,7 @@ class MainActivity : ComponentActivity() {
             )
             updatePlayButtonAppearance()
             tempoBouncer.stop()
+            if (tapeArmed) startTapeRecording()
         }
     }
 
@@ -1453,18 +1529,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun confirmNewProject() {
-        AlertDialog.Builder(this)
-            .setTitle("New Project")
-            .setMessage("This clears the current song and all phrases (your sample library is kept). Continue?")
-            .setPositiveButton("New Project") { _, _ ->
-                project.resetProject()
-                PlaylistStore.clear(this)
-                refreshSongGrid()
-                stepSequencerPanel?.refreshRows()
-                updateTransportToggles()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        ProjectTemplates.show(this) {
+            refreshSongGrid()
+            stepSequencerPanel?.refreshRows()
+            updateTransportToggles()
+        }
     }
 
     // --- Expand (E) ---------------------------------------------------------------

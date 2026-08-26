@@ -24,6 +24,7 @@ data class SampleEntry(
     val displayName: String,
     val category: String = SoundCategory.DEFAULT,
     val id: Int = StableIds.UNASSIGNED,
+    val tags: String = "",
 )
 
 class SampleLibrary(context: Context) {
@@ -36,6 +37,20 @@ class SampleLibrary(context: Context) {
     fun byId(): Map<Int, SampleEntry> = loadMigrated().associateBy { it.id }
 
     fun byCategory(category: String): List<SampleEntry> = all().filter { it.category == category }
+
+    fun search(query: String): List<SampleEntry> {
+        val needle = query.trim().lowercase()
+        if (needle.isEmpty()) return all()
+        return all().filter { entry ->
+            entry.displayName.lowercase().contains(needle) ||
+                entry.category.lowercase().contains(needle) ||
+                entry.tags.lowercase().contains(needle)
+        }
+    }
+
+    fun setTags(entry: SampleEntry, tags: String) {
+        replace(entry.copy(tags = tags.trim()))
+    }
 
     fun add(entries: List<SampleEntry>): List<SampleEntry> {
         if (entries.isEmpty()) return emptyList()
@@ -111,6 +126,7 @@ class SampleLibrary(context: Context) {
             .put("uri", entry.uri.toString())
             .put("name", entry.displayName)
             .put("category", entry.category)
+            .put("tags", entry.tags)
             .toString()
 
     private fun decode(raw: String): SampleEntry? {
@@ -122,6 +138,7 @@ class SampleLibrary(context: Context) {
                     displayName = obj.getString("name"),
                     category = obj.optString("category", SoundCategory.DEFAULT),
                     id = obj.optInt("id", StableIds.UNASSIGNED),
+                    tags = obj.optString("tags", ""),
                 )
             } catch (e: Exception) {
                 null

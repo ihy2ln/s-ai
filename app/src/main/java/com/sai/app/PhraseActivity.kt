@@ -451,16 +451,7 @@ class PhraseActivity : ComponentActivity() {
     }
 
     private fun confirmNewProject() {
-        AlertDialog.Builder(this)
-            .setTitle("New Project")
-            .setMessage("Clear the current song and all phrases? Your sample library is kept.")
-            .setPositiveButton("New") { _, _ ->
-                project.resetProject()
-                PlaylistStore.clear(this)
-                refreshSteps()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        ProjectTemplates.show(this) { refreshSteps() }
     }
 
     // --- Menu (M) -------------------------------------------------------------

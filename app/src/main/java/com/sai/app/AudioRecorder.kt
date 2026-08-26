@@ -48,8 +48,7 @@ class AudioRecorder {
         }
     }
 
-    /** Stops recording and returns everything captured since [start]. */
-    fun stop(): Wav {
+    fun stop(skipMs: Int = 0): Wav {
         recording = false
         thread?.join(500)
         thread = null
@@ -65,6 +64,8 @@ class AudioRecorder {
             offset += chunk.size
         }
         chunks.clear()
-        return Wav(sampleRate, 1, samples)
+        val skip = (sampleRate * skipMs.coerceAtLeast(0) / 1000.0).toInt().coerceIn(0, samples.size)
+        val kept = if (skip <= 0) samples else samples.copyOfRange(skip, samples.size)
+        return Wav(sampleRate, 1, kept)
     }
 }
