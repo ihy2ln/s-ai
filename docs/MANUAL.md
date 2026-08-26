@@ -1,6 +1,6 @@
 # S.Ai User Manual
 
-Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This manual covers every screen, control, and workflow in the app.
+Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This page is the same wiki that opens in the app via **M → Manual** or **N → Manual**.
 
 ## Table of Contents
 
@@ -23,6 +23,8 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 - [Project Save & Load](#project-save--load)
 - [Theme & Appearance](#theme--appearance)
 - [Live Recording](#live-recording)
+- [How-tos](#how-tos)
+- [Glossary](#glossary)
 - [Tips & Shortcuts](#tips--shortcuts)
 
 ## Getting Started
@@ -38,6 +40,10 @@ S.Ai opens in **landscape orientation** and stays there for the best module layo
 - Use the **Channel Rack** to paint step patterns FL-style
 
 S.Ai ships **no bundled sounds** — bring your own audio files.
+
+Open this wiki any time with **M → Manual**. On the left, tap a section to jump. Type in the search box to highlight matches; press search on the keyboard for the next hit.
+
+See also: [How-tos](#how-tos), [Glossary](#glossary).
 
 ## Transport Bar
 
@@ -114,6 +120,8 @@ Drag the **grey divider bar** under a module to resize it freely. Drag down to e
 | **CHANNEL RACK** | Step sequencer with mute, solo, vol, pan, mixer route, pattern length, swing |
 
 Add removed modules back via **M → Add Module**.
+
+See also: [Sampler Module](#sampler-module), [Channel Rack](#channel-rack), [Pad Bank](#pad-bank).
 
 ## Sampler Module
 
@@ -234,6 +242,8 @@ Open full-screen via **N → Channel Rack**. If the Channel Rack module isn't on
 
 During playback, the **current step square lights up** — yellow if that step is on, teal if it is empty — so you can see which note is playing. There is no extra bar of rectangles above the grid.
 
+See also: [Tracker Module](#tracker-module), [Mixer](#mixer), [Phrase Editor](#phrase-editor).
+
 ## Mixer
 
 **MX → Mixer**, **N → Mixer**, or the Mixer screen's **Export WAV** button.
@@ -251,6 +261,8 @@ Eight insert strips plus **MST** (master):
 Channel Rack **Trk** `1`–`8` routes that row into the matching insert. `---` sums straight to the master bus (master insert still applies). Strip FX is heard on **Play** and in **Export WAV**; it does **not** rewrite the library sample. MX Filter/Compressor/… **Apply** still bakes into the sound.
 
 **Stems** (mixer **Stems** or **P → Export Stems**) writes a zip with `trk-1.wav`…`trk-8.wav` plus `audio.wav` for playlist audio clips.
+
+See also: [Effects (MX)](#effects-mx), [Channel Rack](#channel-rack), [How-tos](#how-tos).
 
 ## Playlist
 
@@ -346,6 +358,8 @@ Each dialog has **Preview** (one-shot), **Apply** (writes back), and **Close**. 
 
 For FX you want on a mixer strip (or master) without changing the sample, use the mixer **FX** button instead.
 
+See also: [Mixer](#mixer), [Synth Module](#synth-module).
+
 ## Sound Library
 
 **M → Sounds** opens the categorized browser.
@@ -396,6 +410,58 @@ Sampler **Record Audio** still loads a take into the Sampler (also using LAT / V
 
 Disarm Record when finished.
 
+See also: [Playlist](#playlist), [Project Save & Load](#project-save--load).
+
+## How-tos
+
+### Chop a sample into a beat
+
+1. **M → Samples** and pick a WAV (or **Sampler → +**)
+2. Set slice count, preview pads `00`–`0F`
+3. **To Rack** — slices land on Channel Rack rows
+4. Paint steps, tap **Play**
+5. Route rows with **Trk** `1`–`8` if you want mixer FX
+
+### Put reverb on a rack row without baking the sample
+
+1. On the Channel Rack, tap **Trk** until the row shows the insert number you want
+2. **N → Mixer** (or **MX → Mixer**)
+3. Tap **FX** on that strip → **Reverb** → set SIZE / DAMP / MIX → **Set**
+4. Press **Play** — the insert is live. Export WAV uses it too.
+
+### Record a vocal onto the playlist
+
+1. Arm the red **Record** circle → **Playlist tape (mic)**
+2. Press **Play**. Sing. Stop Play or disarm Record
+3. The take is a Vocal library sound on playlist lane 8
+4. **LAT** / **VOX** in Project Sound (blue square) apply to the take
+
+### Export a stereo mix vs stems
+
+- **P → Export WAV** or mixer **Export WAV** — one stereo file through rack + mixer + playlist
+- **P → Export Stems** or mixer **Stems** — zip of eight tracker tracks plus `audio.wav`
+
+### Keep a project portable
+
+**P → Save** writes a `.sai.zip` with audio, rack, mixer (including live FX), pads, playlist, and layout. **P → Load** reads that package, or an older JSON-only song.
+
+## Glossary
+
+| Term | Meaning |
+| --- | --- |
+| **Phrase** | A pattern of steps (note, instrument, velocity, gate) referenced from the tracker grid |
+| **Channel Rack** | FL-style step rows that share the tracker song; mute / solo / vol / pan / mixer route |
+| **Insert / Trk** | Mixer strip `1`–`8`. Rack **Trk** sends that row into the strip. `---` is master only |
+| **Live FX** | Mixer **FX** slot heard on play and mixdown; does not rewrite the library sample |
+| **MX Apply** | Bakes Filter / Comp / Reverb / EQ / Stereo into the current sample |
+| **Choke / MONO** | New hit on the same group cuts the previous one |
+| **Playlist** | Timeline of pattern clips and audio clips; empty playlist walks the tracker song |
+| **Punch** | Record-armed play: tapping a sample or pad writes a step on the armed track |
+| **Tape** | Mic recording dropped on the playlist as an audio clip |
+| **Project package** | `.sai.zip` with song + samples + mixer + rack + pads + playlist |
+
+See also: [Tips & Shortcuts](#tips--shortcuts).
+
 ## Tips & Shortcuts
 
 - **Long-press Home screen** — open Navigate (N) menu
@@ -405,6 +471,7 @@ Disarm Record when finished.
 - **Channel Rack + Tracker** share the same song data and playback engine
 - **Channel Rack Trk** numbers are mixer inserts 1–8
 - Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
+- **M → Manual** is this wiki: section list on the left, search at the top
 
 ---
 

@@ -16,4 +16,4 @@ releases.
 
 ## Documentation
 
-- **[User Manual](docs/MANUAL.md)** — full wiki-style guide to every screen and workflow (also built into the app via **M → Manual**)
+- **[User Manual](docs/MANUAL.md)** — wiki-style guide (same file is built into the app: **M → Manual**, with a section list and search)
