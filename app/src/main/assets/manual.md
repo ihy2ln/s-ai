@@ -70,7 +70,7 @@ Four pill buttons sit at the end of the transport row:
 | **E** | Expand | Full-screen the current module, or return to Split View |
 | **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Manual (long-press Home also opens this) |
 | **MX** | Mixer / Effects | Mixer first, then effects on the loaded sampler sound |
-| **P** | Project | Rename, save, load, new, undo, redo, export stereo WAV mixdown |
+| **P** | Project | Rename, save/load project package, new, undo, redo, export stereo WAV mixdown |
 | **M** | Menu | Manual, samples, sounds, theme, add module. **Plugins** is hidden until a plugin is registered. |
 
 ### Project Sound (blue square)
@@ -91,6 +91,8 @@ The Home screen stacks up to four modules. Each module has:
 - **▲ ▼** — move module up or down
 - **−** — remove module from screen (data is kept)
 - **MONO / POLY** — Cut Itself (choke) toggle; takes effect immediately, including while the song is playing
+
+Adding, removing, reordering, or full-screening a module **keeps** the Sampler/Synth sound already loaded and the Channel Rack pattern you were editing.
 
 Drag the **grey divider bar** under a module to resize it freely. Drag down to expand the module above the bar; drag up to shrink it. Other modules keep their size and you can scroll if the stack grows taller than the screen.
 
@@ -314,9 +316,10 @@ Categories: Kicks, Snares, Hats, Percussion, Vocals, SFX, Synth, Samples.
 
 Your project **auto-saves** continuously (BPM, name, song, phrases, undo stack).
 
-Manual export/import:
+Manual export/import via **P → Save** / **P → Load**:
 
-- **P → Save** or **P → Load** — JSON file
+- **Save** writes a **project package** (`.sai.zip`) with the song, sample library audio, Channel Rack, mixer, module layout, and theme
+- **Load** accepts that package, or an older JSON-only song file
 - **P → Export WAV** — stereo mixdown of the song through the mixer
 - **P → New** — clear song and phrases (library untouched)
 

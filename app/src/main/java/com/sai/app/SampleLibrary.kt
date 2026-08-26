@@ -63,6 +63,17 @@ class SampleLibrary(context: Context) {
         persist(current, nextId(current))
     }
 
+    /** Inserts or replaces by stable id so a project package can restore phrase instrument IDs. */
+    fun upsertAll(entries: List<SampleEntry>) {
+        if (entries.isEmpty()) return
+        val current = loadMigrated().toMutableList()
+        for (entry in entries) {
+            val index = current.indexOfFirst { it.id == entry.id }
+            if (index >= 0) current[index] = entry else current.add(entry)
+        }
+        persist(current, nextId(current))
+    }
+
     fun setCategory(entry: SampleEntry, category: String) {
         replace(entry.copy(category = category))
     }

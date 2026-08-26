@@ -99,6 +99,44 @@ object MixerStore {
 
     fun mathStrips(context: Context): List<MixerMath.Strip> = loadStrips(context).map { it.toMath() }
 
+    fun exportJson(context: Context): String {
+        val array = JSONArray()
+        for (strip in loadStrips(context)) {
+            array.put(
+                JSONObject()
+                    .put("muted", strip.muted)
+                    .put("soloed", strip.soloed)
+                    .put("volume", strip.volume.toDouble()),
+            )
+        }
+        return JSONObject()
+            .put("strips", array)
+            .put("master", masterVolume(context).toDouble())
+            .put("masterMuted", masterMuted(context))
+            .toString()
+    }
+
+    fun importJson(context: Context, raw: String) {
+        if (raw.isBlank()) return
+        try {
+            val obj = JSONObject(raw)
+            val array = obj.optJSONArray("strips") ?: JSONArray()
+            val loaded = (0 until STRIP_COUNT).map { i ->
+                val item = if (i < array.length()) array.getJSONObject(i) else JSONObject()
+                MixerStripState(
+                    muted = item.optBoolean("muted", false),
+                    soloed = item.optBoolean("soloed", false),
+                    volume = item.optDouble("volume", 1.0).toFloat(),
+                )
+            }
+            saveStrips(context, loaded)
+            if (obj.has("master")) setMasterVolume(context, obj.optDouble("master", 1.0).toFloat())
+            if (obj.has("masterMuted")) setMasterMuted(context, obj.optBoolean("masterMuted", false))
+        } catch (e: Exception) {
+            // Leave the current mixer if the package chunk is malformed.
+        }
+    }
+
     fun hit(stripIndex: Int?, level: Float) {
         val peak = level.coerceIn(0f, 1f)
         synchronized(lock) {
