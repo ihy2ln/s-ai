@@ -12,6 +12,7 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import com.sai.core.audio.InsertSlot
 
 /** Landscape mixer: 8 insert faders + master, mute/solo, meters, live insert FX. Export writes a stereo WAV mixdown. */
