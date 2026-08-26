@@ -79,7 +79,7 @@ Four pill buttons sit at the end of the transport row:
 | **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Playlist, Manual (long-press Home also opens this) |
 | **MX** | Mixer / Effects | Mixer first, then effects on the loaded sampler sound |
 | **P** | Project | Rename, save/load project package, new, undo, redo, export stereo WAV mixdown, export stems |
-| **M** | Menu | Manual, samples, sounds, theme, add module. **Plugins** is hidden until a plugin is registered. |
+| **M** | Menu | Manual, samples, sounds, theme, **Layout**, add module. **Plugins** is hidden until a plugin is registered. |
 
 ### Project Sound (blue square)
 
@@ -97,19 +97,21 @@ These settings apply to tracker/sequencer playback and are saved with your proje
 
 ## Home Modules
 
-The Home screen stacks up to four modules. Each module has:
+The Home screen holds your working modules. **M → Layout** picks how they sit on screen:
 
-- **▲ ▼** — move module up or down
-- **−** — remove module from screen (data is kept)
-- **MONO / POLY** — Cut Itself (choke) toggle; takes effect immediately, including while the song is playing
+| Layout | How it works |
+| --- | --- |
+| **Stack** | The original stacked view. Drag the grey divider under a module to resize it. ▲ ▼ reorder; **−** removes (data is kept). |
+| **Focus** | The module you are working on fills the remaining height. Other modules collapse to a title bar. **Tap a title** to switch. |
+| **Boxes** | Each module is a floating card. **Tap the title** to grow it, **drag the title** to move, **drag the bottom-right corner** to resize. |
 
-Adding, removing, reordering, or full-screening a module **keeps** the Sampler/Synth sound already loaded and the Channel Rack pattern you were editing.
+Adding, removing, reordering, or changing layout **keeps** the Sampler/Synth sound already loaded and the Channel Rack pattern you were editing.
 
-Drag the **grey divider bar** under a module to resize it freely. Drag down to expand the module above the bar; drag up to shrink it. Other modules keep their size and you can scroll if the stack grows taller than the screen.
-
-**Scrolling the page** (one-finger drags stay with knobs and pads):
+**Scrolling the page** in Stack (one-finger drags stay with knobs and pads):
 - Drag the **thin bar on the far right edge** of the screen
 - Or swipe **up or down with two fingers**
+
+Each module header is compact: title, Rec/+, MONO/POLY, and layout controls.
 
 | Module | Purpose |
 | --- | --- |
@@ -458,7 +460,7 @@ See also: [Playlist](#playlist), [Project Save & Load](#project-save--load).
 | **Playlist** | Timeline of pattern clips and audio clips; empty playlist walks the tracker song |
 | **Punch** | Record-armed play: tapping a sample or pad writes a step on the armed track |
 | **Tape** | Mic recording dropped on the playlist as an audio clip |
-| **Project package** | `.sai.zip` with song + samples + mixer + rack + pads + playlist |
+| **Layout** | Stack, Focus, or Boxes home arrangement |
 
 See also: [Tips & Shortcuts](#tips--shortcuts).
 
@@ -472,6 +474,7 @@ See also: [Tips & Shortcuts](#tips--shortcuts).
 - **Channel Rack Trk** numbers are mixer inserts 1–8
 - Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
 - **M → Manual** is this wiki: section list on the left, search at the top
+- **M → Layout** — Stack, Focus (tap a title to work on that module), or Boxes (move / grow / resize cards)
 
 ---
 

@@ -1,6 +1,8 @@
 package com.sai.app
 
 import android.content.Context
+import com.sai.core.layout.ModuleBoxFrame
+import com.sai.core.layout.WorkspaceLayout
 
 enum class ModuleType(val label: String) {
     SAMPLER("SAMPLER"), SYNTH("SYNTH"), PADS("PADS"), TRACKER("TRACKER"), STEP_SEQUENCER("CHANNEL RACK"),
@@ -14,6 +16,9 @@ object ModuleLayoutStore {
     private const val PREFS_NAME = "module_layout"
     private const val KEY_ENTRIES = "entries"
     private const val KEY_CHOKE_PREFIX = "choke_"
+    private const val KEY_WORKSPACE = "workspace"
+    private const val KEY_FOCUSED = "focused"
+    private const val KEY_BOXES = "boxes"
 
     private val DEFAULT_HEIGHTS = mapOf(
         ModuleType.SAMPLER to 260f,
@@ -57,6 +62,66 @@ object ModuleLayoutStore {
         prefs(context).edit().putString(KEY_ENTRIES, raw).apply()
     }
 
+    fun workspace(context: Context): WorkspaceLayout =
+        WorkspaceLayout.fromName(prefs(context).getString(KEY_WORKSPACE, WorkspaceLayout.STACK.name))
+
+    fun setWorkspace(context: Context, layout: WorkspaceLayout) {
+        prefs(context).edit().putString(KEY_WORKSPACE, layout.name).apply()
+    }
+
+    fun focusedType(context: Context): ModuleType? {
+        val raw = prefs(context).getString(KEY_FOCUSED, null) ?: return null
+        return try {
+            ModuleType.valueOf(raw)
+        } catch (e: IllegalArgumentException) {
+            null
+        }
+    }
+
+    fun setFocusedType(context: Context, type: ModuleType?) {
+        prefs(context).edit().putString(KEY_FOCUSED, type?.name).apply()
+    }
+
+    fun loadBoxes(context: Context): MutableMap<ModuleType, ModuleBoxFrame> {
+        val raw = prefs(context).getString(KEY_BOXES, null) ?: return mutableMapOf()
+        return try {
+            val array = org.json.JSONArray(raw)
+            val loaded = mutableMapOf<ModuleType, ModuleBoxFrame>()
+            for (i in 0 until array.length()) {
+                val item = array.getJSONObject(i)
+                val type = try {
+                    ModuleType.valueOf(item.getString("type"))
+                } catch (e: IllegalArgumentException) {
+                    continue
+                }
+                loaded[type] = ModuleBoxFrame(
+                    xDp = item.optDouble("x", 0.0).toFloat(),
+                    yDp = item.optDouble("y", 0.0).toFloat(),
+                    wDp = item.optDouble("w", defaultHeight(type).toDouble()).toFloat(),
+                    hDp = item.optDouble("h", defaultHeight(type).toDouble()).toFloat(),
+                )
+            }
+            loaded
+        } catch (e: Exception) {
+            mutableMapOf()
+        }
+    }
+
+    fun saveBoxes(context: Context, boxes: Map<ModuleType, ModuleBoxFrame>) {
+        val array = org.json.JSONArray()
+        for ((type, box) in boxes) {
+            array.put(
+                org.json.JSONObject()
+                    .put("type", type.name)
+                    .put("x", box.xDp.toDouble())
+                    .put("y", box.yDp.toDouble())
+                    .put("w", box.wDp.toDouble())
+                    .put("h", box.hDp.toDouble()),
+            )
+        }
+        prefs(context).edit().putString(KEY_BOXES, array.toString()).apply()
+    }
+
     fun exportJson(context: Context, entries: List<ModuleEntry>): String {
         val array = org.json.JSONArray()
         for (entry in entries) {
@@ -71,7 +136,24 @@ object ModuleLayoutStore {
             if (chokeKey(type) != type) continue
             choke.put(type.name, isChokeEnabled(context, type))
         }
-        return org.json.JSONObject().put("entries", array).put("choke", choke).toString()
+        val boxes = org.json.JSONArray()
+        for ((type, box) in loadBoxes(context)) {
+            boxes.put(
+                org.json.JSONObject()
+                    .put("type", type.name)
+                    .put("x", box.xDp.toDouble())
+                    .put("y", box.yDp.toDouble())
+                    .put("w", box.wDp.toDouble())
+                    .put("h", box.hDp.toDouble()),
+            )
+        }
+        return org.json.JSONObject()
+            .put("entries", array)
+            .put("choke", choke)
+            .put("workspace", workspace(context).name)
+            .put("focused", focusedType(context)?.name)
+            .put("boxes", boxes)
+            .toString()
     }
 
     fun importJson(context: Context, raw: String): MutableList<ModuleEntry>? {
@@ -101,6 +183,37 @@ object ModuleLayoutStore {
                 }
             }
             save(context, loaded)
+            if (obj.has("workspace")) setWorkspace(context, WorkspaceLayout.fromName(obj.optString("workspace")))
+            if (obj.has("focused")) {
+                val focusedRaw = obj.optString("focused", "")
+                setFocusedType(
+                    context,
+                    if (focusedRaw.isBlank()) null else try {
+                        ModuleType.valueOf(focusedRaw)
+                    } catch (e: IllegalArgumentException) {
+                        null
+                    },
+                )
+            }
+            val boxesArray = obj.optJSONArray("boxes")
+            if (boxesArray != null) {
+                val boxes = mutableMapOf<ModuleType, ModuleBoxFrame>()
+                for (i in 0 until boxesArray.length()) {
+                    val item = boxesArray.getJSONObject(i)
+                    val boxType = try {
+                        ModuleType.valueOf(item.getString("type"))
+                    } catch (e: IllegalArgumentException) {
+                        continue
+                    }
+                    boxes[boxType] = ModuleBoxFrame(
+                        xDp = item.optDouble("x", 0.0).toFloat(),
+                        yDp = item.optDouble("y", 0.0).toFloat(),
+                        wDp = item.optDouble("w", defaultHeight(boxType).toDouble()).toFloat(),
+                        hDp = item.optDouble("h", defaultHeight(boxType).toDouble()).toFloat(),
+                    )
+                }
+                saveBoxes(context, boxes)
+            }
             loaded.toMutableList()
         } catch (e: Exception) {
             null
