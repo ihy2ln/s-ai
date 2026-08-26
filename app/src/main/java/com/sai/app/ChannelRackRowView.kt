@@ -74,7 +74,7 @@ class ChannelRackRowView(context: Context) : LinearLayout(context) {
         panKnob.setValue(state.pan)
         mixerTrackLabel.text = if (state.mixerTrack <= 0) "---" else state.mixerTrack.toString()
         channelButton.text = displayName
-        channelButton.setBackgroundColor(ChannelRackStore.channelColor(channelIndex, state.instrumentIndex != null))
+        channelButton.setBackgroundColor(ChannelRackStore.channelColor(channelIndex, state.instrumentId != null))
         channelButton.setPadding((4 * density).toInt(), vPad, (4 * density).toInt(), vPad)
         stepRow.stepCount = Phrase.STEP_COUNT
         layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, rowHeightPx)

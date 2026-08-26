@@ -113,7 +113,7 @@ class PhraseActivity : ComponentActivity() {
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(PillButton.create(this@PhraseActivity, "E") { showExpand() })
-            addView(PillButton.create(this@PhraseActivity, "N") { showNav() })
+            addView(PillButton.create(this@PhraseActivity, "N") { NavMenu.show(this@PhraseActivity) })
             addView(PillButton.create(this@PhraseActivity, "MX") { EffectsMenu.show(this@PhraseActivity, samplerEffectsTarget()) })
             addView(PillButton.create(this@PhraseActivity, "P") { showProjectMenu() })
             addView(PillButton.create(this@PhraseActivity, "M") { showMenu() })
@@ -132,7 +132,7 @@ class PhraseActivity : ComponentActivity() {
             addView(dividerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
             addView(stepSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             isLongClickable = true
-            setOnLongClickListener { showNav(); true }
+            setOnLongClickListener { NavMenu.show(this@PhraseActivity); true }
         }
 
         applyViewMode()
@@ -341,14 +341,14 @@ class PhraseActivity : ComponentActivity() {
                 .show()
             return
         }
-        val labels = (entries.indices.map { "%02X  ".format(it) + entries[it].displayName } + "Clear").toTypedArray()
+        val labels = (entries.map { "%02X  ".format(it.id) + it.displayName } + "Clear").toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("Instrument (step %02X)".format(stepIndex))
             .setItems(labels) { _, which ->
                 if (which == entries.size) {
                     updateStep(stepIndex) { it.copy(instrument = null) }
                 } else {
-                    updateStep(stepIndex) { it.copy(instrument = which) }
+                    updateStep(stepIndex) { it.copy(instrument = entries[which].id) }
                 }
             }
             .show()
@@ -374,15 +374,6 @@ class PhraseActivity : ComponentActivity() {
                     2 -> { viewMode = ViewMode.SPLIT; applyViewMode() }
                 }
             }
-            .show()
-    }
-
-    // --- Nav (N) ------------------------------------------------------------
-
-    private fun showNav() {
-        AlertDialog.Builder(this)
-            .setTitle("Navigate")
-            .setItems(arrayOf("Back")) { _, _ -> onBackPressedDispatcher.onBackPressed() }
             .show()
     }
 

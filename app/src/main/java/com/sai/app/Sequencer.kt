@@ -1,20 +1,26 @@
 package com.sai.app
 
 import android.content.Context
+import com.sai.core.audio.RackMix
+import com.sai.core.audio.StereoShaper
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Song
 import com.sai.core.tracker.Step
 import com.sai.core.tracker.TrackerEngine
+import kotlin.math.abs
 
 class Sequencer(
     private val context: Context,
-    private val instruments: List<SampleEntry>,
+    private val instrumentsById: Map<Int, SampleEntry>,
     /** When true, each of the 8 tracker channels is monophonic during playback: a new step on a
-     *  track immediately cuts off whatever that same track was still playing (Cut Itself). */
-    private val chokeSameTrack: Boolean = false,
+     *  track immediately cuts off whatever that same track was still playing (Cut Itself).
+     *  Live-updatable so MONO/POLY takes effect without restarting play. */
+    chokeSameTrack: Boolean = false,
 ) {
+    @Volatile var chokeSameTrack: Boolean = chokeSameTrack
+
     private val resolver = context.contentResolver
     @Volatile private var running = false
     private var thread: Thread? = null
@@ -64,11 +70,11 @@ class Sequencer(
     private fun preloadSamples(phrases: Map<Int, Phrase>) {
         sampleCache.clear()
         val usedInstruments = phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet()
-        for (index in usedInstruments) {
-            val entry = instruments.getOrNull(index) ?: continue
+        for (id in usedInstruments) {
+            val entry = instrumentsById[id] ?: continue
             try {
                 val bytes = resolver.openInputStream(entry.uri)!!.use { it.readBytes() }
-                sampleCache[index] = try {
+                sampleCache[id] = try {
                     WavIO.read(bytes)
                 } catch (wavError: Exception) {
                     AudioDecoder.decode(resolver, entry.uri)
@@ -80,12 +86,22 @@ class Sequencer(
     }
 
     private fun playOneShot(wav: Wav, step: Step, track: Int) {
+        val rack = ChannelRackStore.channel(context, track)
+        if (rack != null && !RackMix.shouldPlay(rack.muted)) return
+
         val note = step.note ?: ROOT_NOTE
         val rate = ProjectPlayback.rateForNote(context, note, ROOT_NOTE)
-        val gained = com.sai.core.audio.SampleEditor.gain(wav, ProjectPlayback.gainDb(context, step.volume ?: 127))
+        val mixedVolume = RackMix.combinedStepVolume(step.volume ?: 127, rack?.volume ?: 1f)
+        if (mixedVolume <= 0) return
+        var processed = com.sai.core.audio.SampleEditor.gain(wav, ProjectPlayback.gainDb(context, mixedVolume))
+
+        val pan = RackMix.shaperPan(rack?.pan ?: 0.5f)
+        if (abs(pan) > 0.02) {
+            processed = StereoShaper.apply(processed, pan, 1.0, 0.0)
+        }
 
         val chokeGroup = if (chokeSameTrack) "tracker-track-$track" else null
-        AudioPlayback.playOneShot(gained, rate, context, chokeGroup)
+        AudioPlayback.playOneShot(processed, rate, context, chokeGroup)
     }
 
     companion object {

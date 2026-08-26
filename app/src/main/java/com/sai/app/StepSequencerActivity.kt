@@ -29,7 +29,7 @@ class StepSequencerActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(PillButton.create(this@StepSequencerActivity, "N") { onBackPressedDispatcher.onBackPressed() })
+            addView(PillButton.create(this@StepSequencerActivity, "N") { NavMenu.show(this@StepSequencerActivity) })
         }
 
         return LinearLayout(this).apply {

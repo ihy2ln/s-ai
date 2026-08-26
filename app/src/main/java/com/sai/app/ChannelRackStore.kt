@@ -7,13 +7,13 @@ import org.json.JSONObject
 
 /** Per-channel state for the FL Studio-style Channel Rack (mute, pan, volume, routing, sample). */
 data class RackChannelState(
-    val instrumentIndex: Int? = null,
+    val instrumentId: Int? = null,
     val muted: Boolean = false,
     val volume: Float = 0.78f,
     val pan: Float = 0.5f,
     val mixerTrack: Int = 0,
 ) {
-    fun withInstrument(index: Int?) = copy(instrumentIndex = index)
+    fun withInstrument(id: Int?) = copy(instrumentId = id)
     fun withMuted(value: Boolean) = copy(muted = value)
     fun withVolume(value: Float) = copy(volume = value.coerceIn(0f, 1f))
     fun withPan(value: Float) = copy(pan = value.coerceIn(0f, 1f))
@@ -27,24 +27,40 @@ object ChannelRackStore {
     const val MAX_CHANNELS = Song.TRACK_COUNT
     const val MIN_VISIBLE = 4
 
+    @Volatile private var memory: List<RackChannelState>? = null
+
     fun loadChannels(context: Context): MutableList<RackChannelState> {
-        val raw = prefs(context).getString(KEY_CHANNELS, null) ?: return defaultChannels(context)
+        memory?.let { return it.toMutableList() }
+        val raw = prefs(context).getString(KEY_CHANNELS, null)
+        if (raw == null) {
+            val defaults = defaultChannels(context)
+            memory = defaults.toList()
+            return defaults
+        }
         return try {
             val array = JSONArray(raw)
-            (0 until array.length()).map { i ->
+            val loaded = (0 until array.length()).map { i ->
                 val obj = array.getJSONObject(i)
                 RackChannelState(
-                    instrumentIndex = if (obj.has("instrument")) obj.getInt("instrument") else null,
+                    instrumentId = if (obj.has("instrument") && !obj.isNull("instrument")) obj.getInt("instrument") else null,
                     muted = obj.optBoolean("muted", false),
                     volume = obj.optDouble("volume", 0.78).toFloat(),
                     pan = obj.optDouble("pan", 0.5).toFloat(),
                     mixerTrack = obj.optInt("mixerTrack", 0),
                 )
             }.toMutableList()
+            memory = loaded.toList()
+            loaded
         } catch (e: Exception) {
-            defaultChannels(context)
+            val defaults = defaultChannels(context)
+            memory = defaults.toList()
+            defaults
         }
     }
+
+    /** Live channel for a tracker track index, or null if that row isn't in the rack. */
+    fun channel(context: Context, track: Int): RackChannelState? =
+        loadChannels(context).getOrNull(track)
 
     fun visibleCount(context: Context): Int =
         prefs(context).getInt(KEY_VISIBLE_COUNT, MIN_VISIBLE).coerceIn(MIN_VISIBLE, MAX_CHANNELS)
@@ -54,11 +70,12 @@ object ChannelRackStore {
     }
 
     fun saveChannels(context: Context, channels: List<RackChannelState>) {
+        memory = channels.toList()
         val array = JSONArray()
         for (channel in channels) {
             array.put(
                 JSONObject()
-                    .put("instrument", channel.instrumentIndex ?: JSONObject.NULL)
+                    .put("instrument", channel.instrumentId ?: JSONObject.NULL)
                     .put("muted", channel.muted)
                     .put("volume", channel.volume.toDouble())
                     .put("pan", channel.pan.toDouble())

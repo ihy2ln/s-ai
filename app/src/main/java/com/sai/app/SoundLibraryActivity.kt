@@ -118,7 +118,7 @@ class SoundLibraryActivity : ComponentActivity() {
         },
         getName = { entry.displayName },
         onApplied = { processed ->
-            SliceExporter.saveToLibrary(this, entry.displayName, listOf(processed))
+            SliceExporter.replaceLibraryEntry(this, entry, processed)
             refresh()
         },
     )

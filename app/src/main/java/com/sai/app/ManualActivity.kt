@@ -33,7 +33,7 @@ class ManualActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(PillButton.create(this@ManualActivity, "N") { finish() })
+            addView(PillButton.create(this@ManualActivity, "N") { NavMenu.show(this@ManualActivity) })
         }
 
         val markdown = assets.open("manual.md").bufferedReader().use { it.readText() }

@@ -64,10 +64,10 @@ Four pill buttons sit at the end of the transport row:
 | Button | Name | Opens |
 | --- | --- | --- |
 | **E** | Expand | Full-screen the current module, or return to Split View |
-| **N** | Navigate | Back / navigation menu (long-press anywhere on Home also opens this) |
+| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Manual (long-press Home also opens this) |
 | **MX** | Mixer / Effects | Effects chain on the loaded sampler sound |
 | **P** | Project | Rename, save, load, new, undo, redo |
-| **M** | Menu | App menu including **Manual**, samples, theme, modules |
+| **M** | Menu | Manual, samples, sounds, theme, add module. **Plugins** is hidden until a plugin is registered. |
 
 ### Project Sound (blue square)
 
@@ -86,7 +86,7 @@ The Home screen stacks up to four modules. Each module has:
 
 - **▲ ▼** — move module up or down
 - **−** — remove module from screen (data is kept)
-- **MONO / POLY** — Cut Itself (choke) toggle for preview playback
+- **MONO / POLY** — Cut Itself (choke) toggle; takes effect immediately, including while the song is playing
 
 Drag the **grey divider bar** under a module to resize it freely. Drag down to expand the module above the bar; drag up to shrink it. Other modules keep their size and you can scroll if the stack grows taller than the screen.
 
@@ -122,7 +122,7 @@ Add removed modules back via **M → Add Module**.
 Below the modules, your library entries appear as tappable rows.
 
 - **Tap** — load into Sampler
-- **Tap while Record armed + playing** — punch sample into Tracker track 1 at current step
+- **Tap while Record armed + playing** — punch sample into the armed Tracker track at the current step
 - **Long-press → Edit** — open Sample Editor
 - **Long-press → Mixer** — open Effects on that sample
 
@@ -191,9 +191,9 @@ Inspired by FL Studio's Channel Rack. Each row is one channel:
 
 | Control | Function |
 | --- | --- |
-| **Mute LED** | Green = audible; tap to mute |
-| **Vol knob** | Channel volume |
-| **Pan knob** | Stereo pan (0.5 = center) |
+| **Mute LED** | Green = audible; tap to mute that channel in playback |
+| **Vol knob** | Channel volume (applied on top of step volume during playback) |
+| **Pan knob** | Stereo pan (0.5 = center; applied during playback) |
 | **Mixer track** | Tap to cycle route `---` through `1`–`9` |
 | **Channel button** | Tap to assign a sample; red = unassigned |
 | **Step grid** | 16 square steps; tap or drag to paint on/off |
@@ -205,7 +205,7 @@ Inspired by FL Studio's Channel Rack. Each row is one channel:
 - **− / +** — zoom row height
 - **+ Add channel** — show more rows (up to 8)
 
-Open full-screen via **MX → Channel Rack**.
+Open full-screen via **N → Channel Rack**. If the Channel Rack module isn't on Home, **E** also offers it.
 
 ## Phrase Editor
 
@@ -222,7 +222,7 @@ Split layout with **E (Expand)**:
 | Column | Meaning |
 | --- | --- |
 | **NOTE** | MIDI note 0–127 |
-| **INS** | Instrument index from library |
+| **INS** | Stable instrument ID from the library (not a sorted-list index) |
 | **VOL** | Volume 0–127 |
 
 Tap any cell value to edit it. **M → Piano Roll** opens the note-based editor.
@@ -254,7 +254,7 @@ Open via long-press on a library sample → **Edit**.
 - **Granulate** — grain size and scatter
 - **Source BPM + Sync** — match project tempo
 
-**Play** previews the chain. **Save** exports a WAV file.
+**Play** previews the chain. **Save** writes the edit back onto the same library sound (same ID). **Export** writes a new WAV file via the system picker.
 
 ## Effects (MX)
 
@@ -267,9 +267,8 @@ Available from **MX**, sample long-press → Mixer, or Sound Library long-press.
 | **Reverb** | SIZE, DAMP, MIX |
 | **Equalizer** | LOW CUT, 7 bands, MID CUT, HIGH CUT |
 | **Stereo Shaper** | PAN, WIDTH, DEPTH |
-| **Channel Rack** | Opens full-screen Channel Rack |
 
-Each dialog has **Preview** (one-shot), **Apply** (writes back), and **Close**.
+Each dialog has **Preview** (one-shot), **Apply** (writes back), and **Close**. Apply on a library sound **replaces that entry** (same ID); it does not add a second copy.
 
 ## Sound Library
 
@@ -307,9 +306,10 @@ Manual export/import:
 
 ## Live Recording
 
-1. Tap the **red Record circle** to arm
+1. Tap the **red Record circle** and pick which Tracker track (1–8) to punch into
 2. Start **Play**
-3. Tap any sample in the list — it plays immediately and writes to **Tracker track 1** at the current step
+3. Tap any sample in the list — it plays immediately and writes to the armed track at the current step
+4. While armed, tap a song-grid cell to change which track punches in
 
 Disarm Record when finished.
 

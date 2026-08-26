@@ -165,13 +165,13 @@ class ChannelRackPanelView @JvmOverloads constructor(
         val state = channels.getOrElse(channelIndex) { RackChannelState() }
         val phraseId = project.song.positions.getOrNull(pattern)?.getOrNull(channelIndex)
         val phrase = phraseId?.let { project.phrases[it] }
-        val instrumentIndex = state.instrumentIndex ?: phrase?.steps?.firstNotNullOfOrNull { it.instrument }
-        if (instrumentIndex != null && state.instrumentIndex == null) {
-            channels[channelIndex] = state.withInstrument(instrumentIndex)
+        val instrumentId = state.instrumentId ?: phrase?.steps?.firstNotNullOfOrNull { it.instrument }
+        if (instrumentId != null && state.instrumentId == null) {
+            channels[channelIndex] = state.withInstrument(instrumentId)
         }
 
-        val displayName = instrumentIndex
-            ?.let { library.all().getOrNull(it)?.displayName }
+        val displayName = instrumentId
+            ?.let { library.get(it)?.displayName }
             ?: "Empty"
 
         val row = ChannelRackRowView(context).apply {
@@ -179,7 +179,9 @@ class ChannelRackPanelView @JvmOverloads constructor(
             stepRow.setStates(BooleanArray(Phrase.STEP_COUNT) { phrase?.steps?.get(it)?.instrument != null })
             stepRow.onStepToggleRequested = { index, desiredOn -> trySetStep(channelIndex, index, desiredOn) }
             muteLed.onToggle = {
-                updateChannel(channelIndex) { it.withMuted(!it.muted) }
+                val next = !channels[channelIndex].muted
+                updateChannel(channelIndex) { it.withMuted(next) }
+                muteLed.muted = next
             }
             volumeKnob.onChange = { value ->
                 updateChannel(channelIndex) { it.withVolume(value) }
@@ -270,7 +272,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
         val phraseId = project.song.positions.getOrNull(pattern)?.getOrNull(last)
         val phrase = phraseId?.let { project.phrases[it] }
         val hasSteps = phrase?.steps?.any { it.instrument != null } == true
-        if (channels.getOrNull(last)?.instrumentIndex != null || hasSteps) {
+        if (channels.getOrNull(last)?.instrumentId != null || hasSteps) {
             Toast.makeText(context, "Remove steps or sample from the last channel first", Toast.LENGTH_SHORT).show()
             return
         }
@@ -278,14 +280,13 @@ class ChannelRackPanelView @JvmOverloads constructor(
         refreshRows()
     }
 
-    /** Asks which channel should host [instrumentIndex], then assigns it there. */
-    fun promptAssignInstrument(instrumentIndex: Int, displayName: String) {
+    /** Asks which channel should host [instrumentId], then assigns it there. */
+    fun promptAssignInstrument(instrumentId: Int, displayName: String) {
         val visible = ChannelRackStore.visibleCount(context).coerceAtMost(channels.size)
         if (visible <= 0) return
-        val entries = library.all()
         val labels = (0 until visible).map { index ->
-            val current = channels[index].instrumentIndex
-                ?.let { entries.getOrNull(it)?.displayName }
+            val current = channels[index].instrumentId
+                ?.let { library.get(it)?.displayName }
                 ?: "Empty"
             "Channel ${index + 1} - $current"
         }.toTypedArray()
@@ -293,7 +294,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
         AlertDialog.Builder(context)
             .setTitle("Place $displayName in")
             .setItems(labels) { _, which ->
-                updateChannel(which) { it.withInstrument(instrumentIndex) }
+                updateChannel(which) { it.withInstrument(instrumentId) }
                 refreshRows()
                 Toast.makeText(context, "$displayName on channel ${which + 1}", Toast.LENGTH_SHORT).show()
             }
@@ -310,15 +311,15 @@ class ChannelRackPanelView @JvmOverloads constructor(
         AlertDialog.Builder(context)
             .setTitle("Channel ${channelIndex + 1}")
             .setItems(labels) { _, which ->
-                updateChannel(channelIndex) { it.withInstrument(which) }
+                updateChannel(channelIndex) { it.withInstrument(entries[which].id) }
                 refreshRows()
             }
             .show()
     }
 
     private fun trySetStep(channelIndex: Int, stepIndex: Int, on: Boolean): Boolean {
-        val instrumentIndex = channels.getOrNull(channelIndex)?.instrumentIndex
-        if (on && instrumentIndex == null) {
+        val instrumentId = channels.getOrNull(channelIndex)?.instrumentId
+        if (on && instrumentId == null) {
             Toast.makeText(context, "Assign a sample to this channel first", Toast.LENGTH_SHORT).show()
             return false
         }
@@ -333,7 +334,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
 
         val phrase = project.phrases[phraseId] ?: Phrase.empty()
         val steps = phrase.steps.toMutableList()
-        steps[stepIndex] = if (on) Step(instrument = instrumentIndex) else Step()
+        steps[stepIndex] = if (on) Step(instrument = instrumentId) else Step()
         project.putPhrase(phraseId, Phrase(steps))
         return true
     }
