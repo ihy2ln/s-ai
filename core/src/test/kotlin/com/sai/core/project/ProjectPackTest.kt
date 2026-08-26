@@ -17,6 +17,8 @@ class ProjectPackTest {
             layoutJson = """{"entries":[]}""",
             themeJson = """{"accent":1}""",
             backgroundJson = """{"type":"color"}""",
+            padsJson = """{"pads":[]}""",
+            playlistJson = """{"clips":[]}""",
             samples = mapOf("kick.wav" to byteArrayOf(1, 2, 3, 4)),
             backgroundBytes = byteArrayOf(9, 9),
             backgroundName = "background.bin",
@@ -31,6 +33,8 @@ class ProjectPackTest {
         assertEquals(archive.layoutJson, read.layoutJson)
         assertEquals(archive.themeJson, read.themeJson)
         assertEquals(archive.backgroundJson, read.backgroundJson)
+        assertEquals(archive.padsJson, read.padsJson)
+        assertEquals(archive.playlistJson, read.playlistJson)
         assertTrue(read.samples["kick.wav"].contentEquals(byteArrayOf(1, 2, 3, 4)))
         assertTrue(read.backgroundBytes.contentEquals(byteArrayOf(9, 9)))
     }

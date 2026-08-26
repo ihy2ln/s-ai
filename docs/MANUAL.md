@@ -13,6 +13,7 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 - [Tracker Module](#tracker-module)
 - [Channel Rack](#channel-rack)
 - [Mixer](#mixer)
+- [Playlist](#playlist)
 - [Phrase Editor](#phrase-editor)
 - [Piano Roll](#piano-roll)
 - [Pad Bank](#pad-bank)
@@ -69,9 +70,9 @@ Four pill buttons sit at the end of the transport row:
 | Button | Name | Opens |
 | --- | --- | --- |
 | **E** | Expand | Full-screen the current module, or return to Split View |
-| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Manual (long-press Home also opens this) |
+| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Playlist, Manual (long-press Home also opens this) |
 | **MX** | Mixer / Effects | Mixer first, then effects on the loaded sampler sound |
-| **P** | Project | Rename, save/load project package, new, undo, redo, export stereo WAV mixdown |
+| **P** | Project | Rename, save/load project package, new, undo, redo, export stereo WAV mixdown, export stems |
 | **M** | Menu | Manual, samples, sounds, theme, add module. **Plugins** is hidden until a plugin is registered. |
 
 ### Project Sound (blue square)
@@ -125,6 +126,7 @@ Add removed modules back via **M → Add Module**.
 - Colored pads **00–0F** preview each slice
 - **Save Slices** exports slices to your sample library as separate WAV files
 - **To Rack** saves those slices **and** assigns them to Channel Rack rows (empty rows first, then new rows up to 8). Extra slices stay in the library.
+- **Warp BPM** time-stretches the loaded sample so its original tempo matches the project BPM.
 
 ### Sample list
 
@@ -244,6 +246,20 @@ Eight insert strips plus **MST** (master):
 
 Channel Rack **Trk** `1`–`8` routes that row into the matching insert. `---` sums straight to the master bus.
 
+**Stems** (mixer **Stems** or **P → Export Stems**) writes a zip with `trk-1.wav`…`trk-8.wav` plus `audio.wav` for playlist audio clips.
+
+## Playlist
+
+**N → Playlist**. Empty playlist: playback walks the tracker song grid `00`–`1F` as usual.
+
+- **+ PAT** — drop a pattern clip (song position) onto the timeline
+- **+ AUD** — drop a library sample as an audio clip
+- Tap a lane to add at the end of the timeline
+- Tap a clip to mute, nudge, change length/lane, or delete
+- **Clear** — remove clips and return to song-grid playback
+
+Pattern clips **replace** sequential song walk while any unmuted pattern clip exists (overlapping clips layer). Audio clips always mix in at their start step. Playlist is stored in the project package.
+
 ## Phrase Editor
 
 Open from a filled tracker cell → **Edit**.
@@ -308,7 +324,7 @@ Open via long-press on a library sample → **Edit**.
 - **Granulate** — grain size and scatter
 - **Source BPM + Sync** — match project tempo
 
-**Play** previews the chain. **Save** writes the edit back onto the same library sound (same ID). **Export** writes a new WAV file via the system picker.
+**Play** previews the chain. **Save** writes the edit back onto the same library sound (same ID). **Export** writes a new WAV file via the system picker. **Undo / Redo** restore Cut, Paste, and baked BPM warp. **Sync to Project BPM** time-stretches the tape to the project tempo.
 
 ## Effects (MX)
 
@@ -340,10 +356,11 @@ Your project **auto-saves** continuously (BPM, name, song, phrases, undo stack).
 
 Manual export/import via **P → Save** / **P → Load**:
 
-- **Save** writes a **project package** (`.sai.zip`) with the song, sample library audio, Channel Rack, mixer, module layout, theme, and pad bank
+- **Save** writes a **project package** (`.sai.zip`) with the song, sample library audio, Channel Rack, mixer, module layout, theme, pad bank, and playlist
 - **Load** accepts that package, or an older JSON-only song file
-- **P → Export WAV** — stereo mixdown of the song through the mixer
-- **P → New** — clear song and phrases (library untouched)
+- **P → Export WAV** — stereo mixdown of the song through the mixer (includes playlist)
+- **P → Export Stems** — zip of per-track WAVs plus playlist audio
+- **P → New** — clear song, phrases, and playlist (library untouched)
 
 **Undo / Redo** is available from **P → Project** on Home and Phrase Editor.
 

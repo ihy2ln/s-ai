@@ -44,6 +44,8 @@ class SampleEditorActivity : ComponentActivity() {
     private lateinit var grainBar: SeekBar
     private lateinit var scatterBar: SeekBar
     private lateinit var bpmSourceInput: EditText
+    private val undoStack = ArrayDeque<Wav>()
+    private val redoStack = ArrayDeque<Wav>()
 
     private val saveLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("audio/x-wav")) { uri ->
         if (uri != null) saveEditedWav(uri)
@@ -112,10 +114,14 @@ class SampleEditorActivity : ComponentActivity() {
 
         val cutButton = Button(this).apply { text = "Cut"; setOnClickListener { cutSelection() } }
         val pasteButton = Button(this).apply { text = "Paste"; setOnClickListener { pasteAtSelection() } }
+        val undoButton = Button(this).apply { text = "Undo"; setOnClickListener { undoEdit() } }
+        val redoButton = Button(this).apply { text = "Redo"; setOnClickListener { redoEdit() } }
         val editRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(cutButton)
             addView(pasteButton)
+            addView(undoButton)
+            addView(redoButton)
         }
 
         tempoLabel = TextView(this).apply { setTextColor(Color.WHITE) }
@@ -247,6 +253,7 @@ class SampleEditorActivity : ComponentActivity() {
             Toast.makeText(this, "Select a range first (Start/End sliders)", Toast.LENGTH_SHORT).show()
             return
         }
+        pushUndo()
         val clip = SampleEditor.trim(working, startFrame, endFrame)
         SampleClipboard.wav = clip
         working = SampleEditor.cut(working, startFrame, endFrame)
@@ -263,6 +270,7 @@ class SampleEditorActivity : ComponentActivity() {
             return
         }
         val (startFrame, _) = selectionFrames()
+        pushUndo()
         working = try {
             SampleEditor.insert(working, startFrame, clip)
         } catch (e: IllegalArgumentException) {
@@ -280,9 +288,38 @@ class SampleEditorActivity : ComponentActivity() {
             return
         }
         val targetBpm = TrackerProjectStore.get(this).bpm.toDouble()
-        val newTempoPercent = (100.0 * targetBpm / sourceBpm).coerceIn(50.0, 200.0)
-        tempoBar.progress = (newTempoPercent - 50).toInt().coerceIn(0, tempoBar.max)
-        Toast.makeText(this, "Tempo set to match project BPM (%d)".format(targetBpm.toInt()), Toast.LENGTH_SHORT).show()
+        pushUndo()
+        working = SampleWarp.bpmSync(working, sourceBpm, targetBpm)
+        tempoBar.progress = 50
+        Toast.makeText(this, "Warped to project BPM (%d)".format(targetBpm.toInt()), Toast.LENGTH_SHORT).show()
+        refresh()
+    }
+
+    private fun pushUndo() {
+        undoStack.addLast(working)
+        if (undoStack.size > 20) undoStack.removeFirst()
+        redoStack.clear()
+    }
+
+    private fun undoEdit() {
+        val previous = undoStack.removeLastOrNull()
+        if (previous == null) {
+            Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show()
+            return
+        }
+        redoStack.addLast(working)
+        working = previous
+        refresh()
+    }
+
+    private fun redoEdit() {
+        val next = redoStack.removeLastOrNull()
+        if (next == null) {
+            Toast.makeText(this, "Nothing to redo", Toast.LENGTH_SHORT).show()
+            return
+        }
+        undoStack.addLast(working)
+        working = next
         refresh()
     }
 

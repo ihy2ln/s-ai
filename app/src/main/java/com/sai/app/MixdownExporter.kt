@@ -7,14 +7,23 @@ import com.sai.core.audio.MixerMath
 import com.sai.core.audio.SongMixdown
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
+import com.sai.core.tracker.Song
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.concurrent.thread
 
 object MixdownExporter {
 
-    fun render(context: Context): Wav {
+    fun render(
+        context: Context,
+        onlyTrack: Int? = null,
+        audioOnly: Boolean = false,
+    ): Wav {
         val project = TrackerProjectStore.get(context)
+        val clips = PlaylistStore.load(context)
         val library = SampleLibrary(context).byId()
-        val used = project.phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet()
+        val used = project.phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet() +
+            clips.mapNotNull { it.sampleId }
         val samples = mutableMapOf<Int, Wav>()
         val resolver = context.contentResolver
         for (id in used) {
@@ -50,6 +59,9 @@ object MixdownExporter {
             chokeSameTrack = ModuleLayoutStore.isChokeEnabled(context, ModuleType.TRACKER),
             patternLengthAt = { project.patternLength(it) },
             swingPercent = project.swing,
+            clips = clips,
+            onlyTrack = onlyTrack,
+            audioOnly = audioOnly,
         )
     }
 
@@ -65,6 +77,36 @@ object MixdownExporter {
             } catch (e: Exception) {
                 (context as? android.app.Activity)?.runOnUiThread {
                     Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    fun writeStems(context: Context, uri: Uri) {
+        Toast.makeText(context, "Rendering stems…", Toast.LENGTH_SHORT).show()
+        thread {
+            try {
+                val tracks = Song.TRACK_COUNT
+                context.contentResolver.openOutputStream(uri)!!.use { out ->
+                    ZipOutputStream(out).use { zip ->
+                        for (track in 0 until tracks) {
+                            val wav = render(context, onlyTrack = track)
+                            zip.putNextEntry(ZipEntry("trk-${track + 1}.wav"))
+                            WavIO.write(wav, zip)
+                            zip.closeEntry()
+                        }
+                        val audio = render(context, audioOnly = true)
+                        zip.putNextEntry(ZipEntry("audio.wav"))
+                        WavIO.write(audio, zip)
+                        zip.closeEntry()
+                    }
+                }
+                (context as? android.app.Activity)?.runOnUiThread {
+                    Toast.makeText(context, "Exported ${tracks} tracks + audio stem zip", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                (context as? android.app.Activity)?.runOnUiThread {
+                    Toast.makeText(context, "Stem export failed: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }

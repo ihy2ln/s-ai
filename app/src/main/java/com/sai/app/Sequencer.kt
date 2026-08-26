@@ -11,10 +11,12 @@ import com.sai.core.audio.Swing
 import com.sai.core.audio.Wav
 import com.sai.core.audio.WavIO
 import com.sai.core.audio.Waveform
+import com.sai.core.tracker.Arrangement
+import com.sai.core.tracker.LoopMode
 import com.sai.core.tracker.Phrase
+import com.sai.core.tracker.PlaylistClip
 import com.sai.core.tracker.Song
 import com.sai.core.tracker.Step
-import com.sai.core.tracker.TrackerEngine
 import kotlin.math.abs
 
 class Sequencer(
@@ -58,12 +60,17 @@ class Sequencer(
         loopEnd: Int = (song.positions.size - 1).coerceAtLeast(0),
         metronome: Boolean = false,
         countInBars: Int = 0,
+        clips: List<PlaylistClip> = emptyList(),
+        loopMode: LoopMode = LoopMode.SONG,
+        currentPattern: Int = 0,
     ) {
         stop()
-        preloadSamples(phrases)
+        preloadSamples(phrases, clips)
 
-        val engine = TrackerEngine(song, phrases, patternLengthAt, loopStart, loopEnd)
         val stepMillis = 60_000.0 / bpm.coerceAtLeast(1) / 4.0
+        val loop = Arrangement.loopRange(
+            clips, song, patternLengthAt, loopMode, currentPattern, loopStart, loopEnd,
+        )
 
         running = true
         thread = Thread {
@@ -75,26 +82,40 @@ class Sequencer(
                 for (beat in 0 until beats) {
                     if (!running) return@Thread
                     onPositionChanged?.invoke(-1, beat)
+                    ArrangementClock.set(-1, -1, beat)
                     playClick(accent = beat % 4 == 0)
                     elapsedMs += beatMillis
                     SequencerClock.waitUntil(SequencerClock.deadlineNanos(startNanos, elapsedMs)) { running }
                 }
             }
+            var globalStep = loop.first
             while (running) {
-                val playedPosition = engine.songPosition
-                val playedStep = engine.stepIndex
-                val events = engine.advance()
-                onPositionChanged?.invoke(playedPosition, playedStep)
-                if (metronome && playedStep % 4 == 0) {
-                    playClick(accent = playedStep == 0)
+                val (position, localStep) = Arrangement.playhead(clips, song, patternLengthAt, globalStep)
+                onPositionChanged?.invoke(position, localStep)
+                ArrangementClock.set(globalStep, position, localStep)
+                if (metronome && localStep % 4 == 0) {
+                    playClick(accent = localStep == 0)
                 }
-                for (event in events) {
+                for (event in Arrangement.patternEventsAt(clips, song, phrases, globalStep, patternLengthAt)) {
                     val instrument = event.step.instrument ?: continue
                     val wav = sampleCache[instrument] ?: continue
                     playOneShot(wav, event.step, event.track, bpm)
                 }
-                elapsedMs += stepMillis * Swing.intervalFraction(playedStep, swingPercent)
+                for (clip in Arrangement.audioStartingAt(clips, globalStep)) {
+                    val id = clip.sampleId ?: continue
+                    val wav = sampleCache[id] ?: continue
+                    playOneShot(
+                        wav,
+                        Step(note = 60, instrument = id, volume = 127, length = clip.length),
+                        clip.lane.coerceIn(0, Arrangement.LANES - 1),
+                        bpm,
+                        pitched = false,
+                    )
+                }
+                elapsedMs += stepMillis * Swing.intervalFraction(globalStep, swingPercent)
                 SequencerClock.waitUntil(SequencerClock.deadlineNanos(startNanos, elapsedMs)) { running }
+                globalStep++
+                if (globalStep > loop.last) globalStep = loop.first
             }
         }.apply {
             isDaemon = true
@@ -112,9 +133,10 @@ class Sequencer(
         AudioPlayback.playOneShot(if (accent) clickAccent else clickBeat, context = context, chokeGroup = "metronome")
     }
 
-    private fun preloadSamples(phrases: Map<Int, Phrase>) {
+    private fun preloadSamples(phrases: Map<Int, Phrase>, clips: List<PlaylistClip> = emptyList()) {
         sampleCache.clear()
-        val usedInstruments = phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet()
+        val usedInstruments = phrases.values.flatMap { it.steps }.mapNotNull { it.instrument }.toSet() +
+            clips.mapNotNull { it.sampleId }
         for (id in usedInstruments) {
             val entry = instrumentsById[id] ?: continue
             try {
@@ -130,7 +152,7 @@ class Sequencer(
         }
     }
 
-    private fun playOneShot(wav: Wav, step: Step, track: Int, bpm: Int) {
+    private fun playOneShot(wav: Wav, step: Step, track: Int, bpm: Int, pitched: Boolean = true) {
         val rack = ChannelRackStore.channel(context, track)
         val anyRackSolo = ChannelRackStore.anySolo(context)
         if (!RackMix.isAudible(rack?.muted ?: false, rack?.soloed ?: false, anyRackSolo)) return
@@ -146,7 +168,7 @@ class Sequencer(
         if (!MixerMath.isAudible(channel, strips, MixerStore.masterMuted(context), anyRackSolo)) return
 
         val note = step.note ?: ROOT_NOTE
-        val rate = ProjectPlayback.rateForNote(context, note, ROOT_NOTE)
+        val rate = if (pitched) ProjectPlayback.rateForNote(context, note, ROOT_NOTE) else 1.0f
         val linear = MixerMath.linearGain(
             stepVolume = step.volume ?: 127,
             rackVolume = channel.volume,

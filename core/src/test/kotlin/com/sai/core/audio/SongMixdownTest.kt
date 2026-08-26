@@ -107,6 +107,65 @@ class SongMixdownTest {
         assertTrue(wav.samples.all { it == 0.toShort() })
     }
 
+    @Test
+    fun `playlist audio clip lands in the mixdown`() {
+        val clip = com.sai.core.tracker.PlaylistClip(
+            id = 1,
+            kind = com.sai.core.tracker.ClipKind.AUDIO,
+            lane = 0,
+            startStep = 2,
+            lengthSteps = 4,
+            sampleId = 0,
+        )
+        val click = sineWav(frames = 8, amplitude = 0.9)
+        val wav = SongMixdown.render(
+            song = Song.empty(),
+            phrases = emptyMap(),
+            bpm = 120,
+            samplesById = mapOf(0 to click),
+            channels = listOf(MixerMath.Channel(volume = 1f, mixerTrack = 1)),
+            strips = List(MixerMath.STRIP_COUNT) { MixerMath.Strip() },
+            mixerMaster = 1f,
+            masterMuted = false,
+            projectMaster = 1f,
+            pitchSemitones = 0,
+            sampleRate = 44100,
+            patternLengthAt = { 8 },
+            clips = listOf(clip),
+            audioOnly = true,
+        )
+        val stepFrames = (44100 * 60.0 / 120.0 / 4.0).toInt()
+        val peakOnClip = (0 until 8).maxOf { abs(wav.samples[(stepFrames * 2 + it) * 2].toInt()) }
+        val peakBefore = (0 until 8).maxOf { abs(wav.samples[it * 2].toInt()) }
+        assertTrue(peakBefore <= 2, "audio clip should not start at step 0")
+        assertTrue(peakOnClip > 100, "audio clip should sound at startStep")
+    }
+
+    @Test
+    fun `stem of another track is silent`() {
+        val steps = MutableList(Phrase.MAX_STEPS) { Step() }
+        steps[0] = Step(note = 60, instrument = 0, volume = 127)
+        val phrase = Phrase(steps)
+        val song = Song(positions = listOf(List(Song.TRACK_COUNT) { if (it == 0) 1 else null }))
+        val click = sineWav(frames = 64, amplitude = 0.8)
+        val wav = SongMixdown.render(
+            song = song,
+            phrases = mapOf(1 to phrase),
+            bpm = 120,
+            samplesById = mapOf(0 to click),
+            channels = listOf(MixerMath.Channel(volume = 1f, mixerTrack = 1)),
+            strips = List(MixerMath.STRIP_COUNT) { MixerMath.Strip() },
+            mixerMaster = 1f,
+            masterMuted = false,
+            projectMaster = 1f,
+            pitchSemitones = 0,
+            sampleRate = 44100,
+            patternLengthAt = { 8 },
+            onlyTrack = 1,
+        )
+        assertTrue(wav.samples.all { it == 0.toShort() })
+    }
+
     private fun render(
         channel: MixerMath.Channel = MixerMath.Channel(volume = 1f, pan = 0.5f, mixerTrack = 1),
         strips: List<MixerMath.Strip> = List(MixerMath.STRIP_COUNT) { MixerMath.Strip() },

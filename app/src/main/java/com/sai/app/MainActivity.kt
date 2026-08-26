@@ -111,6 +111,10 @@ class MainActivity : ComponentActivity() {
         if (uri != null) MixdownExporter.writeTo(this, uri)
     }
 
+    private val exportStemsLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) MixdownExporter.writeStems(this, uri)
+    }
+
     private val loadProjectLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) loadProjectFrom(uri)
     }
@@ -511,6 +515,7 @@ class MainActivity : ComponentActivity() {
                 onUndo = { project.undo(); refreshSongGrid() },
                 onRedo = { project.redo(); refreshSongGrid() },
                 onExportWav = { exportMixdownLauncher.launch("sai-mix-${System.currentTimeMillis()}.wav") },
+                onExportStems = { exportStemsLauncher.launch("sai-stems-${System.currentTimeMillis()}.zip") },
             ),
         )
     }
@@ -1160,9 +1165,14 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (position < 0) {
-            statusText?.text = " COUNT-IN %d".format(step + 1)
-            stepSequencerPanel?.setPlayhead(-1)
-            tempoBouncer.pulseOnce()
+            if (ArrangementClock.globalStep < 0) {
+                statusText?.text = " COUNT-IN %d".format(step + 1)
+                stepSequencerPanel?.setPlayhead(-1)
+                tempoBouncer.pulseOnce()
+            } else {
+                statusText?.text = " PL:%02X".format(ArrangementClock.globalStep)
+                stepSequencerPanel?.setPlayhead(-1)
+            }
             return
         }
         if (highlightedPosition in songRowViews.indices) {
@@ -1321,6 +1331,7 @@ class MainActivity : ComponentActivity() {
     private fun togglePlayback() {
         if (sequencer.isRunning) {
             sequencer.stop()
+            ArrangementClock.clear()
             updatePlayButtonAppearance()
             stepSequencerPanel?.setPlayhead(-1)
             tempoBouncer.startIdle()
@@ -1332,17 +1343,20 @@ class MainActivity : ComponentActivity() {
                     if (position >= 0 && step % 4 == 0) tempoBouncer.pulseOnce()
                 }
             }
-            val (loopStart, loopEnd) = project.loopBounds(stepSequencerPanel?.currentPattern ?: project.loopStart)
+            val currentPattern = stepSequencerPanel?.currentPattern ?: project.loopStart
             sequencer.start(
                 song = project.song,
                 phrases = project.phrases,
                 bpm = project.bpm,
                 patternLengthAt = { project.patternLength(it) },
                 swingPercent = project.swing,
-                loopStart = loopStart,
-                loopEnd = loopEnd,
+                loopStart = project.loopStart,
+                loopEnd = project.loopEnd,
                 metronome = TransportStore.metronome(this),
                 countInBars = if (TransportStore.countIn(this)) 1 else 0,
+                clips = PlaylistStore.load(this),
+                loopMode = project.loopMode,
+                currentPattern = currentPattern,
             )
             updatePlayButtonAppearance()
             tempoBouncer.stop()
@@ -1444,6 +1458,7 @@ class MainActivity : ComponentActivity() {
             .setMessage("This clears the current song and all phrases (your sample library is kept). Continue?")
             .setPositiveButton("New Project") { _, _ ->
                 project.resetProject()
+                PlaylistStore.clear(this)
                 refreshSongGrid()
                 stepSequencerPanel?.refreshRows()
                 updateTransportToggles()

@@ -14,12 +14,13 @@ object ProjectMenu {
         val onUndo: () -> Unit,
         val onRedo: () -> Unit,
         val onExportWav: () -> Unit,
+        val onExportStems: () -> Unit,
     )
 
     fun show(context: Context, actions: Actions) {
         AlertDialog.Builder(context)
             .setTitle("Project")
-            .setItems(arrayOf("Rename", "Save", "Load", "New", "Undo", "Redo", "Export WAV")) { _, which ->
+            .setItems(arrayOf("Rename", "Save", "Load", "New", "Undo", "Redo", "Export WAV", "Export Stems")) { _, which ->
                 when (which) {
                     0 -> actions.onRename()
                     1 -> actions.onSave()
@@ -28,6 +29,7 @@ object ProjectMenu {
                     4 -> actions.onUndo()
                     5 -> actions.onRedo()
                     6 -> actions.onExportWav()
+                    7 -> actions.onExportStems()
                 }
             }
             .show()

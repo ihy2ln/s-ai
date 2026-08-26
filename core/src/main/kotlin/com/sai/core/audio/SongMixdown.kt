@@ -1,9 +1,10 @@
 package com.sai.core.audio
 
+import com.sai.core.tracker.Arrangement
 import com.sai.core.tracker.Phrase
+import com.sai.core.tracker.PlaylistClip
 import com.sai.core.tracker.Song
 import com.sai.core.tracker.Step
-import com.sai.core.tracker.TrackerEngine
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
@@ -29,19 +30,24 @@ object SongMixdown {
         sampleRate: Int = 44100,
         patternLengthAt: (Int) -> Int = { Phrase.DEFAULT_LENGTH },
         swingPercent: Int = 0,
+        clips: List<PlaylistClip> = emptyList(),
+        onlyTrack: Int? = null,
+        audioOnly: Boolean = false,
     ): Wav {
         val stepFrames = (sampleRate * 60.0 / bpm.coerceAtLeast(1) / 4.0).toInt().coerceAtLeast(1)
-        val totalSteps = song.positions.indices.sumOf { Phrase.coerceLength(patternLengthAt(it)) }
-        val hits = collectHits(song, phrases, stepFrames, totalSteps, patternLengthAt, swingPercent)
+        val totalSteps = Arrangement.totalSteps(clips, song, patternLengthAt)
+        val hits = collectHits(
+            song, phrases, stepFrames, totalSteps, patternLengthAt, swingPercent, clips, onlyTrack, audioOnly,
+        )
         val anyRackSolo = MixerMath.anyRackSolo(channels)
 
         var extra = 0
         for (hit in hits) {
             val wav = samplesById[hit.step.instrument] ?: continue
-            val rate = rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones)
+            val rate = if (hit.pitched) rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones) else 1.0
             extra = maxOf(extra, (wav.frameCount / rate).toInt() + 1)
         }
-        val totalFrames = mixdownFrameCount(song, patternLengthAt, stepFrames, swingPercent) + extra
+        val totalFrames = mixdownFrameCount(totalSteps, stepFrames, swingPercent) + extra
         val left = DoubleArray(totalFrames)
         val right = DoubleArray(totalFrames)
 
@@ -78,7 +84,12 @@ object SongMixdown {
         return Wav(sampleRate, 2, samples)
     }
 
-    private data class Hit(val startFrame: Int, val track: Int, val step: Step)
+    private data class Hit(
+        val startFrame: Int,
+        val track: Int,
+        val step: Step,
+        val pitched: Boolean = true,
+    )
 
     private fun collectHits(
         song: Song,
@@ -87,33 +98,49 @@ object SongMixdown {
         totalSteps: Int,
         patternLengthAt: (Int) -> Int,
         swingPercent: Int,
+        clips: List<PlaylistClip>,
+        onlyTrack: Int?,
+        audioOnly: Boolean,
     ): List<Hit> {
-        val engine = TrackerEngine(song, phrases, patternLengthAt)
         val hits = mutableListOf<Hit>()
         var frame = 0
-        repeat(totalSteps) {
-            val step = engine.stepIndex
-            val events = engine.advance()
-            for (event in events) {
-                hits.add(Hit(frame, event.track, event.step))
+        repeat(totalSteps) { globalStep ->
+            if (!audioOnly) {
+                for (event in Arrangement.patternEventsAt(clips, song, phrases, globalStep, patternLengthAt)) {
+                    if (onlyTrack != null && event.track != onlyTrack) continue
+                    hits.add(Hit(frame, event.track, event.step, pitched = true))
+                }
             }
-            frame += (Swing.intervalFraction(step, swingPercent) * stepFrames).toInt().coerceAtLeast(1)
+            if (onlyTrack == null) {
+                for (clip in Arrangement.audioStartingAt(clips, globalStep)) {
+                    hits.add(
+                        Hit(
+                            startFrame = frame,
+                            track = clip.lane.coerceIn(0, Arrangement.LANES - 1),
+                            step = Step(
+                                note = ROOT_NOTE,
+                                instrument = clip.sampleId,
+                                volume = 127,
+                                length = clip.length,
+                            ),
+                            pitched = false,
+                        ),
+                    )
+                }
+            }
+            frame += (Swing.intervalFraction(globalStep, swingPercent) * stepFrames).toInt().coerceAtLeast(1)
         }
         return hits
     }
 
     private fun mixdownFrameCount(
-        song: Song,
-        patternLengthAt: (Int) -> Int,
+        totalSteps: Int,
         stepFrames: Int,
         swingPercent: Int,
     ): Int {
         var frames = 0
-        for (position in song.positions.indices) {
-            val length = Phrase.coerceLength(patternLengthAt(position))
-            for (step in 0 until length) {
-                frames += (Swing.intervalFraction(step, swingPercent) * stepFrames).toInt().coerceAtLeast(1)
-            }
+        for (step in 0 until totalSteps) {
+            frames += (Swing.intervalFraction(step, swingPercent) * stepFrames).toInt().coerceAtLeast(1)
         }
         return frames
     }
@@ -144,7 +171,7 @@ object SongMixdown {
         )
         if (linear <= 0f) return
 
-        val rate = rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones)
+        val rate = if (hit.pitched) rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones) else 1.0
         val pitched = if (rate == 1.0) source else SampleWarp.resample(source, rate)
         val pan = RackMix.shaperPan(channel.pan)
         val angle = (pan + 1.0) / 2.0 * (PI / 2.0)
