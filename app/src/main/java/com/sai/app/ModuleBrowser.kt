@@ -313,12 +313,28 @@ object ModuleBrowser {
             textSize = 11f
             setPadding(0, 0, 0, (6 * density).toInt())
         }
+        val helpChip = TextView(context).apply {
+            text = "?"
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setTextColor(Color.BLACK)
+            setBackgroundColor(AppTheme.accentColor(context))
+            setPadding((12 * density).toInt(), (4 * density).toInt(), (12 * density).toInt(), (4 * density).toInt())
+            setOnClickListener { GuideActivity.open(context, "add-modules") }
+        }
+        val hintRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(hint, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(helpChip)
+        }
 
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(18, 18, 20))
             setPadding(pad, pad, pad, pad)
-            addView(hint)
+            addView(hintRow)
             addView(search)
             addView(
                 HorizontalScrollView(context).apply {

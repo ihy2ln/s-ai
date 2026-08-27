@@ -459,11 +459,12 @@ class PhraseActivity : ComponentActivity() {
     private fun showMenu() {
         AlertDialog.Builder(this)
             .setTitle("Menu")
-            .setItems(arrayOf("Manual", "Theme", "Piano Roll")) { _, which ->
+            .setItems(arrayOf("Guide", "Manual", "Theme", "Piano Roll")) { _, which ->
                 when (which) {
-                    0 -> startActivity(Intent(this, ManualActivity::class.java))
-                    1 -> showThemeDialog()
-                    2 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
+                    0 -> GuideActivity.open(this)
+                    1 -> startActivity(Intent(this, ManualActivity::class.java))
+                    2 -> showThemeDialog()
+                    3 -> startActivity(Intent(this, PianoRollActivity::class.java).putExtra(PianoRollActivity.EXTRA_PHRASE_ID, phraseId))
                 }
             }
             .show()

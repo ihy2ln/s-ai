@@ -1,10 +1,14 @@
 package com.sai.core.wiki
 
 /**
- * Wiki-style markdown for the bundled user manual: headings become jump targets,
- * a table of contents is generated from H2s, and GitHub-style `#slug` links resolve.
+ * Wiki-style markdown for the bundled user manual and new-user guide: headings
+ * become jump targets, a table of contents is generated from H2s, and both
+ * GitHub-style `#slug` links and cross-page `topic.md` links resolve.
  */
 object WikiMarkdown {
+
+    const val WIKI_SCHEME = "sai-wiki"
+    const val WIKI_PREFIX = "$WIKI_SCHEME://topic/"
 
     data class Section(val title: String, val slug: String)
 
@@ -23,12 +27,42 @@ object WikiMarkdown {
             .trim()
             .replace(Regex("\\s+"), "-")
 
-    fun toHtml(markdown: String, accent: String = "#4dd0e1"): String {
+    fun toHtml(markdown: String, accent: String = "#4dd0e1", includeToc: Boolean = true): String {
         val sections = sections(markdown)
         val body = StringBuilder()
-        body.append(tocHtml(sections))
+        if (includeToc) body.append(tocHtml(sections))
         appendBody(markdown, body)
         return wrapHtml(body.toString(), accent)
+    }
+
+    /** Resolve markdown link targets: `#slug`, `page.md`, `page.md#slug`, or http(s). */
+    fun wikiHref(target: String): String {
+        val trimmed = target.trim()
+        if (trimmed.startsWith("#")) return trimmed
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+        val hash = trimmed.indexOf('#')
+        val path = if (hash >= 0) trimmed.substring(0, hash) else trimmed
+        val fragment = if (hash >= 0) trimmed.substring(hash) else ""
+        val id = path.substringAfterLast('/').removeSuffix(".md")
+        if (id.isEmpty()) return fragment.ifEmpty { "#" }
+        return "$WIKI_PREFIX$id$fragment"
+    }
+
+    fun parseWikiHref(href: String): Pair<String, String?>? {
+        val rest = when {
+            href.startsWith(WIKI_PREFIX) -> href.removePrefix(WIKI_PREFIX)
+            href.startsWith("$WIKI_SCHEME:") -> href
+                .removePrefix("$WIKI_SCHEME:")
+                .removePrefix("//topic/")
+                .removePrefix("//")
+            else -> return null
+        }
+        val hash = rest.indexOf('#')
+        return if (hash < 0) {
+            rest to null
+        } else {
+            rest.substring(0, hash) to rest.substring(hash + 1).ifBlank { null }
+        }
     }
 
     private fun tocHtml(sections: List<Section>): String {
@@ -99,6 +133,11 @@ object WikiMarkdown {
                     closeTable()
                     body.append("<hr/>")
                 }
+                line.startsWith("> ") -> {
+                    closeList()
+                    closeTable()
+                    body.append("<blockquote>").append(inline(line.removePrefix("> "))).append("</blockquote>")
+                }
                 line.startsWith("- ") -> {
                     closeTable()
                     if (!inList) {
@@ -147,10 +186,10 @@ object WikiMarkdown {
         var out = escape(text)
         out = out.replace(Regex("\\*\\*(.+?)\\*\\*"), "<strong>$1</strong>")
         out = out.replace(Regex("`(.+?)`"), "<code>$1</code>")
-        out = out.replace(Regex("\\[(.+?)\\]\\(#(.+?)\\)")) { match ->
+        out = out.replace(Regex("\\[(.+?)\\]\\(([^)]+)\\)")) { match ->
             val label = match.groupValues[1]
             val target = match.groupValues[2]
-            """<a href="#$target">$label</a>"""
+            """<a href="${wikiHref(target)}">$label</a>"""
         }
         out = out.replace(Regex("(?<!\\*)\\*(?!\\*)(.+?)(?<!\\*)\\*(?!\\*)"), "<em>$1</em>")
         return out
@@ -224,6 +263,21 @@ object WikiMarkdown {
             }
             th { background: #1a1a20; color: $accent; }
             a { color: #64b5f6; text-decoration: none; }
+            ul li a {
+              display: inline-block;
+              background: #1e1e24;
+              border-left: 3px solid $accent;
+              padding: 7px 12px;
+              border-radius: 4px;
+              margin: 3px 0;
+            }
+            blockquote {
+              background: #1a1a22;
+              border-left: 3px solid $accent;
+              margin: 12px 0;
+              padding: 10px 14px;
+              color: #ffcc80;
+            }
             .toc {
               background: #1a1a22;
               border: 1px solid #2e2e36;

@@ -358,6 +358,7 @@ class MainActivity : ComponentActivity() {
                     addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
                     addView(PillButton.create(this@MainActivity, "P") { showProjectMenu() })
                     addView(PillButton.create(this@MainActivity, "M") { showMenu() })
+                    addView(PillButton.create(this@MainActivity, "?") { GuideActivity.open(this@MainActivity) })
                 },
             )
         }
@@ -1731,7 +1732,7 @@ class MainActivity : ComponentActivity() {
     // --- Menu (M) -------------------------------------------------------------
 
     private fun showMenu() {
-        val items = mutableListOf("Manual", "Samples", "Sounds")
+        val items = mutableListOf("Guide", "Manual", "Samples", "Sounds")
         if (PluginRegistry.available.isNotEmpty()) items.add("Plugins")
         items.add("Theme")
         items.add("Layout")
@@ -1740,6 +1741,7 @@ class MainActivity : ComponentActivity() {
             .setTitle("Menu")
             .setItems(items.toTypedArray()) { _, which ->
                 when (items[which]) {
+                    "Guide" -> GuideActivity.open(this)
                     "Manual" -> startActivity(Intent(this, ManualActivity::class.java))
                     "Samples" -> openSamples.launch(arrayOf("audio/*"))
                     "Sounds" -> startActivity(Intent(this, SoundLibraryActivity::class.java))

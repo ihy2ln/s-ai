@@ -42,7 +42,7 @@ S.Ai opens in **landscape orientation** and stays there for the best module layo
 
 S.Ai ships **no bundled sounds** — bring your own audio files.
 
-Open this wiki any time with **M → Manual**. On the left, tap a section to jump. Type in the search box to highlight matches; press search on the keyboard for the next hit.
+Open this wiki any time with **?** on Home, **M → Guide**, or **N → Guide**. The long reference is **M → Manual**. On the left, tap a section to jump. Type in the search box to highlight matches; press search on the keyboard for the next hit.
 
 See also: [How-tos](#how-tos), [Glossary](#glossary).
 
@@ -72,15 +72,16 @@ Tap the **T** button at least twice in rhythm. S.Ai averages the last 2–5 taps
 
 ## Menu Buttons (E / N / MX / P / M)
 
-Four pill buttons sit at the end of the transport row:
+Pill buttons sit at the end of the transport row:
 
 | Button | Name | Opens |
 | --- | --- | --- |
 | **E** | Expand | Full-screen the current module, or return to Split View |
-| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Playlist, Manual (long-press Home also opens this) |
+| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Playlist, Guide, Manual (long-press Home also opens this) |
 | **MX** | Mixer / Effects | Mixer first, then effects on the loaded sampler sound |
 | **P** | Project | Rename, save/load project package, new, undo, redo, export stereo WAV mixdown, export stems |
-| **M** | Menu | Manual, samples, sounds, **Plugins**, theme, **Layout**, add module. **Plugins** lists VST2/VST3-style instruments and effects to enable or disable. |
+| **M** | Menu | Guide, Manual, samples, sounds, **Plugins**, theme, **Layout**, add module. **Plugins** lists VST2/VST3-style instruments and effects to enable or disable. |
+| **?** | Guide | New-user wiki: short linked topics (Add Module, Rack vs mixer, jobs, not a `.vst3` host) |
 
 ### Project Sound (blue square)
 
@@ -526,7 +527,7 @@ See also: [Tips & Shortcuts](#tips--shortcuts).
 - **Channel Rack Trk** numbers are mixer inserts 1–8
 - Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
 - **M → Add Module** — tile browser for built-in modules plus VST2/VST3 instruments and effects
-- **M → Manual** is this wiki: section list on the left, search at the top
+- **?** / **M → Guide** / **N → Guide** — new-user wiki (short linked topics). **M → Manual** is the full reference
 - **M → Layout** — Stack, Focus (tap a name under the menu to switch), or Boxes (move / grow / resize cards). **Reset** restores the default arrangement.
 
 ---
