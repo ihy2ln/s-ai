@@ -95,14 +95,11 @@ data class PluginQuery(
 /** First-class in-app plugin list. Existing Home modules are catalog entries so they stay visible. */
 object PluginCatalog {
 
-    val all: List<PluginDescriptor> = buildList {
-        addAll(homeModulesRaw)
-        addAll(instrumentModules)
-        addAll(effectModules)
-        addAll(oneKnobModules)
+    val all: List<PluginDescriptor> by lazy {
+        homeModulesRaw + instrumentModules + effectModules + oneKnobModules
     }
 
-    private val byIdMap = all.associateBy { it.id }
+    private val byIdMap by lazy { all.associateBy { it.id } }
 
     fun byId(id: String): PluginDescriptor? = byIdMap[id]
 
