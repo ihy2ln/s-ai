@@ -38,7 +38,16 @@ class StepSequencerActivity : ComponentActivity() {
             setBackgroundColor(Color.rgb(18, 18, 20))
             addView(titleRow)
             addView(
-                ChannelRackPanelView(this@StepSequencerActivity),
+                ChannelRackPanelView(this@StepSequencerActivity).also { panel ->
+                    panel.onAddPlugin = {
+                        ModuleAddFlow.showBrowser(
+                            context = this@StepSequencerActivity,
+                            title = "Add Module",
+                            initialRole = com.sai.core.plugin.PluginRole.INSTRUMENT,
+                            onRackChanged = { panel.syncFromStore() },
+                        )
+                    }
+                },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }

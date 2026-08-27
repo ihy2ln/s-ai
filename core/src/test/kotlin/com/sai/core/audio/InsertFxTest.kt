@@ -58,5 +58,15 @@ class InsertFxTest {
             "eq",
             InsertSlot(InsertKind.EQUALIZER, bypassed = true, params = InsertFx.defaults(InsertKind.EQUALIZER)).shortLabel(),
         )
+        assertEquals("DL", InsertSlot(InsertKind.DELAY, params = InsertFx.defaults(InsertKind.DELAY)).shortLabel())
+        assertEquals("DS", InsertSlot(InsertKind.DISTORTION, params = InsertFx.defaults(InsertKind.DISTORTION)).shortLabel())
+    }
+
+    @Test
+    fun `delay insert pads a tail`() {
+        val wav = sineWav(frames = 600, amplitude = 0.5)
+        val slot = InsertSlot(InsertKind.DELAY, params = InsertFx.defaults(InsertKind.DELAY))
+        val wet = InsertFx.apply(wav, slot)
+        assertTrue(wet.frameCount > wav.frameCount)
     }
 }

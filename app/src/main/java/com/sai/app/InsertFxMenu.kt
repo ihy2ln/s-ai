@@ -16,45 +16,54 @@ import com.sai.core.audio.InsertSlot
 /** Mixer insert editor: pick an FX kind and set knobs. Saves live params; does not bake the sample. */
 object InsertFxMenu {
 
-    private val kindChoices = arrayOf(
-        "Off",
-        "Filter",
-        "Compressor",
-        "Reverb",
-        "Equalizer",
-        "Stereo Shaper",
-    )
-
     fun show(context: Context, title: String, current: InsertSlot, onSave: (InsertSlot) -> Unit) {
-        AlertDialog.Builder(context)
-            .setTitle(title)
-            .setItems(kindChoices) { _, which ->
-                val kind = kindForIndex(which)
-                if (kind == InsertKind.NONE) {
-                    onSave(InsertSlot())
-                    return@setItems
-                }
-                val params = if (current.kind == kind) current.params else InsertFx.defaults(kind)
-                showKnobs(
-                    context = context,
-                    title = "$title · ${kindChoices[which]}",
-                    kind = kind,
-                    bypassed = current.kind == kind && current.bypassed,
-                    params = InsertFx.mergeDefaults(kind, params),
-                    onSave = onSave,
-                )
+        ModuleBrowser.show(
+            context = context,
+            title = title,
+            initialRole = com.sai.core.plugin.PluginRole.EFFECT,
+            includeOff = true,
+        ) { plugin ->
+            if (plugin == null) {
+                onSave(InsertSlot())
+                return@show
             }
-            .setNegativeButton("Close", null)
-            .show()
+            val kind = try {
+                InsertKind.valueOf(plugin.insertKind ?: return@show)
+            } catch (e: Exception) {
+                return@show
+            }
+            val params = if (current.kind == kind) current.params else InsertFx.defaults(kind)
+            showKnobs(
+                context = context,
+                title = "$title · ${plugin.name}",
+                kind = kind,
+                bypassed = current.kind == kind && current.bypassed,
+                params = InsertFx.mergeDefaults(kind, params),
+                onSave = onSave,
+            )
+        }
     }
 
-    private fun kindForIndex(index: Int): InsertKind = when (index) {
-        1 -> InsertKind.FILTER
-        2 -> InsertKind.COMPRESSOR
-        3 -> InsertKind.REVERB
-        4 -> InsertKind.EQUALIZER
-        5 -> InsertKind.STEREO
-        else -> InsertKind.NONE
+    fun showKnobsForKind(
+        context: Context,
+        title: String,
+        kind: InsertKind,
+        current: InsertSlot,
+        onSave: (InsertSlot) -> Unit,
+    ) {
+        if (kind == InsertKind.NONE) {
+            onSave(InsertSlot())
+            return
+        }
+        val params = if (current.kind == kind) current.params else InsertFx.defaults(kind)
+        showKnobs(
+            context = context,
+            title = title,
+            kind = kind,
+            bypassed = current.kind == kind && current.bypassed,
+            params = InsertFx.mergeDefaults(kind, params),
+            onSave = onSave,
+        )
     }
 
     private fun showKnobs(
@@ -110,6 +119,25 @@ object InsertFxMenu {
                 knobs.addView(knob(context, "DEPTH", 0f, 1f, working, "depth") {
                     if (it < 0.02f) "front" else "%.0f%% back".format(it * 100)
                 })
+            }
+            InsertKind.DELAY -> {
+                knobs.addView(knob(context, "TIME", 20f, 800f, working, "time") { "%.0fms".format(it) })
+                knobs.addView(knob(context, "FBK", 0f, 0.9f, working, "feedback") { "%.2f".format(it) })
+                knobs.addView(knob(context, "MIX", 0f, 1f, working, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.DISTORTION -> {
+                knobs.addView(knob(context, "DRIVE", 0f, 1f, working, "drive") { "%.2f".format(it) })
+                knobs.addView(knob(context, "TONE", 0f, 1f, working, "tone") { "%.2f".format(it) })
+                knobs.addView(knob(context, "MIX", 0f, 1f, working, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.CHORUS -> {
+                knobs.addView(knob(context, "RATE", 0.1f, 6f, working, "rate") { "%.2fHz".format(it) })
+                knobs.addView(knob(context, "DEPTH", 0f, 1f, working, "depth") { "%.2f".format(it) })
+                knobs.addView(knob(context, "MIX", 0f, 1f, working, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.LIMITER -> {
+                knobs.addView(knob(context, "THRES", -18f, 0f, working, "threshold") { "%.0fdB".format(it) })
+                knobs.addView(knob(context, "REL", 10f, 400f, working, "release") { "%.0fms".format(it) })
             }
             InsertKind.NONE -> Unit
         }

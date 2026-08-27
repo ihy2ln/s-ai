@@ -1,10 +1,13 @@
 package com.sai.app
 
+import com.sai.core.plugin.PluginCatalog
+
 data class PluginInfo(val id: String, val name: String)
 
 object PluginRegistry {
-    // No optional instrument/effect plugins exist yet. The M → Plugins item is
-    // hidden while this list is empty; adding an entry here makes the toggle
-    // screen appear (PluginSettings already works off this list).
-    val available: List<PluginInfo> = emptyList()
+    /** Optional instrument and effect plugins. Built-in Home modules are not listed here;
+     *  they always stay available from Add Module. */
+    val available: List<PluginInfo> = PluginModules.infoList()
+
+    fun isKnown(id: String): Boolean = PluginCatalog.byId(id) != null
 }

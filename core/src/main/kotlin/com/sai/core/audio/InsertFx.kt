@@ -9,6 +9,10 @@ enum class InsertKind {
     REVERB,
     EQUALIZER,
     STEREO,
+    DELAY,
+    DISTORTION,
+    CHORUS,
+    LIMITER,
 }
 
 /** One mixer insert slot: a kind plus knobs. Inactive when [kind] is NONE or [bypassed]. */
@@ -32,6 +36,10 @@ data class InsertSlot(
         InsertKind.REVERB -> "RV"
         InsertKind.EQUALIZER -> "EQ"
         InsertKind.STEREO -> "ST"
+        InsertKind.DELAY -> "DL"
+        InsertKind.DISTORTION -> "DS"
+        InsertKind.CHORUS -> "CH"
+        InsertKind.LIMITER -> "LM"
     }
 
     fun fingerprint(): String {
@@ -79,6 +87,25 @@ object InsertFx {
             "pan" to 0.0,
             "width" to 1.0,
             "depth" to 0.0,
+        )
+        InsertKind.DELAY -> mapOf(
+            "time" to 280.0,
+            "feedback" to 0.35,
+            "mix" to 0.3,
+        )
+        InsertKind.DISTORTION -> mapOf(
+            "drive" to 0.45,
+            "tone" to 0.55,
+            "mix" to 1.0,
+        )
+        InsertKind.CHORUS -> mapOf(
+            "rate" to 0.8,
+            "depth" to 0.45,
+            "mix" to 0.35,
+        )
+        InsertKind.LIMITER -> mapOf(
+            "threshold" to -1.0,
+            "release" to 80.0,
         )
     }
 
@@ -131,6 +158,29 @@ object InsertFx {
                 param(slot, "width", 1.0),
                 param(slot, "depth", 0.0),
             )
+            InsertKind.DELAY -> DelayFx.apply(
+                wav,
+                param(slot, "time", 280.0),
+                param(slot, "feedback", 0.35),
+                param(slot, "mix", 0.3),
+            )
+            InsertKind.DISTORTION -> Distortion.apply(
+                wav,
+                param(slot, "drive", 0.45),
+                param(slot, "tone", 0.55),
+                param(slot, "mix", 1.0),
+            )
+            InsertKind.CHORUS -> Chorus.apply(
+                wav,
+                param(slot, "rate", 0.8),
+                param(slot, "depth", 0.45),
+                param(slot, "mix", 0.35),
+            )
+            InsertKind.LIMITER -> Limiter.apply(
+                wav,
+                param(slot, "threshold", -1.0),
+                param(slot, "release", 80.0),
+            )
         }
     }
 
@@ -147,6 +197,12 @@ object InsertFx {
                 val depth = param(slot, "depth", 0.0).coerceIn(0.0, 1.0)
                 (depth * 0.02 * sampleRate).toInt()
             }
+            InsertKind.DELAY -> DelayFx.tailFrames(
+                param(slot, "time", 280.0),
+                param(slot, "feedback", 0.35),
+                param(slot, "mix", 0.3),
+                sampleRate,
+            )
             else -> 0
         }
     }

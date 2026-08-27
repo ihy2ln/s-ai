@@ -194,6 +194,14 @@ class MainActivity : ComponentActivity() {
         tempoBouncer.setBpm(project.bpm)
         if (!sequencer.isRunning) tempoBouncer.startIdle()
         updateRouteLabel()
+        if (::moduleEntries.isInitialized) {
+            val stored = ModuleLayoutStore.load(this)
+            if (stored.map { it.type } != moduleEntries.map { it.type }) {
+                moduleEntries = stored
+                rebuildModulesColumn()
+            }
+        }
+        stepSequencerPanel?.syncFromStore()
     }
 
     override fun onPause() {
@@ -915,6 +923,7 @@ class MainActivity : ComponentActivity() {
             ModuleType.SYNTH -> row.addView(chromeButton("+") { openSynthSample.launch(arrayOf("audio/*")) })
             ModuleType.PADS, ModuleType.TRACKER, ModuleType.STEP_SEQUENCER ->
                 row.addView(chromeButton("+") { openSamples.launch(arrayOf("audio/*")) })
+            else -> Unit
         }
         row.addView(buildChokeButton(type))
     }
@@ -954,6 +963,24 @@ class MainActivity : ComponentActivity() {
                 panel.onSongChanged = {
                     updateTransportToggles()
                     refreshSongGrid()
+                }
+                panel.onAddPlugin = { showAddModuleDialog(com.sai.core.plugin.PluginRole.INSTRUMENT) }
+            }
+            else -> {
+                val plugin = PluginModules.descriptorFor(type)
+                PluginPanelView(this, plugin = plugin, moduleType = type).also { panel ->
+                    panel.onSaveToLibrary = { sourceName, wav ->
+                        val saved = SliceExporter.saveToLibrary(this, sourceName, listOf(wav), SoundCategory.SYNTH)
+                        Toast.makeText(this, "Saved ${saved.size} to your sample library", Toast.LENGTH_LONG).show()
+                        refreshSampleList()
+                    }
+                    panel.onSendToRack = { sourceName, wav ->
+                        val saved = SliceExporter.saveToLibrary(this, sourceName, listOf(wav), SoundCategory.SYNTH)
+                        refreshSampleList()
+                        val placed = ChannelRackStore.sendToRack(this, saved.map { it.id })
+                        stepSequencerPanel?.syncFromStore()
+                        Toast.makeText(this, "Sent $placed to Channel Rack", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -1020,22 +1047,19 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    private fun showAddModuleDialog() {
-        val missing = ModuleType.values().filter { type -> moduleEntries.none { it.type == type } }
-        if (missing.isEmpty()) {
-            Toast.makeText(this, "All modules are already on screen", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val labels = missing.map { it.label }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Add Module")
-            .setItems(labels) { _, which ->
-                val type = missing[which]
-                moduleEntries.add(ModuleEntry(type, ModuleLayoutStore.defaultHeight(type)))
-                ModuleLayoutStore.save(this, moduleEntries)
+    private fun showAddModuleDialog(initialRole: com.sai.core.plugin.PluginRole? = null) {
+        ModuleAddFlow.showBrowser(
+            context = this,
+            initialRole = initialRole,
+            onHomeChanged = {
+                moduleEntries = ModuleLayoutStore.load(this)
                 rebuildModulesColumn()
-            }
-            .show()
+            },
+            onRackChanged = {
+                refreshSampleList()
+                stepSequencerPanel?.syncFromStore()
+            },
+        )
     }
 
     private fun buildSamplerContent(): LinearLayout {
@@ -1760,7 +1784,7 @@ class MainActivity : ComponentActivity() {
         if (plugins.isEmpty()) {
             AlertDialog.Builder(this)
                 .setTitle("Plugins")
-                .setMessage("No plugins available yet. Future instrument and effect plugins will appear here, with a toggle to enable or disable each one.")
+                .setMessage("No plugins available yet.")
                 .setPositiveButton("OK", null)
                 .show()
             return

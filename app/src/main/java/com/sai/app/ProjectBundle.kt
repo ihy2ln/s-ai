@@ -44,6 +44,7 @@ object ProjectBundle {
                 backgroundJson = AppBackground.exportJson(context),
                 padsJson = PadBankStore.exportJson(context),
                 playlistJson = PlaylistStore.exportJson(context),
+                pluginsJson = PluginParamStore.exportJson(context),
                 samples = samples,
                 backgroundBytes = backgroundBytes,
                 backgroundName = if (backgroundBytes != null) ProjectPack.BACKGROUND_FILE else null,
@@ -66,6 +67,7 @@ object ProjectBundle {
         AppBackground.importJson(context, archive.backgroundJson, bundledBackground)
         PadBankStore.importJson(context, archive.padsJson)
         PlaylistStore.importJson(context, archive.playlistJson)
+        PluginParamStore.importJson(context, archive.pluginsJson)
         val layout = ModuleLayoutStore.importJson(context, archive.layoutJson)
         return ImportResult(layout = layout, jsonOnly = false)
     }

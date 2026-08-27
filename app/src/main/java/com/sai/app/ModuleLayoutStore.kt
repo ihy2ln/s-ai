@@ -5,7 +5,32 @@ import com.sai.core.layout.ModuleBoxFrame
 import com.sai.core.layout.WorkspaceLayout
 
 enum class ModuleType(val label: String) {
-    SAMPLER("SAMPLER"), SYNTH("SYNTH"), PADS("PADS"), TRACKER("TRACKER"), STEP_SEQUENCER("CHANNEL RACK"),
+    SAMPLER("SAMPLER"),
+    SYNTH("SYNTH"),
+    PADS("PADS"),
+    TRACKER("TRACKER"),
+    STEP_SEQUENCER("CHANNEL RACK"),
+    PULSE_KEYS("PULSE KEYS"),
+    SAW_LEAD("SAW LEAD"),
+    SUB_BASS("SUB BASS"),
+    PLUCK("PLUCK"),
+    WARM_PAD("WARM PAD"),
+    CLICK_KIT("CLICK KIT"),
+    DELAY("DELAY"),
+    DISTORT("DISTORT"),
+    CHORUS("CHORUS"),
+    LIMITER("LIMITER"),
+    ;
+
+    val isBuiltIn: Boolean
+        get() = this == SAMPLER || this == SYNTH || this == PADS || this == TRACKER || this == STEP_SEQUENCER
+
+    val isInstrumentPlugin: Boolean
+        get() = this == PULSE_KEYS || this == SAW_LEAD || this == SUB_BASS ||
+            this == PLUCK || this == WARM_PAD || this == CLICK_KIT
+
+    val isEffectPlugin: Boolean
+        get() = this == DELAY || this == DISTORT || this == CHORUS || this == LIMITER
 }
 
 data class ModuleEntry(val type: ModuleType, var heightDp: Float)
@@ -26,6 +51,16 @@ object ModuleLayoutStore {
         ModuleType.PADS to 280f,
         ModuleType.TRACKER to 280f,
         ModuleType.STEP_SEQUENCER to 360f,
+        ModuleType.PULSE_KEYS to 240f,
+        ModuleType.SAW_LEAD to 240f,
+        ModuleType.SUB_BASS to 240f,
+        ModuleType.PLUCK to 240f,
+        ModuleType.WARM_PAD to 240f,
+        ModuleType.CLICK_KIT to 240f,
+        ModuleType.DELAY to 220f,
+        ModuleType.DISTORT to 220f,
+        ModuleType.CHORUS to 220f,
+        ModuleType.LIMITER to 220f,
     )
 
     fun defaultHeight(type: ModuleType): Float = DEFAULT_HEIGHTS[type] ?: 240f
