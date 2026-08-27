@@ -30,7 +30,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.sai.core.layout.WorkspaceLayout
-import com.sai.core.layout.WorkspaceLayoutMath
 import com.sai.core.tracker.LoopMode
 import com.sai.core.tracker.Phrase
 import com.sai.core.tracker.Step
@@ -47,6 +46,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var edgeScrollBar: EdgeScrollBar
     private lateinit var modulesArea: FrameLayout
     private lateinit var boxesCanvas: ModuleBoxesCanvas
+    private lateinit var focusTabStrip: HorizontalScrollView
+    private lateinit var focusTabHost: LinearLayout
     private lateinit var moduleEntries: MutableList<ModuleEntry>
     private var fullScreenModule: ModuleType? = null
     private val moduleBodies = mutableMapOf<ModuleType, View>()
@@ -379,12 +380,10 @@ class MainActivity : ComponentActivity() {
             viewTreeObserver.addOnGlobalLayoutListener {
                 if (isDraggingModuleHandle) return@addOnGlobalLayoutListener
                 val workspace = ModuleLayoutStore.workspace(this@MainActivity)
-                if (workspace == WorkspaceLayout.FOCUS) {
-                    val h = height
-                    if (h > 0 && h != lastModuleScrollHeight) {
-                        lastModuleScrollHeight = h
-                        applyFocusHeights()
-                    }
+                if (workspace == WorkspaceLayout.FOCUS ||
+                    workspace == WorkspaceLayout.BOXES ||
+                    fullScreenModule != null
+                ) {
                     return@addOnGlobalLayoutListener
                 }
                 if (keepUserModuleHeights) return@addOnGlobalLayoutListener
@@ -415,6 +414,18 @@ class MainActivity : ComponentActivity() {
             addView(boxesCanvas, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         }
 
+        focusTabHost = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        focusTabStrip = HorizontalScrollView(this).apply {
+            visibility = View.GONE
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            isFillViewport = false
+            addView(focusTabHost)
+        }
+
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, 0, pad)
@@ -422,6 +433,13 @@ class MainActivity : ComponentActivity() {
             addView(headerRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 marginEnd = pad
             })
+            addView(
+                focusTabStrip,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    marginEnd = pad
+                    bottomMargin = (4 * density).toInt()
+                },
+            )
             addView(modulesArea, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             isLongClickable = true
             setOnLongClickListener { NavMenu.show(this@MainActivity); true }
@@ -604,9 +622,14 @@ class MainActivity : ComponentActivity() {
     private fun rebuildModulesColumn() {
         val workspace = ModuleLayoutStore.workspace(this)
         val useBoxes = workspace == WorkspaceLayout.BOXES
+        val fullscreen = !useBoxes && isFullscreenUi()
+
         modulesScroll.visibility = if (useBoxes) View.GONE else View.VISIBLE
-        edgeScrollBar.visibility = if (useBoxes) View.GONE else View.VISIBLE
+        edgeScrollBar.visibility = if (useBoxes || fullscreen) View.GONE else View.VISIBLE
         boxesCanvas.visibility = if (useBoxes) View.VISIBLE else View.GONE
+
+        rebuildFocusTabStrip(fullscreen)
+        applyModulesColumnStretch(fullscreen)
 
         if (useBoxes) {
             rebuildBoxesCanvas()
@@ -615,54 +638,116 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        modulesScroll.isFillViewport = ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS
         modulesColumn.removeAllViews()
         chokeButtons.clear()
         val density = resources.displayMetrics.density
-        val focusMode = workspace == WorkspaceLayout.FOCUS
 
-        if (!focusMode) {
-            val full = fullScreenModule
-            if (full != null && moduleEntries.any { it.type == full }) {
-                modulesColumn.addView(
-                    buildModuleWrapper(full, focused = true),
-                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT),
-                )
-                refreshSampleList()
-                refreshSongGrid()
-                return
-            }
-            fullScreenModule = null
-            for (entry in moduleEntries) {
-                val heightPx = (entry.heightDp * density).toInt()
-                modulesColumn.addView(
-                    buildModuleWrapper(entry.type, focused = false),
-                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx),
-                )
-                modulesColumn.addView(
-                    ResizeHandleView(this),
-                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()),
-                )
-            }
-        } else {
-            fullScreenModule = null
-            val focused = resolveFocusedModule()
-            for (entry in moduleEntries) {
-                modulesColumn.addView(
-                    buildModuleWrapper(entry.type, focused = entry.type == focused),
-                    LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (entry.heightDp * density).toInt()),
-                )
-            }
+        if (fullscreen) {
+            if (workspace == WorkspaceLayout.FOCUS) fullScreenModule = null
+            val active = activeFullscreenModule()
+            modulesColumn.addView(
+                buildModuleWrapper(active, focused = true),
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT),
+            )
+            refreshSampleList()
+            refreshSongGrid()
+            return
+        }
+
+        fullScreenModule = null
+        for (entry in moduleEntries) {
+            val heightPx = (entry.heightDp * density).toInt()
+            modulesColumn.addView(
+                buildModuleWrapper(entry.type, focused = true),
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, heightPx),
+            )
+            modulesColumn.addView(
+                ResizeHandleView(this),
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (ModuleLayoutFit.HANDLE_HEIGHT_DP * density).toInt()),
+            )
         }
 
         refreshSampleList()
         refreshSongGrid()
-        if (focusMode) {
-            applyFocusHeights()
-        } else if (keepUserModuleHeights) {
+        if (keepUserModuleHeights) {
             applyStoredModuleHeights()
         } else {
             fitModulesToScreen()
+        }
+    }
+
+    private fun isFullscreenUi(): Boolean {
+        val workspace = ModuleLayoutStore.workspace(this)
+        return workspace == WorkspaceLayout.FOCUS ||
+            (workspace == WorkspaceLayout.STACK && fullScreenModule != null)
+    }
+
+    private fun activeFullscreenModule(): ModuleType {
+        if (ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS) {
+            return resolveFocusedModule()
+        }
+        val full = fullScreenModule
+        return if (full != null && moduleEntries.any { it.type == full }) full else resolveFocusedModule()
+    }
+
+    private fun applyModulesColumnStretch(fullscreen: Boolean) {
+        if (!::modulesScroll.isInitialized || !::modulesColumn.isInitialized) return
+        modulesScroll.isFillViewport = fullscreen
+        val params = modulesColumn.layoutParams ?: return
+        params.height = if (fullscreen) {
+            ViewGroup.LayoutParams.MATCH_PARENT
+        } else {
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        }
+        modulesColumn.layoutParams = params
+    }
+
+    private fun rebuildFocusTabStrip(fullscreen: Boolean) {
+        if (!::focusTabHost.isInitialized) return
+        focusTabHost.removeAllViews()
+        if (!fullscreen) {
+            focusTabStrip.visibility = View.GONE
+            return
+        }
+        val active = activeFullscreenModule()
+        val others = moduleEntries.filter { it.type != active }
+        if (others.isEmpty()) {
+            focusTabStrip.visibility = View.GONE
+            return
+        }
+        focusTabStrip.visibility = View.VISIBLE
+        val density = resources.displayMetrics.density
+        for (entry in others) {
+            focusTabHost.addView(focusTabChip(entry.type, density))
+        }
+    }
+
+    private fun focusTabChip(type: ModuleType, density: Float): TextView {
+        val accent = AppTheme.accentColor(this)
+        return TextView(this).apply {
+            text = type.label
+            setTextColor(accent)
+            textSize = 12f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.chrome_button_bg)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                marginEnd = (8 * density).toInt()
+            }
+            setOnClickListener { switchFullscreenModule(type) }
+        }
+    }
+
+    private fun switchFullscreenModule(type: ModuleType) {
+        if (ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS) {
+            focusModule(type)
+        } else {
+            fullScreenModule = type
+            rebuildModulesColumn()
         }
     }
 
@@ -683,12 +768,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun focusModule(type: ModuleType) {
-        if (ModuleLayoutStore.focusedType(this) == type &&
-            ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS
-        ) {
-            applyFocusHeights()
-            return
-        }
         ModuleLayoutStore.setFocusedType(this, type)
         if (ModuleLayoutStore.workspace(this) != WorkspaceLayout.FOCUS) return
         rebuildModulesColumn()
@@ -696,11 +775,7 @@ class MainActivity : ComponentActivity() {
 
     private fun fitModulesToScreen() {
         if (!::modulesScroll.isInitialized || isDraggingModuleHandle || keepUserModuleHeights) return
-        if (ModuleLayoutStore.workspace(this) == WorkspaceLayout.FOCUS) {
-            applyFocusHeights()
-            return
-        }
-        if (ModuleLayoutStore.workspace(this) == WorkspaceLayout.BOXES) return
+        if (isFullscreenUi() || ModuleLayoutStore.workspace(this) == WorkspaceLayout.BOXES) return
         ModuleLayoutFit.redistribute(
             scroll = modulesScroll,
             column = modulesColumn,
@@ -711,28 +786,6 @@ class MainActivity : ComponentActivity() {
             orientation = resources.configuration.orientation,
         )
         syncEntriesFromDisplayedHeights()
-    }
-
-    private fun applyFocusHeights() {
-        if (!::modulesScroll.isInitialized) return
-        val availablePx = modulesScroll.height
-        if (availablePx <= 0) return
-        val density = resources.displayMetrics.density
-        val focused = resolveFocusedModule()
-        val focusedIndex = moduleEntries.indexOfFirst { it.type == focused }.coerceAtLeast(0)
-        val heights = WorkspaceLayoutMath.focusHeights(
-            count = moduleEntries.size,
-            focusedIndex = focusedIndex,
-            availableDp = availablePx / density,
-        )
-        for (index in moduleEntries.indices) {
-            val wrapper = modulesColumn.getChildAt(index) ?: continue
-            val heightPx = (heights[index] * density).toInt().coerceAtLeast(1)
-            wrapper.layoutParams = wrapper.layoutParams.apply { height = heightPx }
-            val body = (wrapper as? ViewGroup)?.getChildAt(1)
-            body?.visibility = if (index == focusedIndex) View.VISIBLE else View.GONE
-        }
-        modulesColumn.requestLayout()
     }
 
     private fun applyStoredModuleHeights() {
@@ -770,7 +823,9 @@ class MainActivity : ComponentActivity() {
             setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
             if (focused) setBackgroundColor(AppTheme.accentColor(this@MainActivity))
             setOnClickListener {
-                if (workspace == WorkspaceLayout.FOCUS) focusModule(type)
+                if (workspace == WorkspaceLayout.FOCUS || fullScreenModule != null) {
+                    switchFullscreenModule(type)
+                }
             }
         }
         val titleRow = LinearLayout(this).apply {
@@ -780,7 +835,7 @@ class MainActivity : ComponentActivity() {
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.module_header_bg)
             addView(titleText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addModuleHeaderActions(this, type)
-            if (workspace != WorkspaceLayout.FOCUS) {
+            if (workspace != WorkspaceLayout.FOCUS && fullScreenModule == null) {
                 addView(chromeButton("▲") { moveModule(type, -1) })
                 addView(chromeButton("▼") { moveModule(type, 1) })
             }
@@ -952,6 +1007,12 @@ class MainActivity : ComponentActivity() {
             .setMessage("You can add it back from Menu > Add Module. Your samples and project data are kept either way.")
             .setPositiveButton("Remove") { _, _ ->
                 moduleEntries.removeAll { it.type == type }
+                if (fullScreenModule == type) {
+                    fullScreenModule = moduleEntries.firstOrNull()?.type
+                }
+                if (ModuleLayoutStore.focusedType(this) == type) {
+                    ModuleLayoutStore.setFocusedType(this, moduleEntries.firstOrNull()?.type)
+                }
                 ModuleLayoutStore.save(this, moduleEntries)
                 rebuildModulesColumn()
             }
@@ -1648,7 +1709,7 @@ class MainActivity : ComponentActivity() {
         val current = ModuleLayoutStore.workspace(this)
         val options = arrayOf(
             "Stack — stacked modules, drag the divider to resize",
-            "Focus — the active module fills the screen; tap another title to switch",
+            "Focus — one module fills the screen; tap a name under the menu to switch",
             "Boxes — each module is a card. Tap to grow, drag the title to move, corner to resize",
         )
         val selected = when (current) {
@@ -1679,8 +1740,19 @@ class MainActivity : ComponentActivity() {
                 rebuildModulesColumn()
                 dialog.dismiss()
             }
+            .setNeutralButton("Reset") { _, _ -> resetLayout() }
             .setNegativeButton("Close", null)
             .show()
+    }
+
+    private fun resetLayout() {
+        ModuleLayoutStore.resetLayout(this)
+        moduleEntries = ModuleLayoutStore.load(this)
+        fullScreenModule = null
+        keepUserModuleHeights = false
+        lastModuleScrollHeight = 0
+        rebuildModulesColumn()
+        Toast.makeText(this, "Layout reset", Toast.LENGTH_SHORT).show()
     }
 
     private fun showPluginsDialog() {

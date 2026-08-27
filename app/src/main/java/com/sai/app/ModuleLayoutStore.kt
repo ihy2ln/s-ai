@@ -30,6 +30,19 @@ object ModuleLayoutStore {
 
     fun defaultHeight(type: ModuleType): Float = DEFAULT_HEIGHTS[type] ?: 240f
 
+    fun defaultEntries(): List<ModuleEntry> =
+        listOf(ModuleType.SAMPLER, ModuleType.SYNTH, ModuleType.TRACKER, ModuleType.STEP_SEQUENCER)
+            .map { ModuleEntry(it, defaultHeight(it)) }
+
+    /** Restore factory module order and heights, clear box frames, and focus the first module.
+     *  Keeps the current workspace mode (Stack / Focus / Boxes) and choke settings. */
+    fun resetLayout(context: Context) {
+        val defaults = defaultEntries()
+        save(context, defaults)
+        saveBoxes(context, emptyMap())
+        setFocusedType(context, defaults.first().type)
+    }
+
     /** Tracker and Step Sequencer edit/play the same song data through one shared playback
      *  engine, so they share a single Cut Itself value even though each shows its own toggle. */
     fun chokeKey(type: ModuleType): ModuleType = if (type == ModuleType.STEP_SEQUENCER) ModuleType.TRACKER else type
@@ -44,9 +57,7 @@ object ModuleLayoutStore {
     fun load(context: Context): MutableList<ModuleEntry> {
         val raw = prefs(context).getString(KEY_ENTRIES, null)
         if (raw.isNullOrBlank()) {
-            return listOf(ModuleType.SAMPLER, ModuleType.SYNTH, ModuleType.TRACKER, ModuleType.STEP_SEQUENCER)
-                .map { ModuleEntry(it, defaultHeight(it)) }
-                .toMutableList()
+            return defaultEntries().toMutableList()
         }
         val loaded = raw.split("|").mapNotNull { token ->
             val parts = token.split(":")
