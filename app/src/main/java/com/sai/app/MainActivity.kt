@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
     private var lastLiveStep = 0
     private val songRowViews = mutableListOf<LinearLayout>()
     private val chokeButtons = mutableMapOf<ModuleType, TextView>()
+    private val bypassButtons = mutableMapOf<ModuleType, TextView>()
 
     private val audioRecorder = AudioRecorder()
     private lateinit var routeLabel: TextView
@@ -194,6 +195,14 @@ class MainActivity : ComponentActivity() {
         tempoBouncer.setBpm(project.bpm)
         if (!sequencer.isRunning) tempoBouncer.startIdle()
         updateRouteLabel()
+        if (::moduleEntries.isInitialized) {
+            val stored = ModuleLayoutStore.load(this)
+            if (stored.map { it.type } != moduleEntries.map { it.type }) {
+                moduleEntries = stored
+                rebuildModulesColumn()
+            }
+        }
+        stepSequencerPanel?.syncFromStore()
     }
 
     override fun onPause() {
@@ -349,6 +358,7 @@ class MainActivity : ComponentActivity() {
                     addView(PillButton.create(this@MainActivity, "MX") { EffectsMenu.show(this@MainActivity, samplerEffectsTarget()) })
                     addView(PillButton.create(this@MainActivity, "P") { showProjectMenu() })
                     addView(PillButton.create(this@MainActivity, "M") { showMenu() })
+                    addView(PillButton.create(this@MainActivity, "?") { GuideActivity.open(this@MainActivity) })
                 },
             )
         }
@@ -640,6 +650,7 @@ class MainActivity : ComponentActivity() {
 
         modulesColumn.removeAllViews()
         chokeButtons.clear()
+        bypassButtons.clear()
         val density = resources.displayMetrics.density
 
         if (fullscreen) {
@@ -753,6 +764,7 @@ class MainActivity : ComponentActivity() {
 
     private fun rebuildBoxesCanvas() {
         chokeButtons.clear()
+        bypassButtons.clear()
         val stored = ModuleLayoutStore.loadBoxes(this)
         boxesCanvas.setModules(moduleEntries.map { it.type }, stored) { type ->
             buildBoxCard(type)
@@ -915,7 +927,9 @@ class MainActivity : ComponentActivity() {
             ModuleType.SYNTH -> row.addView(chromeButton("+") { openSynthSample.launch(arrayOf("audio/*")) })
             ModuleType.PADS, ModuleType.TRACKER, ModuleType.STEP_SEQUENCER ->
                 row.addView(chromeButton("+") { openSamples.launch(arrayOf("audio/*")) })
+            else -> Unit
         }
+        if (type.isEffectPlugin) row.addView(buildBypassButton(type))
         row.addView(buildChokeButton(type))
     }
 
@@ -955,6 +969,24 @@ class MainActivity : ComponentActivity() {
                     updateTransportToggles()
                     refreshSongGrid()
                 }
+                panel.onAddPlugin = { showAddModuleDialog(com.sai.core.plugin.PluginRole.INSTRUMENT) }
+            }
+            else -> {
+                val plugin = PluginModules.descriptorFor(type)
+                PluginPanelView(this, plugin = plugin, moduleType = type).also { panel ->
+                    panel.onSaveToLibrary = { sourceName, wav ->
+                        val saved = SliceExporter.saveToLibrary(this, sourceName, listOf(wav), SoundCategory.SYNTH)
+                        Toast.makeText(this, "Saved ${saved.size} to your sample library", Toast.LENGTH_LONG).show()
+                        refreshSampleList()
+                    }
+                    panel.onSendToRack = { sourceName, wav ->
+                        val saved = SliceExporter.saveToLibrary(this, sourceName, listOf(wav), SoundCategory.SYNTH)
+                        refreshSampleList()
+                        val placed = ChannelRackStore.sendToRack(this, saved.map { it.id })
+                        stepSequencerPanel?.syncFromStore()
+                        Toast.makeText(this, "Sent $placed to Channel Rack", Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
         moduleBodies[type] = created
@@ -990,6 +1022,25 @@ class MainActivity : ComponentActivity() {
         button.setBackgroundColor(if (enabled) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
     }
 
+    private fun buildBypassButton(type: ModuleType): TextView {
+        val button = chromeButton("IN") {}
+        styleBypassButton(button, ModuleLayoutStore.isBypassEnabled(this, type))
+        button.setOnClickListener {
+            val next = !ModuleLayoutStore.isBypassEnabled(this, type)
+            ModuleLayoutStore.setBypassEnabled(this, type, next)
+            bypassButtons[type]?.let { styleBypassButton(it, next) }
+            styleBypassButton(button, next)
+        }
+        bypassButtons[type] = button
+        return button
+    }
+
+    private fun styleBypassButton(button: TextView, bypassed: Boolean) {
+        button.text = if (bypassed) "BYP" else "IN"
+        button.setTextColor(if (bypassed) Color.BLACK else Color.WHITE)
+        button.setBackgroundColor(if (bypassed) Color.rgb(180, 140, 50) else Color.rgb(50, 52, 58))
+    }
+
     private fun moveModule(type: ModuleType, delta: Int) {
         val index = moduleEntries.indexOfFirst { it.type == type }
         if (index < 0) return
@@ -1020,22 +1071,19 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    private fun showAddModuleDialog() {
-        val missing = ModuleType.values().filter { type -> moduleEntries.none { it.type == type } }
-        if (missing.isEmpty()) {
-            Toast.makeText(this, "All modules are already on screen", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val labels = missing.map { it.label }.toTypedArray()
-        AlertDialog.Builder(this)
-            .setTitle("Add Module")
-            .setItems(labels) { _, which ->
-                val type = missing[which]
-                moduleEntries.add(ModuleEntry(type, ModuleLayoutStore.defaultHeight(type)))
-                ModuleLayoutStore.save(this, moduleEntries)
+    private fun showAddModuleDialog(initialRole: com.sai.core.plugin.PluginRole? = null) {
+        ModuleAddFlow.showBrowser(
+            context = this,
+            initialRole = initialRole,
+            onHomeChanged = {
+                moduleEntries = ModuleLayoutStore.load(this)
                 rebuildModulesColumn()
-            }
-            .show()
+            },
+            onRackChanged = {
+                refreshSampleList()
+                stepSequencerPanel?.syncFromStore()
+            },
+        )
     }
 
     private fun buildSamplerContent(): LinearLayout {
@@ -1684,7 +1732,7 @@ class MainActivity : ComponentActivity() {
     // --- Menu (M) -------------------------------------------------------------
 
     private fun showMenu() {
-        val items = mutableListOf("Manual", "Samples", "Sounds")
+        val items = mutableListOf("Guide", "Manual", "Samples", "Sounds")
         if (PluginRegistry.available.isNotEmpty()) items.add("Plugins")
         items.add("Theme")
         items.add("Layout")
@@ -1693,6 +1741,7 @@ class MainActivity : ComponentActivity() {
             .setTitle("Menu")
             .setItems(items.toTypedArray()) { _, which ->
                 when (items[which]) {
+                    "Guide" -> GuideActivity.open(this)
                     "Manual" -> startActivity(Intent(this, ManualActivity::class.java))
                     "Samples" -> openSamples.launch(arrayOf("audio/*"))
                     "Sounds" -> startActivity(Intent(this, SoundLibraryActivity::class.java))
@@ -1760,7 +1809,7 @@ class MainActivity : ComponentActivity() {
         if (plugins.isEmpty()) {
             AlertDialog.Builder(this)
                 .setTitle("Plugins")
-                .setMessage("No plugins available yet. Future instrument and effect plugins will appear here, with a toggle to enable or disable each one.")
+                .setMessage("No plugins available yet.")
                 .setPositiveButton("OK", null)
                 .show()
             return

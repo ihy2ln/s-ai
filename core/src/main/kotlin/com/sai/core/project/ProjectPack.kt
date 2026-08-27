@@ -17,6 +17,7 @@ data class ProjectArchive(
     val backgroundJson: String = "{}",
     val padsJson: String = "{}",
     val playlistJson: String = "{}",
+    val pluginsJson: String = "{}",
     val samples: Map<String, ByteArray> = emptyMap(),
     val backgroundBytes: ByteArray? = null,
     val backgroundName: String? = null,
@@ -36,6 +37,7 @@ object ProjectPack {
     const val BACKGROUND = "background.json"
     const val PADS = "pads.json"
     const val PLAYLIST = "playlist.json"
+    const val PLUGINS = "plugins.json"
     const val SAMPLES_DIR = "samples/"
     const val BACKGROUND_FILE = "background.bin"
 
@@ -55,6 +57,7 @@ object ProjectPack {
             put(zip, BACKGROUND, archive.backgroundJson.toByteArray(Charsets.UTF_8))
             put(zip, PADS, archive.padsJson.toByteArray(Charsets.UTF_8))
             put(zip, PLAYLIST, archive.playlistJson.toByteArray(Charsets.UTF_8))
+            put(zip, PLUGINS, archive.pluginsJson.toByteArray(Charsets.UTF_8))
             for ((name, bytes) in archive.samples) {
                 val path = if (name.startsWith(SAMPLES_DIR)) name else SAMPLES_DIR + name
                 put(zip, path, bytes)
@@ -77,6 +80,7 @@ object ProjectPack {
         var backgroundJson = "{}"
         var padsJson = "{}"
         var playlistJson = "{}"
+        var pluginsJson = "{}"
         val samples = mutableMapOf<String, ByteArray>()
         var backgroundBytes: ByteArray? = null
         var backgroundName: String? = null
@@ -98,6 +102,7 @@ object ProjectPack {
                     name == BACKGROUND -> backgroundJson = data.toString(Charsets.UTF_8)
                     name == PADS -> padsJson = data.toString(Charsets.UTF_8)
                     name == PLAYLIST -> playlistJson = data.toString(Charsets.UTF_8)
+                    name == PLUGINS -> pluginsJson = data.toString(Charsets.UTF_8)
                     name.startsWith(SAMPLES_DIR) && !entry.isDirectory -> {
                         val file = name.removePrefix(SAMPLES_DIR)
                         if (file.isNotBlank()) samples[file] = data
@@ -119,6 +124,7 @@ object ProjectPack {
             backgroundJson = backgroundJson,
             padsJson = padsJson,
             playlistJson = playlistJson,
+            pluginsJson = pluginsJson,
             samples = samples,
             backgroundBytes = backgroundBytes,
             backgroundName = backgroundName,

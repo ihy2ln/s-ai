@@ -13,7 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import com.sai.core.audio.InsertSlot
+import com.sai.core.audio.InsertChain
 
 /** Landscape mixer: 8 insert faders + master, mute/solo, meters, live insert FX. Export writes a stereo WAV mixdown. */
 class MixerActivity : ComponentActivity() {
@@ -180,16 +180,16 @@ class MixerActivity : ComponentActivity() {
     }
 
     private fun fxButton(index: Int, isMaster: Boolean): Button {
-        val slot = if (isMaster) MixerStore.masterInsert(this) else strips[index].insert
-        val button = compactToggle(slot.shortLabel(), slot.isActive, AppTheme.accentColor(this))
-        styleFx(button, slot)
+        val chain = if (isMaster) MixerStore.masterChain(this) else strips[index].chain
+        val button = compactToggle(chain.shortLabel(), chain.isActive, AppTheme.accentColor(this))
+        styleFx(button, chain)
         button.setOnClickListener {
-            val current = if (isMaster) MixerStore.masterInsert(this) else strips[index].insert
-            val title = if (isMaster) "Master insert" else "Insert ${index + 1}"
-            InsertFxMenu.show(this, title, current) { next ->
-                if (isMaster) MixerStore.setMasterInsert(this, next)
+            val current = if (isMaster) MixerStore.masterChain(this) else strips[index].chain
+            val title = if (isMaster) "Master chain" else "Insert ${index + 1} chain"
+            InsertChainMenu.show(this, title, current) { next ->
+                if (isMaster) MixerStore.setMasterChain(this, next)
                 else {
-                    strips[index] = strips[index].withInsert(next)
+                    strips[index] = strips[index].withChain(next)
                     MixerStore.saveStrips(this, strips)
                 }
                 styleFx(button, next)
@@ -198,10 +198,10 @@ class MixerActivity : ComponentActivity() {
         return button
     }
 
-    private fun styleFx(button: Button, slot: InsertSlot) {
-        button.text = slot.shortLabel()
-        button.setTextColor(if (slot.isActive) Color.BLACK else Color.WHITE)
-        button.setBackgroundColor(if (slot.isActive) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
+    private fun styleFx(button: Button, chain: InsertChain) {
+        button.text = chain.shortLabel()
+        button.setTextColor(if (chain.isActive) Color.BLACK else Color.WHITE)
+        button.setBackgroundColor(if (chain.isActive) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
     }
 
     private fun compactToggle(text: String, lit: Boolean, litColor: Int): Button {

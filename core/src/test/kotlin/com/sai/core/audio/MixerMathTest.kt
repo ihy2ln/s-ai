@@ -65,4 +65,18 @@ class MixerMathTest {
         assertFalse(MixerMath.stripInsert(MixerMath.Channel(mixerTrack = 1), strips).isActive)
         assertTrue(MixerMath.stripInsert(MixerMath.Channel(mixerTrack = 3), strips).isActive)
     }
+
+    @Test
+    fun `strip chain prefers the ordered list`() {
+        val delay = InsertSlot(InsertKind.DELAY, params = InsertFx.defaults(InsertKind.DELAY))
+        val reverb = InsertSlot(InsertKind.REVERB, params = InsertFx.defaults(InsertKind.REVERB))
+        val strips = List(MixerMath.STRIP_COUNT) { i ->
+            if (i == 0) MixerMath.Strip(insert = delay, chain = InsertChain.of(delay, reverb))
+            else MixerMath.Strip()
+        }
+        val chain = MixerMath.stripChain(MixerMath.Channel(mixerTrack = 1), strips)
+        assertEquals(2, chain.slots.size)
+        assertEquals(InsertKind.DELAY, chain.slots[0].kind)
+        assertEquals(InsertKind.REVERB, chain.slots[1].kind)
+    }
 }

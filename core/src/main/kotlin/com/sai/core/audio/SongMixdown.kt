@@ -27,6 +27,7 @@ object SongMixdown {
         projectMaster: Float,
         pitchSemitones: Int,
         masterInsert: InsertSlot = InsertSlot(),
+        masterChain: InsertChain = InsertChain.from(masterInsert),
         chokeSameTrack: Boolean = false,
         sampleRate: Int = 44100,
         patternLengthAt: (Int) -> Int = { Phrase.DEFAULT_LENGTH },
@@ -42,14 +43,14 @@ object SongMixdown {
         )
         val anyRackSolo = MixerMath.anyRackSolo(channels)
 
-        var extra = InsertFx.tailFrames(masterInsert, sampleRate)
+        var extra = InsertFx.tailFrames(masterChain, sampleRate)
         for (hit in hits) {
             val wav = samplesById[hit.step.instrument] ?: continue
             val rate = if (hit.pitched) rateFor(hit.step.note ?: ROOT_NOTE, pitchSemitones) else 1.0
             val channel = channels.getOrElse(hit.track) { MixerMath.Channel() }
-            val insert = MixerMath.stripInsert(channel, strips)
-            val stretched = (wav.frameCount * InsertFx.lengthFactor(insert) / rate).toInt() + 1
-            extra = maxOf(extra, stretched + InsertFx.tailFrames(insert, sampleRate))
+            val chain = MixerMath.stripChain(channel, strips)
+            val stretched = (wav.frameCount * InsertFx.lengthFactor(chain) / rate).toInt() + 1
+            extra = maxOf(extra, stretched + InsertFx.tailFrames(chain, sampleRate))
         }
         val totalFrames = mixdownFrameCount(totalSteps, stepFrames, swingPercent) + extra
         val left = DoubleArray(totalFrames)
@@ -84,7 +85,7 @@ object SongMixdown {
             samples[i * 2] = (left[i] * 32767.0).toInt().coerceIn(-32768, 32767).toShort()
             samples[i * 2 + 1] = (right[i] * 32767.0).toInt().coerceIn(-32768, 32767).toShort()
         }
-        return InsertFx.apply(Wav(sampleRate, 2, samples), masterInsert)
+        return InsertFx.apply(Wav(sampleRate, 2, samples), masterChain)
     }
 
     private data class Hit(
@@ -181,7 +182,7 @@ object SongMixdown {
         if (gateFrames != null) {
             voice = Envelope.gate(voice, gateFrames)
         }
-        voice = InsertFx.apply(voice, MixerMath.stripInsert(channel, strips))
+        voice = InsertFx.apply(voice, MixerMath.stripChain(channel, strips))
         val pan = RackMix.shaperPan(channel.pan)
         val angle = (pan + 1.0) / 2.0 * (PI / 2.0)
         val leftGain = cos(angle) * linear

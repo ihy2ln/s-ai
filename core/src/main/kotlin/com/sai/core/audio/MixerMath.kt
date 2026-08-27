@@ -11,6 +11,7 @@ object MixerMath {
         val soloed: Boolean = false,
         val volume: Float = 1f,
         val insert: InsertSlot = InsertSlot(),
+        val chain: InsertChain = InsertChain.from(insert),
     )
 
     data class Channel(
@@ -75,5 +76,11 @@ object MixerMath {
     fun stripInsert(channel: Channel, strips: List<Strip>): InsertSlot {
         val index = stripIndex(channel.mixerTrack) ?: return InsertSlot()
         return strips.getOrElse(index) { Strip() }.insert
+    }
+
+    fun stripChain(channel: Channel, strips: List<Strip>): InsertChain {
+        val index = stripIndex(channel.mixerTrack) ?: return InsertChain()
+        val strip = strips.getOrElse(index) { Strip() }
+        return if (strip.chain.slots.isNotEmpty()) strip.chain else InsertChain.from(strip.insert)
     }
 }

@@ -6,25 +6,36 @@ import android.content.Intent
 import android.widget.Toast
 import com.sai.core.tracker.Phrase
 
-/** Shared N-menu: Home / Phrase / Piano Roll / Sample Editor / Sounds / Channel Rack / Mixer / Playlist / Manual. */
+/** Shared N-menu: Home / Phrase / Piano Roll / Sample Editor / Sounds / Channel Rack / Mixer / Playlist / Guide / Manual. */
 object NavMenu {
 
     fun show(context: Context) {
+        val items = arrayOf(
+            "Home",
+            "Phrase",
+            "Piano Roll",
+            "Sample Editor",
+            "Sounds",
+            "Channel Rack",
+            "Mixer",
+            "Playlist",
+            "Guide",
+            "Manual",
+        )
         AlertDialog.Builder(context)
             .setTitle("Navigate")
-            .setItems(
-                arrayOf("Home", "Phrase", "Piano Roll", "Sample Editor", "Sounds", "Channel Rack", "Mixer", "Playlist", "Manual"),
-            ) { _, which ->
-                when (which) {
-                    0 -> goHome(context)
-                    1 -> pickPhrase(context) { openPhrase(context, it) }
-                    2 -> pickPhrase(context) { openPianoRoll(context, it) }
-                    3 -> pickSample(context)
-                    4 -> context.startActivity(Intent(context, SoundLibraryActivity::class.java))
-                    5 -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
-                    6 -> context.startActivity(Intent(context, MixerActivity::class.java))
-                    7 -> context.startActivity(Intent(context, PlaylistActivity::class.java))
-                    8 -> context.startActivity(Intent(context, ManualActivity::class.java))
+            .setItems(items) { _, which ->
+                when (items[which]) {
+                    "Home" -> goHome(context)
+                    "Phrase" -> pickPhrase(context) { openPhrase(context, it) }
+                    "Piano Roll" -> pickPhrase(context) { openPianoRoll(context, it) }
+                    "Sample Editor" -> pickSample(context)
+                    "Sounds" -> context.startActivity(Intent(context, SoundLibraryActivity::class.java))
+                    "Channel Rack" -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
+                    "Mixer" -> context.startActivity(Intent(context, MixerActivity::class.java))
+                    "Playlist" -> context.startActivity(Intent(context, PlaylistActivity::class.java))
+                    "Guide" -> GuideActivity.open(context)
+                    "Manual" -> context.startActivity(Intent(context, ManualActivity::class.java))
                 }
             }
             .show()

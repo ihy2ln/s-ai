@@ -10,17 +10,20 @@ object Reverb {
      * @param size room size / decay length, 0..1
      * @param damp high-frequency damping in the feedback path, 0..1
      * @param mix dry/wet balance, 0 = fully dry, 1 = fully wet
+     * @param duck 0..1, ducks the wet signal when the dry is loud (vocal verb)
      */
-    fun apply(wav: Wav, size: Double, damp: Double, mix: Double): Wav {
+    fun apply(wav: Wav, size: Double, damp: Double, mix: Double, duck: Double = 0.0): Wav {
         val feedback = 0.7 + size.coerceIn(0.0, 1.0) * 0.28
         val damping = damp.coerceIn(0.0, 1.0)
         val wetMix = mix.coerceIn(0.0, 1.0)
+        val duckAmt = duck.coerceIn(0.0, 1.0)
         val scale = wav.sampleRate / 44100.0
 
         val out = ShortArray(wav.samples.size)
         for (channel in 0 until wav.channels) {
             val combs = combTunings.map { CombFilter((it * scale).toInt().coerceAtLeast(1), feedback, damping) }
             val allpasses = allpassTunings.map { AllpassFilter((it * scale).toInt().coerceAtLeast(1), 0.5) }
+            var env = 0.0
 
             var frame = channel
             while (frame < wav.samples.size) {
@@ -30,7 +33,10 @@ object Reverb {
                 wet /= combs.size
                 for (allpass in allpasses) wet = allpass.process(wet)
 
-                val output = dry * (1 - wetMix) + wet * wetMix
+                val level = if (dry < 0) -dry else dry
+                env = 0.995 * env + 0.005 * level
+                val duckGain = 1.0 - duckAmt * env.coerceIn(0.0, 1.0)
+                val output = dry * (1 - wetMix) + wet * wetMix * duckGain
                 out[frame] = (output * 32767.0).toInt().coerceIn(-32768, 32767).toShort()
                 frame += wav.channels
             }

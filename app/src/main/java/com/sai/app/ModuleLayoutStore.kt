@@ -5,7 +5,38 @@ import com.sai.core.layout.ModuleBoxFrame
 import com.sai.core.layout.WorkspaceLayout
 
 enum class ModuleType(val label: String) {
-    SAMPLER("SAMPLER"), SYNTH("SYNTH"), PADS("PADS"), TRACKER("TRACKER"), STEP_SEQUENCER("CHANNEL RACK"),
+    SAMPLER("SAMPLER"),
+    SYNTH("SYNTH"),
+    PADS("PADS"),
+    TRACKER("TRACKER"),
+    STEP_SEQUENCER("CHANNEL RACK"),
+    PULSE_KEYS("PULSE KEYS"),
+    SAW_LEAD("SAW LEAD"),
+    SUB_BASS("SUB BASS"),
+    PLUCK("PLUCK"),
+    WARM_PAD("WARM PAD"),
+    CLICK_KIT("CLICK KIT"),
+    DELAY("DELAY"),
+    DISTORT("DISTORT"),
+    CHORUS("CHORUS"),
+    LIMITER("LIMITER"),
+    BASSLINE("BASSLINE"),
+    SUPERSAW("SUPERSAW"),
+    ARP("ARP"),
+    TUNER("TUNER"),
+    SCALE("SCALE"),
+    ;
+
+    val isBuiltIn: Boolean
+        get() = this == SAMPLER || this == SYNTH || this == PADS || this == TRACKER || this == STEP_SEQUENCER
+
+    val isInstrumentPlugin: Boolean
+        get() = this == PULSE_KEYS || this == SAW_LEAD || this == SUB_BASS ||
+            this == PLUCK || this == WARM_PAD || this == CLICK_KIT ||
+            this == BASSLINE || this == SUPERSAW || this == ARP
+
+    val isEffectPlugin: Boolean
+        get() = this == DELAY || this == DISTORT || this == CHORUS || this == LIMITER || this == TUNER
 }
 
 data class ModuleEntry(val type: ModuleType, var heightDp: Float)
@@ -16,6 +47,7 @@ object ModuleLayoutStore {
     private const val PREFS_NAME = "module_layout"
     private const val KEY_ENTRIES = "entries"
     private const val KEY_CHOKE_PREFIX = "choke_"
+    private const val KEY_BYPASS_PREFIX = "bypass_"
     private const val KEY_WORKSPACE = "workspace"
     private const val KEY_FOCUSED = "focused"
     private const val KEY_BOXES = "boxes"
@@ -26,6 +58,21 @@ object ModuleLayoutStore {
         ModuleType.PADS to 280f,
         ModuleType.TRACKER to 280f,
         ModuleType.STEP_SEQUENCER to 360f,
+        ModuleType.PULSE_KEYS to 240f,
+        ModuleType.SAW_LEAD to 240f,
+        ModuleType.SUB_BASS to 240f,
+        ModuleType.PLUCK to 240f,
+        ModuleType.WARM_PAD to 240f,
+        ModuleType.CLICK_KIT to 240f,
+        ModuleType.DELAY to 220f,
+        ModuleType.DISTORT to 220f,
+        ModuleType.CHORUS to 220f,
+        ModuleType.LIMITER to 220f,
+        ModuleType.BASSLINE to 240f,
+        ModuleType.SUPERSAW to 240f,
+        ModuleType.ARP to 240f,
+        ModuleType.TUNER to 200f,
+        ModuleType.SCALE to 180f,
     )
 
     fun defaultHeight(type: ModuleType): Float = DEFAULT_HEIGHTS[type] ?: 240f
@@ -52,6 +99,13 @@ object ModuleLayoutStore {
 
     fun setChokeEnabled(context: Context, type: ModuleType, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_CHOKE_PREFIX + chokeKey(type).name, enabled).apply()
+    }
+
+    fun isBypassEnabled(context: Context, type: ModuleType): Boolean =
+        prefs(context).getBoolean(KEY_BYPASS_PREFIX + type.name, false)
+
+    fun setBypassEnabled(context: Context, type: ModuleType, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_BYPASS_PREFIX + type.name, enabled).apply()
     }
 
     fun load(context: Context): MutableList<ModuleEntry> {
@@ -147,6 +201,10 @@ object ModuleLayoutStore {
             if (chokeKey(type) != type) continue
             choke.put(type.name, isChokeEnabled(context, type))
         }
+        val bypass = org.json.JSONObject()
+        for (type in ModuleType.values()) {
+            bypass.put(type.name, isBypassEnabled(context, type))
+        }
         val boxes = org.json.JSONArray()
         for ((type, box) in loadBoxes(context)) {
             boxes.put(
@@ -161,6 +219,7 @@ object ModuleLayoutStore {
         return org.json.JSONObject()
             .put("entries", array)
             .put("choke", choke)
+            .put("bypass", bypass)
             .put("workspace", workspace(context).name)
             .put("focused", focusedType(context)?.name)
             .put("boxes", boxes)
@@ -191,6 +250,17 @@ object ModuleLayoutStore {
                         continue
                     }
                     setChokeEnabled(context, type, choke.optBoolean(key, false))
+                }
+            }
+            val bypass = obj.optJSONObject("bypass")
+            if (bypass != null) {
+                for (key in bypass.keys()) {
+                    val type = try {
+                        ModuleType.valueOf(key)
+                    } catch (e: IllegalArgumentException) {
+                        continue
+                    }
+                    setBypassEnabled(context, type, bypass.optBoolean(key, false))
                 }
             }
             save(context, loaded)

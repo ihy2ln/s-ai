@@ -42,6 +42,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
     val currentPattern: Int get() = pattern
 
     var onSongChanged: (() -> Unit)? = null
+    var onAddPlugin: (() -> Unit)? = null
 
     init {
         orientation = VERTICAL
@@ -73,6 +74,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
         swingButton = compactButton(swingLabel()) { editSwing() }
         loopButton = compactButton(loopLabel()) { cycleLoopMode() }
         val optionsButton = compactButton("...") { showRackOptions() }
+        val pluginButton = compactButton("Plug") { onAddPlugin?.invoke() }
         val zoomOutButton = compactButton("-") { changeZoom(-4f) }
         val zoomInButton = compactButton("+") { changeZoom(4f) }
 
@@ -90,6 +92,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
                     addView(swingButton)
                     addView(loopButton)
                     addView(optionsButton)
+                    addView(pluginButton)
                     addView(zoomOutButton)
                     addView(zoomInButton)
                 },
@@ -327,6 +330,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
             .setTitle("Channel Rack")
             .setItems(
                 arrayOf(
+                    "Add plugin",
                     "Duplicate pattern",
                     "Mute all",
                     "Unmute all",
@@ -335,20 +339,21 @@ class ChannelRackPanelView @JvmOverloads constructor(
                 ),
             ) { _, which ->
                 when (which) {
-                    0 -> duplicatePattern()
-                    1 -> {
+                    0 -> onAddPlugin?.invoke()
+                    1 -> duplicatePattern()
+                    2 -> {
                         channels = channels.map { it.withMuted(true) }.toMutableList()
                         refreshRows()
                     }
-                    2 -> {
+                    3 -> {
                         channels = channels.map { it.withMuted(false) }.toMutableList()
                         refreshRows()
                     }
-                    3 -> {
+                    4 -> {
                         channels = channels.map { it.withSoloed(false) }.toMutableList()
                         refreshRows()
                     }
-                    4 -> deleteEmptyChannels()
+                    5 -> deleteEmptyChannels()
                 }
             }
             .show()

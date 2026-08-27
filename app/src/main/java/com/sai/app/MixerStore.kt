@@ -1,6 +1,7 @@
 package com.sai.app
 
 import android.content.Context
+import com.sai.core.audio.InsertChain
 import com.sai.core.audio.InsertFx
 import com.sai.core.audio.InsertKind
 import com.sai.core.audio.InsertSlot
@@ -13,13 +14,21 @@ data class MixerStripState(
     val soloed: Boolean = false,
     val volume: Float = 1f,
     val insert: InsertSlot = InsertSlot(),
+    val chain: InsertChain = InsertChain.from(insert),
 ) {
     fun withMuted(value: Boolean) = copy(muted = value)
     fun withSoloed(value: Boolean) = copy(soloed = value)
     fun withVolume(value: Float) = copy(volume = value.coerceIn(0f, 1f))
-    fun withInsert(value: InsertSlot) = copy(insert = value)
+    fun withInsert(value: InsertSlot) = copy(insert = value, chain = InsertChain.from(value))
+    fun withChain(value: InsertChain) = copy(chain = value, insert = value.primary())
 
-    fun toMath() = MixerMath.Strip(muted = muted, soloed = soloed, volume = volume, insert = insert)
+    fun toMath() = MixerMath.Strip(
+        muted = muted,
+        soloed = soloed,
+        volume = volume,
+        insert = insert,
+        chain = if (chain.slots.isNotEmpty()) chain else InsertChain.from(insert),
+    )
 }
 
 object MixerStore {
@@ -28,12 +37,14 @@ object MixerStore {
     private const val KEY_MASTER = "master"
     private const val KEY_MASTER_MUTED = "master_muted"
     private const val KEY_MASTER_INSERT = "master_insert"
+    private const val KEY_MASTER_CHAIN = "master_chain"
     const val STRIP_COUNT = MixerMath.STRIP_COUNT
 
     @Volatile private var stripsMemory: List<MixerStripState>? = null
     @Volatile private var masterMemory: Float? = null
     @Volatile private var masterMutedMemory: Boolean? = null
     @Volatile private var masterInsertMemory: InsertSlot? = null
+    @Volatile private var masterChainMemory: InsertChain? = null
 
     private val peaks = FloatArray(STRIP_COUNT + 1)
     private val lock = Any()
@@ -55,6 +66,7 @@ object MixerStore {
                     soloed = obj.optBoolean("soloed", false),
                     volume = obj.optDouble("volume", 1.0).toFloat(),
                     insert = insertFromJson(obj.optJSONObject("insert")),
+                    chain = chainFromJson(obj.optJSONArray("chain"), obj.optJSONObject("insert")),
                 )
             }.toMutableList()
             stripsMemory = loaded.toList()
@@ -100,23 +112,56 @@ object MixerStore {
         prefs(context).edit().putBoolean(KEY_MASTER_MUTED, muted).apply()
     }
 
-    fun masterInsert(context: Context): InsertSlot {
-        masterInsertMemory?.let { return it }
-        val raw = prefs(context).getString(KEY_MASTER_INSERT, null)
-        val slot = if (raw.isNullOrBlank()) InsertSlot() else {
-            try {
-                insertFromJson(JSONObject(raw))
-            } catch (e: Exception) {
-                InsertSlot()
-            }
-        }
-        masterInsertMemory = slot
-        return slot
-    }
+    fun masterInsert(context: Context): InsertSlot = masterChain(context).primary()
 
     fun setMasterInsert(context: Context, slot: InsertSlot) {
-        masterInsertMemory = slot
-        prefs(context).edit().putString(KEY_MASTER_INSERT, insertToJson(slot).toString()).apply()
+        setMasterChain(context, InsertChain.from(slot))
+    }
+
+    fun masterChain(context: Context): InsertChain {
+        masterChainMemory?.let { return it }
+        val raw = prefs(context).getString(KEY_MASTER_CHAIN, null)
+        val chain = if (!raw.isNullOrBlank()) {
+            try {
+                chainFromJson(JSONArray(raw), null)
+            } catch (e: Exception) {
+                InsertChain()
+            }
+        } else {
+            InsertChain.from(run {
+                val legacy = prefs(context).getString(KEY_MASTER_INSERT, null)
+                if (legacy.isNullOrBlank()) InsertSlot() else try {
+                    insertFromJson(JSONObject(legacy))
+                } catch (e: Exception) {
+                    InsertSlot()
+                }
+            })
+        }
+        masterChainMemory = chain
+        masterInsertMemory = chain.primary()
+        return chain
+    }
+
+    fun setMasterChain(context: Context, chain: InsertChain) {
+        masterChainMemory = chain
+        masterInsertMemory = chain.primary()
+        prefs(context).edit()
+            .putString(KEY_MASTER_CHAIN, chainToJson(chain).toString())
+            .putString(KEY_MASTER_INSERT, insertToJson(chain.primary()).toString())
+            .apply()
+    }
+
+    fun appendInsert(context: Context, stripIndex: Int?, slot: InsertSlot) {
+        if (slot.kind == InsertKind.NONE) return
+        if (stripIndex == null) {
+            setMasterChain(context, masterChain(context).plus(slot))
+            return
+        }
+        val strips = loadStrips(context)
+        if (stripIndex !in strips.indices) return
+        val next = strips[stripIndex].chain.plus(slot)
+        strips[stripIndex] = strips[stripIndex].withChain(next)
+        saveStrips(context, strips)
     }
 
     fun mathStrips(context: Context): List<MixerMath.Strip> = loadStrips(context).map { it.toMath() }
@@ -131,6 +176,7 @@ object MixerStore {
             .put("master", masterVolume(context).toDouble())
             .put("masterMuted", masterMuted(context))
             .put("masterInsert", insertToJson(masterInsert(context)))
+            .put("masterChain", chainToJson(masterChain(context)))
             .toString()
     }
 
@@ -146,12 +192,15 @@ object MixerStore {
                     soloed = item.optBoolean("soloed", false),
                     volume = item.optDouble("volume", 1.0).toFloat(),
                     insert = insertFromJson(item.optJSONObject("insert")),
+                    chain = chainFromJson(item.optJSONArray("chain"), item.optJSONObject("insert")),
                 )
             }
             saveStrips(context, loaded)
             if (obj.has("master")) setMasterVolume(context, obj.optDouble("master", 1.0).toFloat())
             if (obj.has("masterMuted")) setMasterMuted(context, obj.optBoolean("masterMuted", false))
-            if (obj.has("masterInsert")) {
+            if (obj.has("masterChain")) {
+                setMasterChain(context, chainFromJson(obj.optJSONArray("masterChain"), obj.optJSONObject("masterInsert")))
+            } else if (obj.has("masterInsert")) {
                 val insertObj = obj.optJSONObject("masterInsert")
                 setMasterInsert(context, insertFromJson(insertObj))
             }
@@ -182,7 +231,8 @@ object MixerStore {
         .put("muted", strip.muted)
         .put("soloed", strip.soloed)
         .put("volume", strip.volume.toDouble())
-        .put("insert", insertToJson(strip.insert))
+        .put("insert", insertToJson(strip.chain.primary()))
+        .put("chain", chainToJson(strip.chain))
 
     internal fun insertToJson(slot: InsertSlot): JSONObject {
         val params = JSONObject()
@@ -190,6 +240,7 @@ object MixerStore {
         return JSONObject()
             .put("kind", slot.kind.name)
             .put("bypassed", slot.bypassed)
+            .put("engineId", slot.engineId)
             .put("params", params)
     }
 
@@ -198,7 +249,7 @@ object MixerStore {
         val kind = try {
             InsertKind.valueOf(obj.optString("kind", InsertKind.NONE.name))
         } catch (e: Exception) {
-            InsertKind.NONE
+            InsertFx.kindForEngine(obj.optString("engineId", ""))
         }
         val paramsObj = obj.optJSONObject("params") ?: JSONObject()
         val overlay = mutableMapOf<String, Double>()
@@ -211,7 +262,22 @@ object MixerStore {
             kind = kind,
             bypassed = obj.optBoolean("bypassed", false),
             params = InsertFx.mergeDefaults(kind, overlay),
+            engineId = obj.optString("engineId", ""),
         )
+    }
+
+    internal fun chainToJson(chain: InsertChain): JSONArray {
+        val array = JSONArray()
+        for (slot in chain.slots) array.put(insertToJson(slot))
+        return array
+    }
+
+    internal fun chainFromJson(array: JSONArray?, legacyInsert: JSONObject?): InsertChain {
+        if (array != null && array.length() > 0) {
+            val slots = (0 until array.length()).map { insertFromJson(array.optJSONObject(it)) }
+            return InsertChain(slots.filter { it.kind != InsertKind.NONE })
+        }
+        return InsertChain.from(insertFromJson(legacyInsert))
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

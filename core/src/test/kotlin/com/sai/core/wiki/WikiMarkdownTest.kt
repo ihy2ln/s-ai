@@ -78,6 +78,25 @@ class WikiMarkdownTest {
     }
 
     @Test
+    fun `page links become wiki hrefs and hash links stay in-page`() {
+        assertEquals("#mixer", WikiMarkdown.wikiHref("#mixer"))
+        assertEquals("${WikiMarkdown.WIKI_PREFIX}add-modules", WikiMarkdown.wikiHref("add-modules.md"))
+        assertEquals("${WikiMarkdown.WIKI_PREFIX}add-modules#search", WikiMarkdown.wikiHref("add-modules.md#search"))
+        assertEquals("https://example.com/x", WikiMarkdown.wikiHref("https://example.com/x"))
+        assertEquals("add-modules" to null, WikiMarkdown.parseWikiHref(WikiMarkdown.wikiHref("add-modules.md")))
+        assertEquals("add-modules" to "search", WikiMarkdown.parseWikiHref(WikiMarkdown.wikiHref("add-modules.md#search")))
+        val html = WikiMarkdown.toHtml("See [Add a module](add-modules.md).", includeToc = false)
+        assertTrue(html.contains("""href="${WikiMarkdown.WIKI_PREFIX}add-modules""""))
+        assertFalse(html.contains("""<div class="toc">"""))
+    }
+
+    @Test
+    fun `blockquotes render as callouts`() {
+        val html = WikiMarkdown.toHtml("> Not a native host.", includeToc = false)
+        assertTrue(html.contains("<blockquote>Not a native host.</blockquote>"))
+    }
+
+    @Test
     fun `generated toc links match heading ids`() {
         val html = WikiMarkdown.toHtml(sample)
         for (section in WikiMarkdown.sections(sample)) {

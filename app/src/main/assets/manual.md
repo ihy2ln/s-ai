@@ -8,6 +8,7 @@ Welcome to **S.Ai** — a landscape-first sampler and tracker for Android. This 
 - [Transport Bar](#transport-bar)
 - [Menu Buttons (E / N / MX / P / M)](#menu-buttons-e--n--mx--p--m)
 - [Home Modules](#home-modules)
+- [Plugins (VST2 / VST3)](#plugins-vst2--vst3)
 - [Sampler Module](#sampler-module)
 - [Synth Module](#synth-module)
 - [Tracker Module](#tracker-module)
@@ -41,7 +42,7 @@ S.Ai opens in **landscape orientation** and stays there for the best module layo
 
 S.Ai ships **no bundled sounds** — bring your own audio files.
 
-Open this wiki any time with **M → Manual**. On the left, tap a section to jump. Type in the search box to highlight matches; press search on the keyboard for the next hit.
+Open this wiki any time with **?** on Home, **M → Guide**, or **N → Guide**. The long reference is **M → Manual**. On the left, tap a section to jump. Type in the search box to highlight matches; press search on the keyboard for the next hit.
 
 See also: [How-tos](#how-tos), [Glossary](#glossary).
 
@@ -71,15 +72,16 @@ Tap the **T** button at least twice in rhythm. S.Ai averages the last 2–5 taps
 
 ## Menu Buttons (E / N / MX / P / M)
 
-Four pill buttons sit at the end of the transport row:
+Pill buttons sit at the end of the transport row:
 
 | Button | Name | Opens |
 | --- | --- | --- |
 | **E** | Expand | Full-screen the current module, or return to Split View |
-| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Playlist, Manual (long-press Home also opens this) |
+| **N** | Navigate | Home, Phrase, Piano Roll, Sample Editor, Sounds, Channel Rack, Mixer, Playlist, Guide, Manual (long-press Home also opens this) |
 | **MX** | Mixer / Effects | Mixer first, then effects on the loaded sampler sound |
 | **P** | Project | Rename, save/load project package, new, undo, redo, export stereo WAV mixdown, export stems |
-| **M** | Menu | Manual, samples, sounds, theme, **Layout**, add module. **Plugins** is hidden until a plugin is registered. |
+| **M** | Menu | Guide, Manual, samples, sounds, **Plugins**, theme, **Layout**, add module. **Plugins** lists VST2/VST3-style instruments and effects to enable or disable. |
+| **?** | Guide | New-user wiki: short linked topics (Add Module, Rack vs mixer, jobs, not a `.vst3` host) |
 
 ### Project Sound (blue square)
 
@@ -123,9 +125,53 @@ Each module header is compact: title, Rec/+, MONO/POLY, and layout controls.
 | **TRACKER** | 32-position song grid with 8 tracks |
 | **CHANNEL RACK** | Step sequencer with mute, solo, vol, pan, mixer route, pattern length, swing |
 
-Add removed modules back via **M → Add Module**.
+Add removed modules back via **M → Add Module**. Instrument and effect plugins are in the same browser.
 
-See also: [Sampler Module](#sampler-module), [Channel Rack](#channel-rack), [Pad Bank](#pad-bank).
+See also: [Sampler Module](#sampler-module), [Channel Rack](#channel-rack), [Pad Bank](#pad-bank), [Plugins (VST2 / VST3)](#plugins-vst2--vst3).
+
+## Plugins (VST2 / VST3)
+
+S.Ai cannot load desktop `.dll` / `.vst3` binaries. Instead it ships a first-class **in-app plugin catalog** with VST2- and VST3-style instruments and effects that use the same audio engine as the rest of the app.
+
+**M → Add Module** opens the module browser (compact tiles, job chips, category chips, search — FL Studio Mobile’s plugin list plus BandLab’s job picker):
+
+| Control | What it does |
+| --- | --- |
+| **Search** | Filters name, vendor, purpose, jobs, and VST2/VST3 |
+| **All / Vocals / Guitar / Drums / Mix / MIDI / Instruments** | Job chips (starting-catalog language) |
+| **Instruments / Effects / Home** | Role tabs |
+| **Built-in / VST2 / VST3** | Format chips |
+| **Category chips** | Keys, Bass, Leads, Pads, Percussion, Dynamics, Space, Tone, Modulation, Utility |
+
+Tiles for **Sampler, Synth, Pads, Tracker, Channel Rack** stay in the Home tab. Adding them never removes the modules already on screen. Layout → Reset still restores those four.
+
+### Instruments
+
+Pulse Keys, Saw Lead, Sub Bass, Pluck, Warm Pad, Click Kit, plus **Bassline** (303-style), **SuperSaw**, **Arp**, and **Keys** (alias of Synth — user WAVs only, no bundled bank).
+
+Tap a tile, then:
+
+- **Add to Home** — a playable module with knobs and a keyboard (same stack / Focus / Boxes chrome as Sampler and Synth)
+- **Add to Channel Rack** — renders a note into the sample library and places it on an empty rack row
+
+Channel Rack **Plug** (and **… → Add plugin**) opens the same browser, filtered to instruments.
+
+### Effects
+
+Filter, Compressor, Reverb, Equalizer, Stereo Shaper, Delay, Distort, Chorus, Limiter, plus Slapback, Drive (Distort alias), Tape, Phaser, Crush, Tune, DeEss, Amp, Gate, Punch, Duck, and Vocal Verb (ducked Reverb). **One-Knobs** (Brighter, Echo, Punchy, Room, Toasty, Bassy, Leveller, Dirty) are data over those engines — one Amount, then append.
+
+Tap a tile, then:
+
+- **Insert on Mixer** — pick strip `1`–`8` or Master; the effect is **appended** to that strip’s ordered chain
+- **Add to Home** (Delay / Distort / Chorus / Limiter / Tuner) — a compact editor; **Insert on Mixer** from the panel appends those knobs
+
+Mixer **FX** opens the **chain editor**: add, bypass per slot, reorder, remove, apply starter presets (**Lead Vocal**, **Vocal Double**, **Guitar Crunch**, **Drum Punch**, **Master polish**). Order hints: Delay before Reverb, Tune before EQ. Mix defaults stay conservative (~0.28).
+
+**Scale** is a Home reference (root / mode) with no audio engine.
+
+**M → Plugins** enables or disables individual VST2/VST3 entries. Built-in Home modules cannot be turned off. Effect Home modules show **IN / BYP** on the header.
+
+See also: [Mixer](#mixer), [Effects (MX)](#effects-mx).
 
 ## Sampler Module
 
@@ -256,7 +302,7 @@ Eight insert strips plus **MST** (master):
 
 | Control | Function |
 | --- | --- |
-| **FX** | Live insert: Filter, Compressor, Reverb, Equalizer, or Stereo Shaper (or Off). Lit when active. Bypass keeps the slot without processing. |
+| **FX** | Ordered insert **chain**: add / bypass / reorder / presets (or Clear). Lit when any slot is active. Delay before Reverb; Tune before EQ. |
 | **Meter** | Peak from sounds routed to this strip |
 | **Fader** | Strip (or master) level |
 | **M** | Mute |
@@ -357,10 +403,14 @@ Open via long-press on a library sample → **Edit**.
 | **Reverb** | SIZE, DAMP, MIX |
 | **Equalizer** | LOW CUT, 7 bands, MID CUT, HIGH CUT |
 | **Stereo Shaper** | PAN, WIDTH, DEPTH |
+| **Delay** | TIME, FBK, MIX |
+| **Distort** | DRIVE, TONE, MIX |
+| **Chorus** | RATE, DEPTH, MIX |
+| **Limiter** | THRES, REL |
 
 Each dialog has **Preview** (one-shot), **Apply** (writes back), and **Close**. Apply on a library sound **replaces that entry** (same ID); it does not add a second copy.
 
-For FX you want on a mixer strip (or master) without changing the sample, use the mixer **FX** button instead.
+For FX you want on a mixer strip (or master) without changing the sample, use the mixer **FX** chain (including Tape, Phaser, Crush, Tune, DeEss, Amp, Gate, One-Knobs, and Reverb **DUCK**) or **M → Add Module** (Effects tab) instead.
 
 See also: [Mixer](#mixer), [Synth Module](#synth-module).
 
@@ -430,7 +480,7 @@ See also: [Playlist](#playlist), [Project Save & Load](#project-save--load).
 
 1. On the Channel Rack, tap **Trk** until the row shows the insert number you want
 2. **N → Mixer** (or **MX → Mixer**)
-3. Tap **FX** on that strip → **Reverb** → set SIZE / DAMP / MIX → **Set**
+3. Tap **FX** on that strip → pick **Reverb** from the module browser → set SIZE / DAMP / MIX → **Set**
 4. Press **Play** — the insert is live. Export WAV uses it too.
 
 ### Record a vocal onto the playlist
@@ -462,6 +512,7 @@ See also: [Playlist](#playlist), [Project Save & Load](#project-save--load).
 | **Playlist** | Timeline of pattern clips and audio clips; empty playlist walks the tracker song |
 | **Punch** | Record-armed play: tapping a sample or pad writes a step on the armed track |
 | **Tape** | Mic recording dropped on the playlist as an audio clip |
+| **Plugin / VST2 / VST3** | In-app instrument or effect in the Add Module browser; not a desktop `.dll` host |
 | **Layout** | Stack, Focus, or Boxes home arrangement; **Reset** restores the default modules and sizes |
 
 See also: [Tips & Shortcuts](#tips--shortcuts).
@@ -475,7 +526,8 @@ See also: [Tips & Shortcuts](#tips--shortcuts).
 - **Channel Rack + Tracker** share the same song data and playback engine
 - **Channel Rack Trk** numbers are mixer inserts 1–8
 - Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
-- **M → Manual** is this wiki: section list on the left, search at the top
+- **M → Add Module** — tile browser for built-in modules plus VST2/VST3 instruments and effects
+- **?** / **M → Guide** / **N → Guide** — new-user wiki (short linked topics). **M → Manual** is the full reference
 - **M → Layout** — Stack, Focus (tap a name under the menu to switch), or Boxes (move / grow / resize cards). **Reset** restores the default arrangement.
 
 ---
