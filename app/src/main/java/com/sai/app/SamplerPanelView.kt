@@ -38,32 +38,18 @@ class SamplerPanelView @JvmOverloads constructor(
 
         sampleNameLabel = TextView(context).apply {
             text = "No sample loaded"
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
 
         waveform = WaveformView(context)
 
-        sliceCountLabel = TextView(context).apply { setTextColor(Color.WHITE) }
-        val minusButton = Button(context).apply {
-            text = "-"
-            setOnClickListener { changeSliceCount(-1) }
-        }
-        val plusButton = Button(context).apply {
-            text = "+"
-            setOnClickListener { changeSliceCount(1) }
-        }
-        val saveButton = Button(context).apply {
-            text = "Save Slices"
-            setOnClickListener { saveSlices() }
-        }
-        val toRackButton = Button(context).apply {
-            text = "To Rack"
-            setOnClickListener { sendSlicesToRack() }
-        }
-        val warpButton = Button(context).apply {
-            text = "Warp BPM"
-            setOnClickListener { warpToProjectBpm() }
-        }
+        sliceCountLabel = TextView(context).apply { setTextColor(AppTheme.textPrimary) }
+        val minusButton = Ui.compactButton(context, "−") { changeSliceCount(-1) }
+        val plusButton = Ui.compactButton(context, "+") { changeSliceCount(1) }
+        val saveButton = Ui.compactButton(context, "Save Slices") { saveSlices() }
+        val toRackButton = Ui.compactButton(context, "To Rack") { sendSlicesToRack() }
+        val warpButton = Ui.compactButton(context, "Warp BPM") { warpToProjectBpm() }
         val controlsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL

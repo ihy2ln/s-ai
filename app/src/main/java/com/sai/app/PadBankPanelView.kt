@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Context
-import android.graphics.Color
 import android.util.AttributeSet
 import android.view.Gravity
 import android.widget.Button
@@ -27,7 +26,7 @@ class PadBankPanelView @JvmOverloads constructor(
         val density = resources.displayMetrics.density
         addView(TextView(context).apply {
             text = "Tap a pad to play. Long-press to assign."
-            setTextColor(Color.rgb(140, 150, 165))
+            setTextColor(AppTheme.textMuted)
             textSize = 11f
         })
         var row: LinearLayout? = null
@@ -38,7 +37,7 @@ class PadBankPanelView @JvmOverloads constructor(
             }
             val pad = Button(context).apply {
                 textSize = 11f
-                setTextColor(Color.WHITE)
+                setTextColor(AppTheme.textPrimary)
                 minHeight = 0
                 minimumHeight = 0
                 setOnClickListener { play(index) }

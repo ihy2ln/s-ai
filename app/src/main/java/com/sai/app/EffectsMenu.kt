@@ -3,8 +3,6 @@ package com.sai.app
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
-import android.widget.Button
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -150,8 +148,8 @@ object EffectsMenu {
         val density = context.resources.displayMetrics.density
         val pad = (16 * density).toInt()
 
-        val previewButton = Button(context).apply { text = "Preview" }
-        val applyButton = Button(context).apply { text = "Apply" }
+        val previewButton = Ui.compactButton(context, "Preview") {}
+        val applyButton = Ui.compactButton(context, "Apply") {}
         val buttonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(previewButton)
@@ -162,8 +160,8 @@ object EffectsMenu {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             addView(TextView(context).apply {
-                text = "${target.getName()} - Preview or Apply."
-                setTextColor(Color.rgb(140, 150, 160))
+                text = "${target.getName()} — Preview or Apply."
+                setTextColor(AppTheme.textSecondary)
                 textSize = 12f
                 setPadding(0, 0, 0, pad / 2)
             })

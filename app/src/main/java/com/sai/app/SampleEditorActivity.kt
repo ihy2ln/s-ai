@@ -1,10 +1,8 @@
 package com.sai.app
 
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
-import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -94,12 +92,12 @@ class SampleEditorActivity : ComponentActivity() {
         val pad = (16 * density).toInt()
 
         waveform = WaveformView(this)
-        statusText = TextView(this).apply { setTextColor(Color.WHITE) }
+        statusText = Ui.meta(this)
         startBar = SeekBar(this).apply { max = 1000; progress = 0 }
         endBar = SeekBar(this).apply { max = 1000; progress = 1000 }
         gainBar = SeekBar(this).apply { max = 48; progress = 24 }
-        reverseBox = CheckBox(this).apply { text = "Reverse"; setTextColor(Color.WHITE) }
-        normalizeBox = CheckBox(this).apply { text = "Normalize"; setTextColor(Color.WHITE) }
+        reverseBox = CheckBox(this).apply { text = "Reverse"; setTextColor(AppTheme.textPrimary) }
+        normalizeBox = CheckBox(this).apply { text = "Normalize"; setTextColor(AppTheme.textPrimary) }
 
         val listener = object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) = refresh()
@@ -112,10 +110,10 @@ class SampleEditorActivity : ComponentActivity() {
         reverseBox.setOnCheckedChangeListener { _, _ -> refresh() }
         normalizeBox.setOnCheckedChangeListener { _, _ -> refresh() }
 
-        val cutButton = Button(this).apply { text = "Cut"; setOnClickListener { cutSelection() } }
-        val pasteButton = Button(this).apply { text = "Paste"; setOnClickListener { pasteAtSelection() } }
-        val undoButton = Button(this).apply { text = "Undo"; setOnClickListener { undoEdit() } }
-        val redoButton = Button(this).apply { text = "Redo"; setOnClickListener { redoEdit() } }
+        val cutButton = Ui.compactButton(this, "Cut") { cutSelection() }
+        val pasteButton = Ui.compactButton(this, "Paste") { pasteAtSelection() }
+        val undoButton = Ui.compactButton(this, "Undo") { undoEdit() }
+        val redoButton = Ui.compactButton(this, "Redo") { redoEdit() }
         val editRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(cutButton)
@@ -124,53 +122,43 @@ class SampleEditorActivity : ComponentActivity() {
             addView(redoButton)
         }
 
-        tempoLabel = TextView(this).apply { setTextColor(Color.WHITE) }
+        tempoLabel = Ui.meta(this)
         tempoBar = SeekBar(this).apply { max = 150; progress = 50 } // 50..200%, 50 = 100%
         tempoBar.setOnSeekBarChangeListener(listener)
 
-        pitchLabel = TextView(this).apply { setTextColor(Color.WHITE) }
+        pitchLabel = Ui.meta(this)
         pitchBar = SeekBar(this).apply { max = 48; progress = 24 } // -24..+24 semitones
         pitchBar.setOnSeekBarChangeListener(listener)
 
-        granulateBox = CheckBox(this).apply { text = "Granulate"; setTextColor(Color.WHITE) }
+        granulateBox = CheckBox(this).apply { text = "Granulate"; setTextColor(AppTheme.textPrimary) }
         granulateBox.setOnCheckedChangeListener { _, _ -> refresh() }
         grainBar = SeekBar(this).apply { max = 100; progress = 25 } // -> 10..200ms
         grainBar.setOnSeekBarChangeListener(listener)
         scatterBar = SeekBar(this).apply { max = 100; progress = 50 } // 0..100%
         scatterBar.setOnSeekBarChangeListener(listener)
 
-        bpmSourceInput = EditText(this).apply {
+        bpmSourceInput = Ui.input(this, hint = "Source BPM").apply {
             inputType = InputType.TYPE_CLASS_NUMBER
-            hint = "Source BPM"
         }
-        val bpmSyncButton = Button(this).apply {
-            text = "Sync to Project BPM"
-            setOnClickListener { applyBpmSync() }
-        }
+        val bpmSyncButton = Ui.compactButton(this, "Sync to Project BPM") { applyBpmSync() }
         val bpmRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(bpmSourceInput, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(bpmSyncButton)
         }
 
-        val playButton = Button(this).apply {
-            text = "Play"
-            setOnClickListener { playCurrentEdit() }
-        }
-        val saveButton = Button(this).apply {
-            text = "Save"
-            setOnClickListener { saveToLibrary() }
-        }
-        val exportButton = Button(this).apply {
-            text = "Export"
-            setOnClickListener { saveLauncher.launch(suggestedFileName()) }
+        val playButton = Ui.compactButton(this, "Play") { playCurrentEdit() }
+        val saveButton = Ui.compactButton(this, "Save") { saveToLibrary() }
+        val exportButton = Ui.compactButton(this, "Export") { saveLauncher.launch(suggestedFileName()) }
+
+        val header = Ui.headerBar(this) {
+            addView(Ui.screenTitle(this@SampleEditorActivity, "SAMPLE EDITOR"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(PillButton.create(this@SampleEditorActivity, "N") { NavMenu.show(this@SampleEditorActivity) })
         }
 
-        return LinearLayout(this).apply {
+        val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.BLACK)
-            addView(waveform, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (200 * density).toInt()))
+            addView(waveform, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (160 * density).toInt()))
             addView(statusText)
             addView(label("Start"))
             addView(startBar)
@@ -199,12 +187,20 @@ class SampleEditorActivity : ComponentActivity() {
                 }
             )
         }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+            setBackgroundColor(AppTheme.canvas)
+            addView(header)
+            addView(
+                android.widget.ScrollView(this@SampleEditorActivity).apply { addView(body) },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
+            )
+        }
     }
 
-    private fun label(text: String) = TextView(this).apply {
-        this.text = text
-        setTextColor(Color.WHITE)
-    }
+    private fun label(text: String) = Ui.sectionLabel(this, text)
 
     private fun selectionFrames(): Pair<Int, Int> {
         val startFrame = (startBar.progress / 1000f * working.frameCount).toInt()

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sai_canvas">#FF0F141C</color>
+    <color name="sai_surface">#FF18212D</color>
+    <color name="sai_surface_raised">#FF1E2836</color>
+    <color name="sai_header">#FF16202A</color>
+    <color name="sai_border">#FF2A3648</color>
+    <color name="sai_text_primary">#FFF0F3F7</color>
+    <color name="sai_text_secondary">#FF8B97A8</color>
+    <color name="sai_text_muted">#FF5C6B7C</color>
+    <color name="sai_accent">#FF2ED9A6</color>
+    <color name="sai_gold">#FFE8C547</color>
+    <color name="sai_play">#FF3DDC84</color>
+    <color name="sai_record">#FFE03A3A</color>
+</resources>

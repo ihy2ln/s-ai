@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.view.View
 
@@ -18,10 +17,10 @@ class MeterView(context: Context) : View(context) {
             }
         }
 
-    private val backPaint = Paint().apply { color = Color.rgb(28, 30, 36) }
-    private val greenPaint = Paint().apply { color = Color.rgb(50, 200, 90) }
-    private val yellowPaint = Paint().apply { color = Color.rgb(220, 190, 40) }
-    private val redPaint = Paint().apply { color = Color.rgb(220, 60, 50) }
+    private val backPaint = Paint().apply { color = AppTheme.surfaceMuted }
+    private val greenPaint = Paint().apply { color = AppTheme.play }
+    private val yellowPaint = Paint().apply { color = AppTheme.gold }
+    private val redPaint = Paint().apply { color = AppTheme.record }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)

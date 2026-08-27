@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.view.View
 
@@ -17,7 +16,7 @@ class MuteLedView(context: Context) : View(context) {
             }
         }
 
-    var onColor: Int = Color.rgb(40, 200, 80)
+    var onColor: Int = AppTheme.play
         set(value) {
             if (field != value) {
                 field = value
@@ -29,10 +28,10 @@ class MuteLedView(context: Context) : View(context) {
     var onToggle: (() -> Unit)? = null
 
     private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onColor }
-    private val offPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(50, 55, 60) }
+    private val offPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AppTheme.surfaceRaised }
     private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = Color.rgb(80, 85, 95)
+        color = AppTheme.border
         strokeWidth = 1.5f * context.resources.displayMetrics.density
     }
 

@@ -2,14 +2,12 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -110,15 +108,8 @@ class PhraseActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
         val pad = (12 * density).toInt()
 
-        val title = TextView(this).apply {
-            text = "PHRASE %02X".format(phraseId)
-            setTextColor(AppTheme.accentColor(this@PhraseActivity))
-            typeface = Typeface.MONOSPACE
-            textSize = 20f
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val title = Ui.screenTitle(this, "PHRASE %02X".format(phraseId))
+        val titleRow = Ui.headerBar(this) {
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(PillButton.create(this@PhraseActivity, "E") { showExpand() })
             addView(PillButton.create(this@PhraseActivity, "N") { NavMenu.show(this@PhraseActivity) })
@@ -129,12 +120,12 @@ class PhraseActivity : ComponentActivity() {
 
         samplerSectionWrapper = buildSamplerSection()
         stepSectionWrapper = buildStepSection()
-        dividerView = View(this).apply { setBackgroundColor(Color.rgb(50, 50, 55)) }
+        dividerView = View(this).apply { setBackgroundColor(AppTheme.border) }
 
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(AppTheme.canvas)
             addView(titleRow)
             addView(samplerSectionWrapper, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
             addView(dividerView, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()))
@@ -148,10 +139,7 @@ class PhraseActivity : ComponentActivity() {
     }
 
     private fun buildSamplerSection(): LinearLayout {
-        val loadButton = Button(this).apply {
-            text = "Load Sample"
-            setOnClickListener { showLoadSampleDialog() }
-        }
+        val loadButton = Ui.compactButton(this, "Load Sample") { showLoadSampleDialog() }
 
         samplerPanel = SamplerPanelView(this).apply {
             onSaveSlices = { sourceName, slices ->
@@ -179,7 +167,7 @@ class PhraseActivity : ComponentActivity() {
     }
 
     private fun buildStepSection(): LinearLayout {
-        val header = gridRow(listOf("  ", "NOTE", "INS", "VOL", "LEN"), Color.rgb(120, 140, 160))
+        val header = gridRow(listOf("  ", "NOTE", "INS", "VOL", "LEN"), AppTheme.textSecondary)
         stepRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         return LinearLayout(this).apply {
@@ -274,7 +262,7 @@ class PhraseActivity : ComponentActivity() {
 
     private fun cellLabel(text: String) = TextView(this).apply {
         this.text = text
-        setTextColor(Color.rgb(90, 110, 130))
+        setTextColor(AppTheme.textMuted)
         typeface = Typeface.MONOSPACE
         gravity = Gravity.CENTER
         setPadding(8, 8, 8, 8)
@@ -282,7 +270,7 @@ class PhraseActivity : ComponentActivity() {
 
     private fun cellValue(text: String, onClick: () -> Unit) = TextView(this).apply {
         this.text = text
-        setTextColor(Color.WHITE)
+        setTextColor(AppTheme.textPrimary)
         typeface = Typeface.MONOSPACE
         gravity = Gravity.CENTER
         setPadding(8, 8, 8, 8)

@@ -174,16 +174,16 @@ object ChannelRackStore {
 
     /** FL-style channel button colors; index 0 is the missing-sample red. */
     fun channelColor(index: Int, hasInstrument: Boolean): Int {
-        if (!hasInstrument) return android.graphics.Color.rgb(170, 45, 45)
+        if (!hasInstrument) return android.graphics.Color.rgb(148, 52, 58)
         val palette = intArrayOf(
-            android.graphics.Color.rgb(70, 110, 165),
-            android.graphics.Color.rgb(55, 130, 85),
-            android.graphics.Color.rgb(150, 95, 55),
-            android.graphics.Color.rgb(120, 70, 140),
-            android.graphics.Color.rgb(50, 130, 130),
-            android.graphics.Color.rgb(140, 120, 50),
-            android.graphics.Color.rgb(90, 90, 150),
-            android.graphics.Color.rgb(130, 80, 80),
+            android.graphics.Color.rgb(62, 108, 158),
+            android.graphics.Color.rgb(46, 132, 92),
+            android.graphics.Color.rgb(168, 108, 52),
+            android.graphics.Color.rgb(118, 78, 148),
+            android.graphics.Color.rgb(42, 132, 132),
+            android.graphics.Color.rgb(148, 126, 48),
+            android.graphics.Color.rgb(82, 92, 158),
+            android.graphics.Color.rgb(138, 72, 82),
         )
         return palette[index % palette.size]
     }

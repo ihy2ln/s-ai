@@ -75,6 +75,7 @@ class WikiMarkdownTest {
         assertTrue(html.contains("<hr/>"))
         assertTrue(html.contains("<em>S.Ai — your sounds.</em>"))
         assertTrue(html.contains("#00ffff"))
+        assertTrue(html.contains("#0F141C"))
     }
 
     @Test

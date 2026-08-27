@@ -1,15 +1,12 @@
 package com.sai.app
 
 import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
-import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebView
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -37,27 +34,15 @@ class ManualActivity : ComponentActivity() {
         val sections = WikiMarkdown.sections(markdown)
         val html = WikiMarkdown.toHtml(markdown, accentHex)
 
-        val title = TextView(this).apply {
-            text = "S.Ai Wiki"
-            setTextColor(accent)
-            typeface = Typeface.DEFAULT_BOLD
-            textSize = 18f
-        }
+        val title = Ui.screenTitle(this, "S.Ai Wiki", monospace = false)
         hitCount = TextView(this).apply {
-            setTextColor(Color.rgb(140, 150, 160))
+            setTextColor(AppTheme.textSecondary)
             textSize = 12f
             gravity = Gravity.CENTER_VERTICAL
             minWidth = (28 * density).toInt()
         }
-        val search = EditText(this).apply {
-            hint = "Search this wiki"
-            setHintTextColor(Color.rgb(90, 96, 104))
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(32, 34, 40))
-            textSize = 14f
-            isSingleLine = true
+        val search = Ui.input(this, hint = "Search this wiki").apply {
             imeOptions = EditorInfo.IME_ACTION_SEARCH
-            setPadding((10 * density).toInt(), (8 * density).toInt(), (10 * density).toInt(), (8 * density).toInt())
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -75,9 +60,7 @@ class ManualActivity : ComponentActivity() {
             }
         }
 
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val titleRow = Ui.headerBar(this) {
             addView(title, LinearLayout.LayoutParams((120 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT))
             addView(search, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                 marginStart = (8 * density).toInt()
@@ -108,13 +91,9 @@ class ManualActivity : ComponentActivity() {
             isVerticalScrollBarEnabled = false
             addView(LinearLayout(this@ManualActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                addView(TextView(this@ManualActivity).apply {
-                    text = "CONTENTS"
-                    setTextColor(accent)
-                    textSize = 11f
-                    typeface = Typeface.MONOSPACE
-                    setPadding(0, 0, 0, (6 * density).toInt())
-                })
+                background = androidx.core.content.ContextCompat.getDrawable(this@ManualActivity, R.drawable.module_card_bg)
+                setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+                addView(Ui.sectionLabel(this@ManualActivity, "Contents"))
                 addView(sectionButton("Top", accent) { jumpTo(null) })
                 for (section in sections) {
                     addView(sectionButton(section.title, accent) { jumpTo(section.slug) })
@@ -139,17 +118,9 @@ class ManualActivity : ComponentActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.rgb(18, 18, 20))
+            setBackgroundColor(AppTheme.canvas)
             addView(titleRow)
-            addView(
-                View(this@ManualActivity).apply {
-                    setBackgroundColor(Color.rgb(50, 50, 55))
-                },
-                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, (1 * density).toInt()).apply {
-                    topMargin = (8 * density).toInt()
-                    bottomMargin = (8 * density).toInt()
-                },
-            )
+            addView(Ui.divider(this@ManualActivity))
             addView(body, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         }
     }
@@ -158,10 +129,10 @@ class ManualActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
         return TextView(this).apply {
             text = label
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             textSize = 12f
             setPadding((8 * density).toInt(), (7 * density).toInt(), (8 * density).toInt(), (7 * density).toInt())
-            setBackgroundColor(Color.rgb(32, 34, 40))
+            background = androidx.core.content.ContextCompat.getDrawable(this@ManualActivity, R.drawable.list_row_bg)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,

@@ -2,15 +2,11 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,24 +26,12 @@ class SoundLibraryActivity : ComponentActivity() {
         library = SampleLibrary(this)
 
         val density = resources.displayMetrics.density
-        val pad = (16 * density).toInt()
+        val pad = (12 * density).toInt()
 
-        val title = TextView(this).apply {
-            text = "SOUNDS"
-            setTextColor(AppTheme.accentColor(this@SoundLibraryActivity))
-            typeface = Typeface.MONOSPACE
-            textSize = 20f
-        }
+        val title = Ui.screenTitle(this, "SOUNDS")
+        val addButton = Ui.compactButton(this, "Add Sounds") { importLauncher.launch(arrayOf("audio/*")) }
 
-        val addButton = Button(this).apply {
-            text = "Add Sounds"
-            setOnClickListener { importLauncher.launch(arrayOf("audio/*")) }
-        }
-
-        searchInput = EditText(this).apply {
-            hint = "Search name, category, tags"
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.rgb(100, 110, 120))
+        searchInput = Ui.input(this, hint = "Search name, category, tags").apply {
             addTextChangedListener(object : android.text.TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = refresh()
@@ -60,10 +44,16 @@ class SoundLibraryActivity : ComponentActivity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.BLACK)
-            addView(title)
-            addView(addButton)
-            addView(searchInput)
+            setBackgroundColor(AppTheme.canvas)
+            addView(Ui.headerBar(this@SoundLibraryActivity) {
+                addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(addButton)
+                addView(PillButton.create(this@SoundLibraryActivity, "N") { NavMenu.show(this@SoundLibraryActivity) })
+            })
+            addView(searchInput, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = (8 * density).toInt()
+                topMargin = (4 * density).toInt()
+            })
             addView(
                 ScrollView(this@SoundLibraryActivity).apply { addView(listContainer) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
@@ -82,21 +72,9 @@ class SoundLibraryActivity : ComponentActivity() {
         val query = if (::searchInput.isInitialized) searchInput.text.toString() else ""
         val filtered = library.search(query)
         if (query.isNotBlank()) {
-            listContainer.addView(
-                TextView(this).apply {
-                    text = "Results (${filtered.size})"
-                    setTextColor(Color.rgb(120, 140, 160))
-                    typeface = Typeface.MONOSPACE
-                    textSize = 14f
-                },
-            )
+            listContainer.addView(Ui.sectionLabel(this, "Results (${filtered.size})"))
             if (filtered.isEmpty()) {
-                listContainer.addView(
-                    TextView(this).apply {
-                        text = "  (no matches)"
-                        setTextColor(Color.rgb(80, 80, 85))
-                    },
-                )
+                listContainer.addView(Ui.emptyState(this, "No matches"))
             } else {
                 for (entry in filtered) listContainer.addView(entryRow(entry))
             }
@@ -104,33 +82,23 @@ class SoundLibraryActivity : ComponentActivity() {
         }
         for (category in SoundCategory.ALL) {
             val entries = library.byCategory(category)
-            listContainer.addView(
-                TextView(this).apply {
-                    text = "$category (${entries.size})"
-                    setTextColor(Color.rgb(120, 140, 160))
-                    typeface = Typeface.MONOSPACE
-                    textSize = 14f
-                }
-            )
+            listContainer.addView(Ui.sectionLabel(this, "$category (${entries.size})"))
             if (entries.isEmpty()) {
-                listContainer.addView(
-                    TextView(this).apply {
-                        text = "  (empty)"
-                        setTextColor(Color.rgb(80, 80, 85))
-                    }
-                )
+                listContainer.addView(Ui.emptyState(this, "Empty"))
             } else {
                 for (entry in entries) listContainer.addView(entryRow(entry))
             }
         }
     }
 
-    private fun entryRow(entry: SampleEntry): TextView = TextView(this).apply {
-        text = if (entry.tags.isBlank()) "  ${entry.displayName}" else "  ${entry.displayName}  [${entry.tags}]"
-        setTextColor(Color.WHITE)
-        setPadding(8, 8, 8, 8)
-        setOnClickListener { preview(entry) }
-        setOnLongClickListener {
+    private fun entryRow(entry: SampleEntry): LinearLayout = Ui.listRow(
+        context = this,
+        title = entry.displayName,
+        subtitle = if (entry.tags.isBlank()) entry.category else "${entry.category} · ${entry.tags}",
+        leading = AppTheme.accentColor(this),
+        trailing = "▶",
+        onClick = { preview(entry) },
+        onLongClick = {
             AlertDialog.Builder(this@SoundLibraryActivity)
                 .setTitle(entry.displayName)
                 .setItems(arrayOf("Move to Category", "Mixer", "Tags")) { _, which ->
@@ -142,8 +110,8 @@ class SoundLibraryActivity : ComponentActivity() {
                 }
                 .show()
             true
-        }
-    }
+        },
+    )
 
     private fun libraryEffectsTarget(entry: SampleEntry) = EffectsTarget(
         getWav = {
@@ -170,10 +138,7 @@ class SoundLibraryActivity : ComponentActivity() {
     }
 
     private fun editTags(entry: SampleEntry) {
-        val input = EditText(this).apply {
-            setText(entry.tags)
-            hint = "kick, dry, 808"
-        }
+        val input = Ui.input(this, hint = "kick, dry, 808", text = entry.tags)
         AlertDialog.Builder(this)
             .setTitle("Tags")
             .setView(input)

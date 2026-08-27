@@ -1,7 +1,6 @@
 package com.sai.app
 
 import android.app.AlertDialog
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
@@ -60,25 +59,10 @@ class MixerActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
         val pad = (10 * density).toInt()
 
-        val title = TextView(this).apply {
-            text = "MIXER"
-            setTextColor(AppTheme.accentColor(this@MixerActivity))
-            typeface = Typeface.MONOSPACE
-            textSize = 18f
-        }
-        val exportButton = Button(this).apply {
-            text = "Export WAV"
-            textSize = 12f
-            setOnClickListener { confirmExport() }
-        }
-        val stemsButton = Button(this).apply {
-            text = "Stems"
-            textSize = 12f
-            setOnClickListener { confirmStems() }
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val title = Ui.screenTitle(this, "MIXER")
+        val exportButton = Ui.compactButton(this, "Export WAV") { confirmExport() }
+        val stemsButton = Ui.compactButton(this, "Stems") { confirmStems() }
+        val titleRow = Ui.headerBar(this) {
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(exportButton)
             addView(stemsButton)
@@ -87,14 +71,14 @@ class MixerActivity : ComponentActivity() {
 
         val stripsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (i in 0 until MixerStore.STRIP_COUNT) {
-            stripsRow.addView(stripColumn(i, " ${i + 1} ", isMaster = false))
+            stripsRow.addView(stripColumn(i, "${i + 1}", isMaster = false))
         }
         stripsRow.addView(stripColumn(MixerStore.STRIP_COUNT, "MST", isMaster = true))
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.rgb(18, 18, 20))
+            setBackgroundColor(AppTheme.canvas)
             addView(titleRow)
             addView(
                 HorizontalScrollView(this@MixerActivity).apply {
@@ -131,31 +115,34 @@ class MixerActivity : ComponentActivity() {
         val mute = compactToggle(
             text = if ((if (isMaster) MixerStore.masterMuted(this) else strips[index].muted)) "M" else "m",
             lit = if (isMaster) MixerStore.masterMuted(this) else strips[index].muted,
-            litColor = Color.rgb(200, 50, 50),
+            litColor = AppTheme.record,
         )
         mute.setOnClickListener {
             if (isMaster) {
                 val next = !MixerStore.masterMuted(this)
                 MixerStore.setMasterMuted(this, next)
-                styleToggle(mute, "M", "m", next, Color.rgb(200, 50, 50))
+                styleToggle(mute, "M", "m", next, AppTheme.record)
             } else {
                 val next = !strips[index].muted
                 strips[index] = strips[index].withMuted(next)
                 MixerStore.saveStrips(this, strips)
-                styleToggle(mute, "M", "m", next, Color.rgb(200, 50, 50))
+                styleToggle(mute, "M", "m", next, AppTheme.record)
             }
         }
 
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
+            background = androidx.core.content.ContextCompat.getDrawable(this@MixerActivity, R.drawable.module_card_bg)
+            setPadding((4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt())
             layoutParams = LinearLayout.LayoutParams(colW, LinearLayout.LayoutParams.MATCH_PARENT).apply {
-                setMargins((2 * density).toInt(), 0, (2 * density).toInt(), 0)
+                setMargins((4 * density).toInt(), 0, (4 * density).toInt(), 0)
             }
             addView(TextView(this@MixerActivity).apply {
                 text = label
-                setTextColor(Color.WHITE)
+                setTextColor(AppTheme.textPrimary)
                 textSize = 11f
+                typeface = Typeface.DEFAULT_BOLD
                 gravity = Gravity.CENTER
             })
             addView(fxButton(index, isMaster))
@@ -166,12 +153,12 @@ class MixerActivity : ComponentActivity() {
 
         if (!isMaster) {
             val soloed = strips[index].soloed
-            val solo = compactToggle(if (soloed) "S" else "s", soloed, Color.rgb(220, 180, 40))
+            val solo = compactToggle(if (soloed) "S" else "s", soloed, AppTheme.gold)
             solo.setOnClickListener {
                 val next = !strips[index].soloed
                 strips[index] = strips[index].withSoloed(next)
                 MixerStore.saveStrips(this, strips)
-                styleToggle(solo, "S", "s", next, Color.rgb(220, 180, 40))
+                styleToggle(solo, "S", "s", next, AppTheme.gold)
             }
             column.addView(solo)
         }
@@ -200,8 +187,8 @@ class MixerActivity : ComponentActivity() {
 
     private fun styleFx(button: Button, slot: InsertSlot) {
         button.text = slot.shortLabel()
-        button.setTextColor(if (slot.isActive) Color.BLACK else Color.WHITE)
-        button.setBackgroundColor(if (slot.isActive) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
+        button.setTextColor(if (slot.isActive) AppTheme.canvas else AppTheme.textPrimary)
+        button.setBackgroundColor(if (slot.isActive) AppTheme.accentColor(this) else AppTheme.surfaceRaised)
     }
 
     private fun compactToggle(text: String, lit: Boolean, litColor: Int): Button {
@@ -223,8 +210,8 @@ class MixerActivity : ComponentActivity() {
 
     private fun styleToggle(button: Button, onText: String, offText: String, lit: Boolean, litColor: Int) {
         button.text = if (lit) onText else offText
-        button.setTextColor(if (lit) Color.BLACK else Color.WHITE)
-        button.setBackgroundColor(if (lit) litColor else Color.rgb(50, 52, 58))
+        button.setTextColor(if (lit) AppTheme.canvas else AppTheme.textPrimary)
+        button.setBackgroundColor(if (lit) litColor else AppTheme.surfaceRaised)
     }
 
     private fun confirmExport() {

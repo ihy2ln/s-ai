@@ -2,8 +2,6 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Context
-import android.graphics.Color
-import android.widget.Button
 import android.widget.CheckBox
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -116,17 +114,18 @@ object InsertFxMenu {
 
         val bypassBox = CheckBox(context).apply {
             text = "Bypass"
+            setTextColor(AppTheme.textPrimary)
             isChecked = bypass
             setOnCheckedChangeListener { _, checked -> bypass = checked }
         }
-        val setButton = Button(context).apply { text = "Set" }
+        val setButton = Ui.compactButton(context, "Set") {}
 
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
             addView(TextView(context).apply {
                 text = "Heard on play and mixdown. Does not rewrite the sample."
-                setTextColor(Color.rgb(140, 150, 160))
+                setTextColor(AppTheme.textSecondary)
                 textSize = 12f
                 setPadding(0, 0, 0, pad / 2)
             })

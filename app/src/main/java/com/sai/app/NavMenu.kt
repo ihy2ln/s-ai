@@ -3,31 +3,55 @@ package com.sai.app
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.Toast
 import com.sai.core.tracker.Phrase
 
 /** Shared N-menu: Home / Phrase / Piano Roll / Sample Editor / Sounds / Channel Rack / Mixer / Playlist / Manual. */
 object NavMenu {
 
+    private data class Destination(val title: String, val subtitle: String, val action: (Context) -> Unit)
+
     fun show(context: Context) {
-        AlertDialog.Builder(context)
+        val destinations = listOf(
+            Destination("Home", "Workspace modules", ::goHome),
+            Destination("Phrase", "Hex step editor") { pickPhrase(it) { id -> openPhrase(it, id) } },
+            Destination("Piano Roll", "Notes on a grid") { pickPhrase(it) { id -> openPianoRoll(it, id) } },
+            Destination("Sample Editor", "Trim, warp, pitch") { pickSample(it) },
+            Destination("Sounds", "Library, tags, categories") { it.startActivity(Intent(it, SoundLibraryActivity::class.java)) },
+            Destination("Channel Rack", "FL-style step sequencer") { it.startActivity(Intent(it, StepSequencerActivity::class.java)) },
+            Destination("Mixer", "Faders, mute, live insert FX") { it.startActivity(Intent(it, MixerActivity::class.java)) },
+            Destination("Playlist", "Arrange patterns and tape") { it.startActivity(Intent(it, PlaylistActivity::class.java)) },
+            Destination("Manual", "Built-in wiki") { it.startActivity(Intent(it, ManualActivity::class.java)) },
+        )
+        val dialog = AlertDialog.Builder(context, R.style.Theme_Sai_Dialog)
             .setTitle("Navigate")
-            .setItems(
-                arrayOf("Home", "Phrase", "Piano Roll", "Sample Editor", "Sounds", "Channel Rack", "Mixer", "Playlist", "Manual"),
-            ) { _, which ->
-                when (which) {
-                    0 -> goHome(context)
-                    1 -> pickPhrase(context) { openPhrase(context, it) }
-                    2 -> pickPhrase(context) { openPianoRoll(context, it) }
-                    3 -> pickSample(context)
-                    4 -> context.startActivity(Intent(context, SoundLibraryActivity::class.java))
-                    5 -> context.startActivity(Intent(context, StepSequencerActivity::class.java))
-                    6 -> context.startActivity(Intent(context, MixerActivity::class.java))
-                    7 -> context.startActivity(Intent(context, PlaylistActivity::class.java))
-                    8 -> context.startActivity(Intent(context, ManualActivity::class.java))
-                }
+            .setNegativeButton("Close", null)
+            .create()
+        val list = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            val pad = Ui.dp(context, 8f)
+            setPadding(pad, pad, pad, pad)
+            setBackgroundColor(AppTheme.surface)
+            destinations.forEach { dest ->
+                addView(
+                    Ui.listRow(
+                        context = context,
+                        title = dest.title,
+                        subtitle = dest.subtitle,
+                        leading = AppTheme.accentColor(context),
+                        trailing = "›",
+                        onClick = {
+                            dialog.dismiss()
+                            dest.action(context)
+                        },
+                    ),
+                )
             }
-            .show()
+        }
+        dialog.setView(ScrollView(context).apply { addView(list) })
+        dialog.show()
     }
 
     fun goHome(context: Context) {

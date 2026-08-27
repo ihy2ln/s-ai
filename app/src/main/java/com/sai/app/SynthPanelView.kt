@@ -1,7 +1,6 @@
 package com.sai.app
 
 import android.content.Context
-import android.graphics.Color
 import android.util.AttributeSet
 import android.widget.Button
 import android.widget.HorizontalScrollView
@@ -53,31 +52,24 @@ class SynthPanelView @JvmOverloads constructor(
 
         sampleNameLabel = TextView(context).apply {
             text = "No sample loaded"
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
 
         hintLabel = TextView(context).apply {
             text = "Tap the wave to play"
-            setTextColor(Color.rgb(140, 150, 165))
+            setTextColor(AppTheme.textMuted)
             textSize = 10f
         }
 
         val waveformsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             for (waveform in Waveform.entries) {
-                addView(Button(context).apply {
-                    text = Oscillator.displayName(waveform)
-                    textSize = 11f
-                    minHeight = 0
-                    minimumHeight = 0
-                    setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
-                    setOnClickListener { loadWaveform(waveform) }
-                })
+                addView(Ui.compactButton(context, Oscillator.displayName(waveform)) { loadWaveform(waveform) })
             }
         }
 
         waveform = WaveformView(context).apply {
-            setBackgroundColor(Color.rgb(26, 28, 32))
             setOnClickListener { preview() }
         }
 
@@ -117,10 +109,10 @@ class SynthPanelView @JvmOverloads constructor(
 
         val keyboard = buildKeyboard()
 
-        val previewButton = compactButton("Preview") { preview() }
-        val applyButton = compactButton("Apply") { applyInPlace() }
-        val addSampleButton = compactButton("Add as Sample") { addAsSample() }
-        val saveButton = compactButton("Save to Library") { saveToLibrary() }
+        val previewButton = Ui.compactButton(context, "Preview") { preview() }
+        val applyButton = Ui.compactButton(context, "Apply") { applyInPlace() }
+        val addSampleButton = Ui.compactButton(context, "Add as Sample") { addAsSample() }
+        val saveButton = Ui.compactButton(context, "Save to Library") { saveToLibrary() }
         val buttonsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             addView(previewButton)
@@ -146,21 +138,6 @@ class SynthPanelView @JvmOverloads constructor(
             isNestedScrollingEnabled = false
             addView(buttonsRow)
         })
-    }
-
-    private fun compactButton(label: String, onClick: () -> Unit): Button {
-        val density = resources.displayMetrics.density
-        return Button(context).apply {
-            text = label
-            textSize = 11f
-            minHeight = 0
-            minimumHeight = 0
-            setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins((2 * density).toInt(), 0, (2 * density).toInt(), 0)
-            }
-            setOnClickListener { onClick() }
-        }
     }
 
     fun load(newWav: Wav, name: String) {
@@ -205,19 +182,19 @@ class SynthPanelView @JvmOverloads constructor(
         val black = setOf(1, 3, 6, 8, 10)
         val octaveLabel = TextView(context).apply {
             text = "C$keyboardOctave"
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             gravity = android.view.Gravity.CENTER
             textSize = 11f
         }
         val keys = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            addView(compactButton("-") {
+            addView(Ui.compactButton(context, "−") {
                 keyboardOctave = (keyboardOctave - 1).coerceIn(1, 7)
                 octaveLabel.text = "C$keyboardOctave"
             })
             addView(octaveLabel)
-            addView(compactButton("+") {
+            addView(Ui.compactButton(context, "+") {
                 keyboardOctave = (keyboardOctave + 1).coerceIn(1, 7)
                 octaveLabel.text = "C$keyboardOctave"
             })
@@ -229,8 +206,8 @@ class SynthPanelView @JvmOverloads constructor(
                     minimumHeight = 0
                     minWidth = 0
                     setPadding((6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt())
-                    setTextColor(if (index in black) Color.WHITE else Color.BLACK)
-                    setBackgroundColor(if (index in black) Color.rgb(40, 42, 48) else Color.rgb(220, 220, 225))
+                    setTextColor(if (index in black) AppTheme.textPrimary else AppTheme.canvas)
+                    setBackgroundColor(if (index in black) AppTheme.pianoBlack else AppTheme.textPrimary)
                     setOnClickListener { playLive((keyboardOctave + 1) * 12 + index) }
                 })
             }
@@ -239,7 +216,7 @@ class SynthPanelView @JvmOverloads constructor(
             orientation = VERTICAL
             addView(TextView(context).apply {
                 text = "Keys — POLY stacks notes; MONO cuts the previous one"
-                setTextColor(Color.rgb(140, 150, 165))
+                setTextColor(AppTheme.textMuted)
                 textSize = 10f
             })
             addView(HorizontalScrollView(context).apply { addView(keys) })

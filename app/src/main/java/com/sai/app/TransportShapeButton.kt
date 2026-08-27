@@ -40,12 +40,12 @@ class TransportShapeButtonView(
 
 object TransportShapeButton {
 
-    val PLAY_GREEN = Color.rgb(76, 217, 100)
+    val PLAY_GREEN get() = AppTheme.play
     val STOP_WHITE = Color.WHITE
-    val RECORD_RED = Color.rgb(224, 40, 40)
-    val RECORD_ARMED = Color.rgb(255, 70, 70)
-    val EDIT_BLUE = Color.rgb(66, 133, 244)
-    val TAP_YELLOW = Color.rgb(255, 204, 0)
+    val RECORD_RED get() = AppTheme.record
+    val RECORD_ARMED = Color.rgb(255, 88, 88)
+    val EDIT_BLUE get() = AppTheme.info
+    val TAP_YELLOW get() = AppTheme.gold
 
     fun createTempo(context: Context, onClick: () -> Unit): TransportShapeButtonView {
         val density = context.resources.displayMetrics.density
@@ -63,7 +63,9 @@ object TransportShapeButton {
         val iconView = TempoIconView(context)
 
         return TransportShapeButtonView(context, promptLabel, iconView).apply {
-            setBackgroundColor(Color.BLACK)
+            background = ContextCompat.getDrawable(context, R.drawable.pill_button_bg)?.mutate()?.apply {
+                alpha = AppTheme.opacityAlpha(context)
+            }
             layoutParams = LinearLayout.LayoutParams(size, size).apply {
                 setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
             }

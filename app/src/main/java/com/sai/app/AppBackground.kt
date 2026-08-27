@@ -32,7 +32,7 @@ object AppBackground {
     private const val TYPE_IMAGE = "image"
     private const val TYPE_VIDEO = "video"
 
-    private val BASE_COLOR = Color.rgb(18, 18, 20)
+    private val BASE_COLOR: Int get() = AppTheme.canvas
 
     fun setColor(context: Context, color: Int) {
         prefs(context).edit()
