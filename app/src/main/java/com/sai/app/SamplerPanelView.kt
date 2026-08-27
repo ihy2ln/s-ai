@@ -11,9 +11,11 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import com.sai.core.audio.SampleEditor
 import com.sai.core.audio.SampleWarp
 import com.sai.core.audio.Wav
+import com.sai.core.audio.WavIO
 
 class SamplerPanelView @JvmOverloads constructor(
     context: Context,
@@ -64,6 +66,10 @@ class SamplerPanelView @JvmOverloads constructor(
             text = "Warp BPM"
             setOnClickListener { warpToProjectBpm() }
         }
+        val splitButton = Button(context).apply {
+            text = "Split Stems"
+            setOnClickListener { openStemSplitter() }
+        }
         val controlsRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -73,6 +79,7 @@ class SamplerPanelView @JvmOverloads constructor(
             addView(saveButton)
             addView(toRackButton)
             addView(warpButton)
+            addView(splitButton)
         }
 
         padContainer = LinearLayout(context).apply { orientation = VERTICAL }
@@ -164,6 +171,19 @@ class SamplerPanelView @JvmOverloads constructor(
         val bounds = sliceBounds(currentWav)
         val slices = bounds.map { range -> SampleEditor.trim(currentWav, range.first, range.last + 1) }
         onSendToRack?.invoke(sourceName, slices)
+    }
+
+    private fun openStemSplitter() {
+        val current = wav
+        if (current == null) {
+            Toast.makeText(context, "Load a sample first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val cache = java.io.File(context.cacheDir, "stem-src-${System.currentTimeMillis()}.wav")
+        WavIO.write(current, cache)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", cache)
+        val name = if (sourceName.isNotBlank()) sourceName else "sampler"
+        StemSplitterActivity.open(context, SampleEntry(uri, name))
     }
 
     private fun warpToProjectBpm() {

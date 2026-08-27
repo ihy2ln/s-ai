@@ -445,6 +445,19 @@ See also: [Playlist](#playlist), [Project Save & Load](#project-save--load).
 - **P → Export WAV** or mixer **Export WAV** — one stereo file through rack + mixer + playlist
 - **P → Export Stems** or mixer **Stems** — zip of eight tracker tracks plus `audio.wav`
 
+### Split a sample into stems (vocals / drums / bass / other)
+
+S.Ai does **not** bundle a Demucs model on the phone (hundreds of MB, slow on battery). Instead it sends your WAV to **ComfyUI on your PC** over Wi‑Fi and saves the returned stems into your library.
+
+1. On your PC: install [ComfyUI](https://github.com/comfyanonymous/ComfyUI) plus **ComfyUI-Demucs** custom nodes (see `docs/wiki/stem-splitter.md` in the repo).
+2. Start ComfyUI with LAN access, e.g. `python main.py --listen 0.0.0.0 --port 8188`
+3. On the phone: **M → Split Stems** (or Sampler **Split Stems**, or long-press a sound in **Sounds**)
+4. Tap **⚙**, enter your PC URL (e.g. `http://192.168.1.10:8188`), **Test**, **Save**
+5. Choose **4-stem** or **2-stem** (vocals + instrumental), pick stems to keep, tap **Split**
+6. When finished, stems appear in your library (`loop — Vocals`, etc.). Optionally check **Also send stems to Channel Rack**
+
+Progress shows upload → queue → download. **Cancel** stops the job (the PC may still finish its queue item).
+
 ### Keep a project portable
 
 **P → Save** writes a `.sai.zip` with audio, rack, mixer (including live FX), pads, playlist, and layout. **P → Load** reads that package, or an older JSON-only song.
@@ -476,6 +489,7 @@ See also: [Tips & Shortcuts](#tips--shortcuts).
 - **Channel Rack Trk** numbers are mixer inserts 1–8
 - Mixer **FX** is live (play + mixdown); MX **Apply** rewrites the sample
 - **M → Manual** is this wiki: section list on the left, search at the top
+- **M → Split Stems** — Demucs via ComfyUI on your PC (see Manual → Split a sample into stems)
 - **M → Layout** — Stack, Focus (tap a name under the menu to switch), or Boxes (move / grow / resize cards). **Reset** restores the default arrangement.
 
 ---

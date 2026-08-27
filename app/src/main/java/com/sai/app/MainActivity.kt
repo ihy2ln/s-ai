@@ -1684,7 +1684,7 @@ class MainActivity : ComponentActivity() {
     // --- Menu (M) -------------------------------------------------------------
 
     private fun showMenu() {
-        val items = mutableListOf("Manual", "Samples", "Sounds")
+        val items = mutableListOf("Manual", "Samples", "Sounds", "Split Stems")
         if (PluginRegistry.available.isNotEmpty()) items.add("Plugins")
         items.add("Theme")
         items.add("Layout")
@@ -1696,6 +1696,7 @@ class MainActivity : ComponentActivity() {
                     "Manual" -> startActivity(Intent(this, ManualActivity::class.java))
                     "Samples" -> openSamples.launch(arrayOf("audio/*"))
                     "Sounds" -> startActivity(Intent(this, SoundLibraryActivity::class.java))
+                    "Split Stems" -> StemSplitterActivity.open(this)
                     "Plugins" -> showPluginsDialog()
                     "Theme" -> showThemeDialog()
                     "Layout" -> showLayoutDialog()

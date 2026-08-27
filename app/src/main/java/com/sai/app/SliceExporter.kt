@@ -20,6 +20,15 @@ object SliceExporter {
         return SampleLibrary(context).add(saved)
     }
 
+    fun saveNamed(context: Context, displayName: String, wav: Wav, category: String = SoundCategory.DEFAULT): SampleEntry {
+        val dir = slicesDir(context)
+        val safe = displayName.replace(Regex("[^a-zA-Z0-9._ -]+"), "-").trim().ifBlank { "stem" }
+        val file = File(dir, "$safe-${System.currentTimeMillis()}.wav")
+        WavIO.write(wav, file)
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        return SampleLibrary(context).add(listOf(SampleEntry(uri, displayName, category))).single()
+    }
+
     /** Overwrites a library sound in place (same stable id / name / category, new audio). */
     fun replaceLibraryEntry(context: Context, entry: SampleEntry, wav: Wav): SampleEntry {
         val dir = slicesDir(context)
