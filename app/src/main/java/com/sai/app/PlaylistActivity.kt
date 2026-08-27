@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -59,18 +58,11 @@ class PlaylistActivity : ComponentActivity() {
         val pad = (10 * density).toInt()
         stepWidthPx = (18 * density).toInt()
 
-        val title = TextView(this).apply {
-            text = "PLAYLIST"
-            setTextColor(AppTheme.accentColor(this@PlaylistActivity))
-            typeface = Typeface.MONOSPACE
-            textSize = 18f
-        }
-        val addPattern = compact(" + PAT ") { addPatternClip() }
-        val addAudio = compact(" + AUD ") { addAudioClip() }
-        val clear = compact(" Clear ") { confirmClear() }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val title = Ui.screenTitle(this, "PLAYLIST")
+        val addPattern = Ui.compactButton(this, "+ PAT") { addPatternClip() }
+        val addAudio = Ui.compactButton(this, "+ AUD") { addAudioClip() }
+        val clear = Ui.compactButton(this, "Clear") { confirmClear() }
+        val titleRow = Ui.headerBar(this) {
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(addPattern)
             addView(addAudio)
@@ -79,7 +71,7 @@ class PlaylistActivity : ComponentActivity() {
         }
 
         status = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textSecondary)
             textSize = 12f
             typeface = Typeface.MONOSPACE
         }
@@ -96,7 +88,7 @@ class PlaylistActivity : ComponentActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(AppTheme.canvas)
             addView(titleRow)
             addView(status)
             addView(
@@ -111,14 +103,6 @@ class PlaylistActivity : ComponentActivity() {
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
         }
-    }
-
-    private fun compact(label: String, onClick: () -> Unit) = Button(this).apply {
-        text = label
-        textSize = 11f
-        minHeight = 0
-        minimumHeight = 0
-        setOnClickListener { onClick() }
     }
 
     private fun rebuildTimeline() {
@@ -141,7 +125,7 @@ class PlaylistActivity : ComponentActivity() {
                 text = if (step % 4 == 0) "%02X".format(step) else ""
                 gravity = Gravity.CENTER
                 textSize = 8f
-                setTextColor(Color.rgb(140, 150, 160))
+                setTextColor(AppTheme.textMuted)
                 typeface = Typeface.MONOSPACE
                 layoutParams = LinearLayout.LayoutParams(stepWidthPx, LinearLayout.LayoutParams.WRAP_CONTENT)
             }
@@ -158,12 +142,12 @@ class PlaylistActivity : ComponentActivity() {
                 layoutParams = LinearLayout.LayoutParams(stepWidthPx * visibleSteps, laneH).apply {
                     setMargins(0, (2 * density).toInt(), 0, 0)
                 }
-                setBackgroundColor(Color.rgb(22, 24, 28))
+                setBackgroundColor(AppTheme.surfaceMuted)
                 setOnClickListener { promptAddAt(lane, Arrangement.appendStart(clips)) }
             }
             val label = TextView(this).apply {
                 text = " L${lane + 1}"
-                setTextColor(Color.rgb(90, 100, 115))
+                setTextColor(AppTheme.textMuted)
                 textSize = 9f
                 typeface = Typeface.MONOSPACE
             }
@@ -185,14 +169,14 @@ class PlaylistActivity : ComponentActivity() {
             }
         }
         val color = when {
-            clip.muted -> Color.rgb(70, 70, 70)
-            clip.kind == ClipKind.PATTERN -> Color.rgb(40, 90, 140)
-            else -> Color.rgb(120, 70, 30)
+            clip.muted -> AppTheme.textMuted
+            clip.kind == ClipKind.PATTERN -> Color.rgb(46, 96, 148)
+            else -> Color.rgb(148, 88, 42)
         }
         return TextView(this).apply {
             text = label
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             textSize = 10f
             typeface = Typeface.MONOSPACE
             setBackgroundColor(color)
@@ -206,7 +190,7 @@ class PlaylistActivity : ComponentActivity() {
     private fun refreshPlayhead() {
         val step = ArrangementClock.globalStep
         for ((index, view) in playheadViews.withIndex()) {
-            view.setBackgroundColor(if (index == step) Color.rgb(180, 160, 40) else Color.TRANSPARENT)
+            view.setBackgroundColor(if (index == step) AppTheme.gold else Color.TRANSPARENT)
         }
     }
 

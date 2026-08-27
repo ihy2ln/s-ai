@@ -14,7 +14,7 @@ class TempoIconView(context: Context) : View(context) {
     private val yellow = TransportShapeButton.TAP_YELLOW
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
+        color = AppTheme.canvas
         style = Paint.Style.FILL
     }
 

@@ -226,25 +226,27 @@ class MainActivity : ComponentActivity() {
         val pad = (12 * density).toInt()
 
         val title = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             textSize = 15f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.MARQUEE
             marqueeRepeatLimit = -1
             isSelected = true
             setPadding(0, 0, (4 * density).toInt(), 0)
-            layoutParams = LinearLayout.LayoutParams((100 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams((108 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
             setOnClickListener { editProjectName() }
         }
         projectTitleLabel = title
         refreshProjectTitle()
         routeLabel = TextView(this).apply {
-            textSize = 14f
+            textSize = 13f
+            setTextColor(AppTheme.textSecondary)
             setPadding(0, 0, (4 * density).toInt(), 0)
         }
 
         val bpmLabelView = TextView(this).apply {
-            setTextColor(Color.rgb(170, 180, 190))
+            setTextColor(AppTheme.textSecondary)
             typeface = android.graphics.Typeface.MONOSPACE
             textSize = 11f
             isClickable = true
@@ -272,7 +274,7 @@ class MainActivity : ComponentActivity() {
 
         val titleColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams((100 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams((108 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
             addView(title)
             addView(tempoRow)
         }
@@ -353,10 +355,7 @@ class MainActivity : ComponentActivity() {
             )
         }
 
-        val headerRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, (4 * density).toInt())
+        val headerRow = Ui.headerBar(this) {
             addView(titleColumn)
             addView(transportScroll)
         }
@@ -429,7 +428,7 @@ class MainActivity : ComponentActivity() {
         rootView = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, 0, pad)
-            setBackgroundColor(Color.rgb(18, 18, 20))
+            setBackgroundColor(AppTheme.canvas)
             addView(headerRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 marginEnd = pad
             })
@@ -449,34 +448,18 @@ class MainActivity : ComponentActivity() {
         return rootView
     }
 
-    private fun compactTransportButton(label: String, onClick: () -> Unit): Button {
-        val density = resources.displayMetrics.density
-        return Button(this).apply {
-            text = label
-            textSize = 10f
-            minHeight = 0
-            minimumHeight = 0
-            minWidth = 0
-            minimumWidth = 0
-            setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins((3 * density).toInt(), 0, (3 * density).toInt(), 0)
-            }
-            setOnClickListener { onClick() }
-        }
-    }
+    private fun compactTransportButton(label: String, onClick: () -> Unit): Button =
+        Ui.compactButton(this, label, onClick)
 
     private fun updateTransportToggles() {
-        val on = Color.rgb(76, 217, 100)
-        val off = Color.rgb(140, 150, 165)
-        metronomeButton.setTextColor(if (TransportStore.metronome(this)) on else off)
-        countInButton.setTextColor(if (TransportStore.countIn(this)) on else off)
+        Ui.styleCompact(metronomeButton, TransportStore.metronome(this), AppTheme.play)
+        Ui.styleCompact(countInButton, TransportStore.countIn(this), AppTheme.play)
         loopButton.text = when (project.loopMode) {
             LoopMode.SONG -> "SONG"
             LoopMode.PATTERN -> "PAT"
             LoopMode.RANGE -> "RNG"
         }
-        loopButton.setTextColor(if (project.loopMode == LoopMode.SONG) off else on)
+        Ui.styleCompact(loopButton, project.loopMode != LoopMode.SONG, AppTheme.gold)
     }
 
     private fun toggleMetronome() {
@@ -723,14 +706,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun focusTabChip(type: ModuleType, density: Float): TextView {
-        val accent = AppTheme.accentColor(this)
         return TextView(this).apply {
             text = type.label
-            setTextColor(accent)
+            setTextColor(AppTheme.textPrimary)
             textSize = 12f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            setPadding((10 * density).toInt(), (6 * density).toInt(), (10 * density).toInt(), (6 * density).toInt())
+            setPadding((12 * density).toInt(), (6 * density).toInt(), (12 * density).toInt(), (6 * density).toInt())
             background = ContextCompat.getDrawable(this@MainActivity, R.drawable.chrome_button_bg)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -817,11 +799,17 @@ class MainActivity : ComponentActivity() {
 
         val titleText = TextView(this).apply {
             text = type.label
-            setTextColor(if (focused) Color.BLACK else AppTheme.accentColor(this@MainActivity))
-            textSize = 14f
+            setTextColor(if (focused) AppTheme.canvas else AppTheme.accentColor(this@MainActivity))
+            textSize = 13f
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
-            if (focused) setBackgroundColor(AppTheme.accentColor(this@MainActivity))
+            letterSpacing = 0.04f
+            setPadding((10 * density).toInt(), (5 * density).toInt(), (10 * density).toInt(), (5 * density).toInt())
+            if (focused) {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 8f * density
+                    setColor(AppTheme.accentColor(this@MainActivity))
+                }
+            }
             setOnClickListener {
                 if (workspace == WorkspaceLayout.FOCUS || fullScreenModule != null) {
                     switchFullscreenModule(type)
@@ -919,21 +907,8 @@ class MainActivity : ComponentActivity() {
         row.addView(buildChokeButton(type))
     }
 
-    private fun chromeButton(label: String, onClick: () -> Unit): TextView {
-        val density = resources.displayMetrics.density
-        return TextView(this).apply {
-            text = label
-            setTextColor(Color.WHITE)
-            textSize = 12f
-            gravity = Gravity.CENTER
-            setPadding((10 * density).toInt(), (5 * density).toInt(), (10 * density).toInt(), (5 * density).toInt())
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.chrome_button_bg)
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                marginStart = (4 * density).toInt()
-            }
-            setOnClickListener { onClick() }
-        }
-    }
+    private fun chromeButton(label: String, onClick: () -> Unit): TextView =
+        Ui.chromeButton(this, label, onClick)
 
     private fun bodyFor(type: ModuleType): View {
         val existing = moduleBodies[type]
@@ -986,8 +961,7 @@ class MainActivity : ComponentActivity() {
 
     private fun styleChokeButton(button: TextView, enabled: Boolean) {
         button.text = if (enabled) "MONO" else "POLY"
-        button.setTextColor(if (enabled) Color.BLACK else Color.WHITE)
-        button.setBackgroundColor(if (enabled) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
+        Ui.styleSelectedChrome(button, enabled)
     }
 
     private fun moveModule(type: ModuleType, delta: Int) {
@@ -1089,7 +1063,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildTrackerContent(): LinearLayout {
-        val statusTextView = TextView(this).apply { setTextColor(Color.rgb(90, 200, 200)) }
+        val statusTextView = TextView(this).apply {
+            setTextColor(AppTheme.accentColor(this@MainActivity))
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 12f
+        }
         statusText = statusTextView
 
         val header = LinearLayout(this).apply {
@@ -1119,7 +1097,7 @@ class MainActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
         return TextView(this).apply {
             this.text = text
-            setTextColor(Color.rgb(120, 140, 160))
+            setTextColor(AppTheme.textSecondary)
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
         }
@@ -1132,7 +1110,7 @@ class MainActivity : ComponentActivity() {
         container.removeAllViews()
         val entries = library.all()
         if (entries.isEmpty()) {
-            container.addView(label("No samples yet. Tap M > Samples or Sounds."))
+            container.addView(Ui.emptyState(this, "No samples yet. Tap M → Samples or Sounds."))
             return
         }
             for ((index, entry) in entries.withIndex()) {
@@ -1142,22 +1120,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun sampleRow(entry: SampleEntry, accent: Int): LinearLayout {
-        val density = resources.displayMetrics.density
-
-        val accentStrip = View(this).apply { setBackgroundColor(accent) }
-        val nameButton = Button(this).apply {
-            text = entry.displayName
-            setTextColor(Color.WHITE)
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            background = null
-            setOnClickListener {
+        return Ui.listRow(
+            context = this,
+            title = entry.displayName,
+            subtitle = "Tap to load · hold for Edit / Mixer",
+            leading = accent,
+            trailing = "▶",
+            onClick = {
                 if (recordArmed && sequencer.isRunning) {
                     recordLiveHit(entry)
                 } else {
                     loadIntoSampler(entry)
                 }
-            }
-            setOnLongClickListener {
+            },
+            onLongClick = {
                 AlertDialog.Builder(this@MainActivity)
                     .setTitle(entry.displayName)
                     .setItems(arrayOf("Edit", "Mixer")) { _, which ->
@@ -1172,18 +1148,8 @@ class MainActivity : ComponentActivity() {
                     }
                     .show()
                 true
-            }
-        }
-
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.rgb(30, 30, 34))
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
-                setMargins(0, (2 * density).toInt(), 0, (2 * density).toInt())
-            }
-            addView(accentStrip, LinearLayout.LayoutParams((6 * density).toInt(), LinearLayout.LayoutParams.MATCH_PARENT))
-            addView(nameButton, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
+            },
+        )
     }
 
     /**
@@ -1304,10 +1270,7 @@ class MainActivity : ComponentActivity() {
         refreshSampleList()
     }
 
-    private fun label(text: String) = TextView(this).apply {
-        this.text = text
-        setTextColor(Color.WHITE)
-    }
+    private fun label(text: String) = Ui.body(this, text)
 
     // --- Tracker section ------------------------------------------------------
 
@@ -1334,7 +1297,7 @@ class MainActivity : ComponentActivity() {
         row.addView(
             TextView(this).apply {
                 text = "%02X".format(position)
-                setTextColor(Color.rgb(90, 110, 130))
+                setTextColor(AppTheme.textMuted)
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams((28 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
                 isLongClickable = true
@@ -1351,7 +1314,7 @@ class MainActivity : ComponentActivity() {
             row.addView(
                 TextView(this).apply {
                     text = phraseId?.let { "%02X".format(it) } ?: "--"
-                    setTextColor(if (phraseId != null) Color.WHITE else Color.rgb(60, 70, 80))
+                    setTextColor(if (phraseId != null) AppTheme.textPrimary else AppTheme.textMuted)
                     gravity = Gravity.CENTER
                     setPadding(4, 8, 4, 8)
                     layoutParams = LinearLayout.LayoutParams((36 * density).toInt(), LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -1368,7 +1331,7 @@ class MainActivity : ComponentActivity() {
         }
         val (loopStart, loopEnd) = project.loopBounds(stepSequencerPanel?.currentPattern ?: project.loopStart)
         if (project.loopMode != LoopMode.SONG && position in loopStart..loopEnd) {
-            row.setBackgroundColor(Color.rgb(28, 40, 32))
+            row.setBackgroundColor(AppTheme.loopTint)
         }
         return row
     }
@@ -1410,7 +1373,7 @@ class MainActivity : ComponentActivity() {
         fun loopTint(index: Int): Int {
             val (loopStart, loopEnd) = project.loopBounds(stepSequencerPanel?.currentPattern ?: project.loopStart)
             return if (project.loopMode != LoopMode.SONG && index in loopStart..loopEnd) {
-                Color.rgb(28, 40, 32)
+                AppTheme.loopTint
             } else {
                 Color.TRANSPARENT
             }
@@ -1430,7 +1393,7 @@ class MainActivity : ComponentActivity() {
             songRowViews[highlightedPosition].setBackgroundColor(loopTint(highlightedPosition))
         }
         if (position in songRowViews.indices) {
-            songRowViews[position].setBackgroundColor(Color.rgb(0, 50, 55))
+            songRowViews[position].setBackgroundColor(AppTheme.playheadRow)
         }
         highlightedPosition = position
         lastLiveStep = step

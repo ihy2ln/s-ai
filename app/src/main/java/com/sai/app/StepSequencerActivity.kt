@@ -1,10 +1,8 @@
 package com.sai.app
 
-import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.activity.ComponentActivity
 
 /** Full-screen wrapper around [ChannelRackPanelView] - the same panel also embeds directly
@@ -17,17 +15,10 @@ class StepSequencerActivity : ComponentActivity() {
     }
 
     private fun buildUi(): LinearLayout {
-        val density = resources.displayMetrics.density
-        val pad = (12 * density).toInt()
+        val pad = Ui.dp(this, 12f)
 
-        val title = TextView(this).apply {
-            text = "CHANNEL RACK"
-            setTextColor(AppTheme.accentColor(this@StepSequencerActivity))
-            textSize = 18f
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val title = Ui.screenTitle(this, "CHANNEL RACK")
+        val titleRow = Ui.headerBar(this) {
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(PillButton.create(this@StepSequencerActivity, "N") { NavMenu.show(this@StepSequencerActivity) })
         }
@@ -35,7 +26,7 @@ class StepSequencerActivity : ComponentActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            setBackgroundColor(Color.rgb(18, 18, 20))
+            setBackgroundColor(AppTheme.canvas)
             addView(titleRow)
             addView(
                 ChannelRackPanelView(this@StepSequencerActivity),

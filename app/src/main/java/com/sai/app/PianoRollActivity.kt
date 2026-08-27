@@ -1,7 +1,6 @@
 package com.sai.app
 
 import android.app.AlertDialog
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
@@ -57,47 +56,29 @@ class PianoRollActivity : ComponentActivity() {
         val density = resources.displayMetrics.density
         val pad = (12 * density).toInt()
 
-        val title = TextView(this).apply {
-            text = "PIANO ROLL %02X".format(phraseId)
-            setTextColor(AppTheme.accentColor(this@PianoRollActivity))
-            typeface = Typeface.MONOSPACE
-            textSize = 18f
-        }
-        val titleRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val title = Ui.screenTitle(this, "PIANO ROLL %02X".format(phraseId))
+        val titleRow = Ui.headerBar(this) {
             addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(PillButton.create(this@PianoRollActivity, "N") { NavMenu.show(this@PianoRollActivity) })
         }
 
-        instrumentButton = Button(this).apply {
-            text = "-- pick instrument --"
-            setOnClickListener { pickInstrument() }
-        }
+        instrumentButton = Ui.compactButton(this, "-- pick instrument --") { pickInstrument() }
 
         rangeLabel = TextView(this).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             textSize = 12f
             gravity = Gravity.CENTER
         }
-        velocityButton = Button(this).apply {
-            textSize = 11f
-            minHeight = 0
-            setOnClickListener { cycleVelocity() }
-        }
-        lengthButton = Button(this).apply {
-            textSize = 11f
-            minHeight = 0
-            setOnClickListener { cycleLength() }
-        }
+        velocityButton = Ui.compactButton(this, "Vel") { cycleVelocity() }
+        lengthButton = Ui.compactButton(this, "Len") { cycleLength() }
         refreshToolbarLabels()
 
         val tools = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            addView(compactButton("-8va") { shiftRange(-12) })
+            addView(Ui.compactButton(this@PianoRollActivity, "-8va") { shiftRange(-12) })
             addView(rangeLabel)
-            addView(compactButton("+8va") { shiftRange(12) })
+            addView(Ui.compactButton(this@PianoRollActivity, "+8va") { shiftRange(12) })
             addView(velocityButton)
             addView(lengthButton)
         }
@@ -107,6 +88,7 @@ class PianoRollActivity : ComponentActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
+            setBackgroundColor(AppTheme.canvas)
             addView(titleRow)
             addView(instrumentButton)
             addView(HorizontalScrollView(this@PianoRollActivity).apply { addView(tools) })
@@ -114,18 +96,6 @@ class PianoRollActivity : ComponentActivity() {
                 ScrollView(this@PianoRollActivity).apply { addView(rowsContainer) },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
             )
-        }
-    }
-
-    private fun compactButton(label: String, onClick: () -> Unit): Button {
-        val density = resources.displayMetrics.density
-        return Button(this).apply {
-            text = label
-            textSize = 11f
-            minHeight = 0
-            minimumHeight = 0
-            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
-            setOnClickListener { onClick() }
         }
     }
 
@@ -195,7 +165,7 @@ class PianoRollActivity : ComponentActivity() {
 
         val keyLabel = TextView(this).apply {
             text = NoteNames.format(note)
-            setTextColor(if (isBlackKey) Color.rgb(140, 150, 160) else Color.WHITE)
+            setTextColor(if (isBlackKey) AppTheme.textSecondary else AppTheme.textPrimary)
             typeface = Typeface.MONOSPACE
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams((44 * density).toInt(), (22 * density).toInt())
@@ -212,7 +182,7 @@ class PianoRollActivity : ComponentActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(if (isBlackKey) Color.rgb(26, 27, 31) else Color.rgb(20, 21, 24))
+            setBackgroundColor(if (isBlackKey) AppTheme.pianoBlack else AppTheme.pianoWhite)
             addView(keyLabel)
             addView(stepsRow)
         }

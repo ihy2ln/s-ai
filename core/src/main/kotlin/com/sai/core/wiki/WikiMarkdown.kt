@@ -23,7 +23,7 @@ object WikiMarkdown {
             .trim()
             .replace(Regex("\\s+"), "-")
 
-    fun toHtml(markdown: String, accent: String = "#4dd0e1"): String {
+    fun toHtml(markdown: String, accent: String = "#2ED9A6"): String {
         val sections = sections(markdown)
         val body = StringBuilder()
         body.append(tocHtml(sections))
@@ -170,8 +170,8 @@ object WikiMarkdown {
           <style>
             html { scroll-behavior: smooth; }
             body {
-              background: #121214;
-              color: #e8e8ea;
+              background: #0F141C;
+              color: #F0F3F7;
               font-family: sans-serif;
               font-size: 15px;
               line-height: 1.55;
@@ -180,58 +180,64 @@ object WikiMarkdown {
             }
             h1 {
               color: $accent;
-              font-size: 1.6em;
-              border-bottom: 1px solid #2a2a30;
+              font-size: 1.55em;
+              border-bottom: 1px solid #2A3648;
               padding-bottom: 8px;
               margin-top: 0;
             }
             h2 {
-              color: #81d4fa;
-              font-size: 1.25em;
+              color: #D7E0EA;
+              font-size: 1.2em;
               margin-top: 28px;
               border-left: 3px solid $accent;
               padding-left: 10px;
             }
             h3 {
-              color: #b0bec5;
+              color: #8B97A8;
               font-size: 1.05em;
               margin-top: 18px;
             }
             p { margin: 8px 0; }
             ul { margin: 8px 0 8px 8px; padding-left: 18px; }
             li { margin: 4px 0; }
-            hr { border: 0; border-top: 1px solid #2a2a30; margin: 24px 0; }
-            em { color: #b0bec5; }
+            hr { border: 0; border-top: 1px solid #2A3648; margin: 24px 0; }
+            em { color: #8B97A8; }
             code {
-              background: #1e1e24;
-              color: #ffcc80;
-              padding: 1px 5px;
-              border-radius: 3px;
+              background: #1E2836;
+              color: #E8C547;
+              padding: 1px 6px;
+              border-radius: 6px;
               font-family: monospace;
               font-size: 0.92em;
             }
             strong { color: #ffffff; }
             table {
               width: 100%;
-              border-collapse: collapse;
+              border-collapse: separate;
+              border-spacing: 0;
               margin: 12px 0;
               font-size: 0.92em;
+              background: #18212D;
+              border: 1px solid #2A3648;
+              border-radius: 10px;
+              overflow: hidden;
             }
             th, td {
-              border: 1px solid #333;
-              padding: 6px 8px;
+              border-bottom: 1px solid #2A3648;
+              padding: 8px 10px;
               text-align: left;
             }
-            th { background: #1a1a20; color: $accent; }
-            a { color: #64b5f6; text-decoration: none; }
+            tr:last-child td { border-bottom: 0; }
+            th { background: #1E2836; color: $accent; }
+            a { color: $accent; text-decoration: none; }
             .toc {
-              background: #1a1a22;
-              border: 1px solid #2e2e36;
-              border-radius: 8px;
+              background: #18212D;
+              border: 1px solid #2A3648;
+              border-radius: 12px;
               padding: 12px 14px;
               margin: 8px 0 20px;
             }
-            .toc-title { color: $accent; font-weight: bold; margin-bottom: 8px; }
+            .toc-title { color: $accent; font-weight: bold; margin-bottom: 8px; letter-spacing: 0.04em; }
             .toc ul { margin: 0; padding-left: 18px; }
           </style>
         </head>

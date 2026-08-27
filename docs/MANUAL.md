@@ -394,6 +394,8 @@ Manual export/import via **P → Save** / **P → Load**:
 
 **M → Theme** (also in Phrase Editor):
 
+S.Ai's default look is a dark navy workspace with a sparse teal accent (FL Mobile-style). You can still override everything:
+
 - **Color wheel** — pick a color
 - **Set as Background** — solid color layer
 - **Set as Accent Color** — titles, knobs, highlights
@@ -401,7 +403,7 @@ Manual export/import via **P → Save** / **P → Load**:
 - **Mirror** — flip background horizontally
 - **Background Opacity** — dark scrim over media (0–100%)
 - **Window / Button Opacity** — panel and pill transparency
-- **Reset to Default**
+- **Reset to Default** — navy canvas + teal accent
 
 ## Live Recording
 

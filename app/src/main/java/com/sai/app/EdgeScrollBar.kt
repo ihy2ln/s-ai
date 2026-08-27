@@ -3,7 +3,6 @@ package com.sai.app
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.view.MotionEvent
@@ -24,15 +23,15 @@ class EdgeScrollBar(context: Context) : View(context) {
 
     private val density = resources.displayMetrics.density
     private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(36, 38, 44)
+        color = AppTheme.surfaceMuted
         style = Paint.Style.FILL
     }
     private val railPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(70, 74, 82)
+        color = AppTheme.surfaceRaised
         style = Paint.Style.FILL
     }
     private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(160, 168, 180)
+        color = AppTheme.accentColor(context)
         style = Paint.Style.FILL
     }
     private val thumbRect = RectF()

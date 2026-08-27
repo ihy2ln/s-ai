@@ -36,13 +36,13 @@ class StepRowView(context: Context) : View(context) {
     private var paintValue = false
     private var lastIndex = -1
 
-    private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(235, 110, 130) }
-    private val playheadOnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(255, 230, 90) }
-    private val playheadOffPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(70, 130, 160) }
-    private val offGroupAPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(38, 42, 50) }
-    private val offGroupBPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(48, 32, 36) }
-    private val gapPx = 2f * context.resources.displayMetrics.density
-    private val cornerPx = 2f * context.resources.displayMetrics.density
+    private val onPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(232, 118, 142) }
+    private val playheadOnPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AppTheme.gold }
+    private val playheadOffPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AppTheme.info }
+    private val offGroupAPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = AppTheme.surfaceMuted }
+    private val offGroupBPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(32, 28, 38) }
+    private val gapPx = 2.5f * context.resources.displayMetrics.density
+    private val cornerPx = 3.5f * context.resources.displayMetrics.density
 
     fun setStates(newStates: BooleanArray) {
         states = newStates.copyOf(stepCount)

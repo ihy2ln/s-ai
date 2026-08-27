@@ -2,9 +2,7 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Context
-import android.graphics.Color
 import android.view.Gravity
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -23,29 +21,27 @@ object ThemeMenu {
             layoutParams = LinearLayout.LayoutParams((240 * density).toInt(), (240 * density).toInt())
         }
 
-        val setBackgroundButton = Button(context).apply { text = "Set as Background" }
-        val setAccentButton = Button(context).apply { text = "Set as Accent Color" }
+        val setBackgroundButton = Ui.compactButton(context, "Set as Background") {}
+        val setAccentButton = Ui.compactButton(context, "Set as Accent Color") {}
         val colorButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(setBackgroundButton)
             addView(setAccentButton)
         }
 
-        val choosePictureButton = Button(context).apply { text = "Choose Picture" }
-        val chooseVideoButton = Button(context).apply { text = "Choose Video" }
+        val choosePictureButton = Ui.compactButton(context, "Choose Picture") {}
+        val chooseVideoButton = Ui.compactButton(context, "Choose Video") {}
         val mediaButtonsRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(choosePictureButton)
             addView(chooseVideoButton)
         }
 
-        val mirrorButton = Button(context).apply {
-            text = if (AppBackground.mirrorEnabled(context)) "Mirror: On" else "Mirror: Off"
-        }
+        val mirrorButton = Ui.compactButton(context, if (AppBackground.mirrorEnabled(context)) "Mirror: On" else "Mirror: Off") {}
 
         val bgOpacityLabel = TextView(context).apply {
             text = "Background Opacity: ${AppTheme.backgroundOpacityPercent(context)}%"
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             setPadding(0, pad / 2, 0, 0)
         }
         val bgOpacitySeekBar = SeekBar(context).apply {
@@ -55,7 +51,7 @@ object ThemeMenu {
 
         val opacityLabel = TextView(context).apply {
             text = "Window / Button Opacity: ${AppTheme.opacityPercent(context)}%"
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             setPadding(0, pad / 2, 0, 0)
         }
         val opacitySeekBar = SeekBar(context).apply {
@@ -63,7 +59,7 @@ object ThemeMenu {
             progress = (AppTheme.opacityPercent(context) - 10).coerceIn(0, 90)
         }
 
-        val resetButton = Button(context).apply { text = "Reset to Default" }
+        val resetButton = Ui.compactButton(context, "Reset to Default") {}
 
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -71,7 +67,7 @@ object ThemeMenu {
             setPadding(pad, pad, pad, pad)
             addView(TextView(context).apply {
                 text = "Pick a color, then choose what it applies to"
-                setTextColor(Color.WHITE)
+                setTextColor(AppTheme.textSecondary)
                 setPadding(0, 0, 0, pad / 2)
             })
             addView(wheel)
@@ -85,7 +81,7 @@ object ThemeMenu {
             addView(resetButton)
         }
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = AlertDialog.Builder(context, R.style.Theme_Sai_Dialog)
             .setTitle("Theme")
             .setView(content)
             .setNegativeButton("Close", null)

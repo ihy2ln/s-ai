@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.app.AlertDialog
 import android.content.Context
-import android.graphics.Color
 import android.text.InputType
 import android.util.AttributeSet
 import android.view.Gravity
@@ -58,23 +57,26 @@ class ChannelRackPanelView @JvmOverloads constructor(
             text = "CHANNEL RACK"
             setTextColor(AppTheme.accentColor(context))
             textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
         }
 
-        val prevPattern = compactButton("<") { movePattern(-1) }
+        val prevPattern = Ui.compactButton(context, "<") { movePattern(-1) }
         patternLabel = TextView(context).apply {
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             gravity = Gravity.CENTER
             textSize = 11f
+            typeface = android.graphics.Typeface.MONOSPACE
             layoutParams = LayoutParams((72 * density).toInt(), LayoutParams.WRAP_CONTENT)
         }
-        val nextPattern = compactButton(">") { movePattern(1) }
+        val nextPattern = Ui.compactButton(context, ">") { movePattern(1) }
 
-        patternLengthButton = compactButton(lengthLabel()) { cyclePatternLength() }
-        swingButton = compactButton(swingLabel()) { editSwing() }
-        loopButton = compactButton(loopLabel()) { cycleLoopMode() }
-        val optionsButton = compactButton("...") { showRackOptions() }
-        val zoomOutButton = compactButton("-") { changeZoom(-4f) }
-        val zoomInButton = compactButton("+") { changeZoom(4f) }
+        patternLengthButton = Ui.compactButton(context, lengthLabel()) { cyclePatternLength() }
+        swingButton = Ui.compactButton(context, swingLabel()) { editSwing() }
+        loopButton = Ui.compactButton(context, loopLabel()) { cycleLoopMode() }
+        val optionsButton = Ui.compactButton(context, "···") { showRackOptions() }
+        val zoomOutButton = Ui.compactButton(context, "−") { changeZoom(-4f) }
+        val zoomInButton = Ui.compactButton(context, "+") { changeZoom(4f) }
 
         val toolbarScroll = HorizontalScrollView(context).apply {
             isHorizontalScrollBarEnabled = false
@@ -111,7 +113,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
             addView(
                 TextView(context).apply {
                     text = "Mute Solo Vol Pan Trk"
-                    setTextColor(Color.rgb(90, 100, 115))
+                    setTextColor(AppTheme.textMuted)
                     textSize = 8f
                     layoutParams = LayoutParams(controlsWidthPx, LayoutParams.WRAP_CONTENT)
                 },
@@ -120,14 +122,7 @@ class ChannelRackPanelView @JvmOverloads constructor(
 
         rowsContainer = LinearLayout(context).apply { orientation = VERTICAL }
 
-        val addChannelButton = Button(context).apply {
-            text = "+ Add channel"
-            textSize = 11f
-            minHeight = 0
-            minimumHeight = 0
-            setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), (6 * density).toInt())
-            setOnClickListener { addChannel() }
-        }
+        val addChannelButton = Ui.compactButton(context, "+ Add channel") { addChannel() }
 
         addView(toolbar)
         addView(labelRow)
@@ -241,21 +236,6 @@ class ChannelRackPanelView @JvmOverloads constructor(
         ChannelRackStore.setVisibleCount(context, visible + 1)
         if (channels.size <= visible) channels.add(RackChannelState())
         refreshRows()
-    }
-
-    private fun compactButton(label: String, onClick: () -> Unit): Button {
-        val density = resources.displayMetrics.density
-        return Button(context).apply {
-            text = label
-            textSize = 11f
-            minHeight = 0
-            minimumHeight = 0
-            setPadding((8 * density).toInt(), (4 * density).toInt(), (8 * density).toInt(), (4 * density).toInt())
-            layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                setMargins((2 * density).toInt(), 0, (2 * density).toInt(), 0)
-            }
-            setOnClickListener { onClick() }
-        }
     }
 
     private fun lengthLabel(): String = "${project.patternLength(pattern)} steps"

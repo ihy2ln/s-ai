@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
@@ -14,13 +13,14 @@ class WaveformView @JvmOverloads constructor(
 ) : View(context, attrs) {
 
     private val paint = Paint().apply {
-        color = Color.GREEN
-        strokeWidth = 1f
+        color = AppTheme.accentColor(context)
+        strokeWidth = 1.4f
     }
     private val markerPaint = Paint().apply {
-        color = Color.WHITE
+        color = AppTheme.withAlpha(AppTheme.textPrimary, 180)
         strokeWidth = 2f
     }
+    private val backPaint = Paint().apply { color = AppTheme.surfaceMuted }
 
     var channels: Int = 1
     var samples: ShortArray = ShortArray(0)
@@ -36,6 +36,7 @@ class WaveformView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), backPaint)
         val frameCount = if (channels > 0) samples.size / channels else 0
         if (frameCount == 0 || width == 0) return
 

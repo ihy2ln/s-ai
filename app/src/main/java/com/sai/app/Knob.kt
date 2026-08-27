@@ -26,7 +26,7 @@ class Knob(context: Context, private val min: Float, private val max: Float) : V
         style = Paint.Style.STROKE
         strokeWidth = 8f
         strokeCap = Paint.Cap.ROUND
-        color = Color.rgb(60, 62, 68)
+        color = AppTheme.border
     }
     private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -113,7 +113,7 @@ class Knob(context: Context, private val min: Float, private val max: Float) : V
             }
             val valueLabel = TextView(context).apply {
                 text = format(initial)
-                setTextColor(Color.rgb(160, 170, 180))
+                setTextColor(AppTheme.textSecondary)
                 textSize = 11f
                 gravity = android.view.Gravity.CENTER
             }

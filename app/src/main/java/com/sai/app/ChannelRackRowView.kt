@@ -1,7 +1,6 @@
 package com.sai.app
 
 import android.content.Context
-import android.graphics.Color
 import android.text.TextUtils
 import android.view.Gravity
 import android.widget.Button
@@ -13,7 +12,7 @@ class ChannelRackRowView(context: Context) : LinearLayout(context) {
 
     val muteLed = MuteLedView(context)
     val soloLed = MuteLedView(context).apply {
-        onColor = Color.rgb(220, 180, 40)
+        onColor = AppTheme.gold
         muted = true
     }
     val volumeKnob = Knob(context, 0f, 1f)
@@ -36,7 +35,7 @@ class ChannelRackRowView(context: Context) : LinearLayout(context) {
         panKnob.setValue(0.5f)
 
         mixerTrackLabel.apply {
-            setTextColor(Color.rgb(140, 150, 165))
+            setTextColor(AppTheme.textSecondary)
             textSize = 10f
             gravity = Gravity.CENTER
             isClickable = true
@@ -44,7 +43,7 @@ class ChannelRackRowView(context: Context) : LinearLayout(context) {
         }
 
         channelButton.apply {
-            setTextColor(Color.WHITE)
+            setTextColor(AppTheme.textPrimary)
             textSize = 9f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END

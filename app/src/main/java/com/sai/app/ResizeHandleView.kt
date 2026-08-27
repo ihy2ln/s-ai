@@ -2,7 +2,6 @@ package com.sai.app
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.view.View
 
@@ -10,19 +9,19 @@ import android.view.View
 class ResizeHandleView(context: Context) : View(context) {
 
     private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(88, 92, 102)
+        color = AppTheme.border
         strokeWidth = 2f * resources.displayMetrics.density
         strokeCap = Paint.Cap.ROUND
     }
 
     private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(196, 202, 212)
+        color = AppTheme.textSecondary
         strokeWidth = 3.5f * resources.displayMetrics.density
         strokeCap = Paint.Cap.ROUND
     }
 
     init {
-        setBackgroundColor(Color.rgb(42, 44, 50))
+        setBackgroundColor(AppTheme.surfaceMuted)
         contentDescription = "Drag to resize modules"
         isClickable = false
     }
