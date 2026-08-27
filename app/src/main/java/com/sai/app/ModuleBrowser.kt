@@ -16,6 +16,7 @@ import com.sai.core.plugin.PluginCatalog
 import com.sai.core.plugin.PluginCategory
 import com.sai.core.plugin.PluginDescriptor
 import com.sai.core.plugin.PluginFormat
+import com.sai.core.plugin.PluginJob
 import com.sai.core.plugin.PluginQuery
 import com.sai.core.plugin.PluginRole
 
@@ -38,6 +39,7 @@ object ModuleBrowser {
         var role = initialRole
         var format: PluginFormat? = null
         var category: PluginCategory? = null
+        var job: PluginJob? = null
         var queryText = ""
 
         val grid = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
@@ -57,6 +59,10 @@ object ModuleBrowser {
             setPadding(pad, (8 * density).toInt(), pad, (8 * density).toInt())
         }
 
+        val jobRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         val roleRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -98,6 +104,22 @@ object ModuleBrowser {
         }
 
         fun rebuildChips() {
+            jobRow.removeAllViews()
+            val jobs = listOf<Pair<String, PluginJob?>>(
+                "All" to null,
+                "Vocals" to PluginJob.VOCALS,
+                "Guitar" to PluginJob.GUITAR,
+                "Drums" to PluginJob.DRUMS,
+                "Mix" to PluginJob.MIX,
+                "MIDI" to PluginJob.MIDI,
+                "Instruments" to PluginJob.INSTRUMENTS,
+            )
+            for ((label, value) in jobs) {
+                jobRow.addView(chip(label, job == value) {
+                    job = value
+                    refresh()
+                })
+            }
             roleRow.removeAllViews()
             val roles = listOf<Pair<String, PluginRole?>>(
                 "All" to null,
@@ -156,7 +178,7 @@ object ModuleBrowser {
                 setPadding((8 * density).toInt(), (6 * density).toInt(), (8 * density).toInt(), 0)
             }
             val meta = TextView(context).apply {
-                text = "${plugin.roleLabel()} · ${plugin.category.label}"
+                text = plugin.tileLine()
                 setTextColor(Color.rgb(130, 140, 150))
                 textSize = 10f
                 setPadding((8 * density).toInt(), 0, (8 * density).toInt(), (8 * density).toInt())
@@ -221,6 +243,7 @@ object ModuleBrowser {
                     role = role,
                     format = format,
                     category = category,
+                    job = job,
                 ),
             )
             val enabled = enabledIds()
@@ -285,7 +308,7 @@ object ModuleBrowser {
         })
 
         val hint = TextView(context).apply {
-            text = "Built-in modules stay available. VST2/VST3 entries are in-app instruments and effects."
+            text = "Jobs pick a starting catalog. Built-in Home modules stay available. VST2/VST3 entries are in-app engines."
             setTextColor(Color.rgb(120, 130, 140))
             textSize = 11f
             setPadding(0, 0, 0, (6 * density).toInt())
@@ -300,10 +323,19 @@ object ModuleBrowser {
             addView(
                 HorizontalScrollView(context).apply {
                     isHorizontalScrollBarEnabled = false
-                    addView(roleRow)
+                    addView(jobRow)
                 },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = (8 * density).toInt()
+                },
+            )
+            addView(
+                HorizontalScrollView(context).apply {
+                    isHorizontalScrollBarEnabled = false
+                    addView(roleRow)
+                },
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = (6 * density).toInt()
                 },
             )
             addView(

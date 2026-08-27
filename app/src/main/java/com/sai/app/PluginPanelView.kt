@@ -45,6 +45,7 @@ class PluginPanelView @JvmOverloads constructor(
             }
             addView(status)
         } else {
+            params.putAll(descriptor.defaultParams)
             params.putAll(PluginParamStore.load(context, descriptor.id))
             if (descriptor.canInsertOnMixer) {
                 val kind = insertKind()
@@ -74,7 +75,7 @@ class PluginPanelView @JvmOverloads constructor(
                 },
             )
 
-            if (descriptor.role == PluginRole.INSTRUMENT) {
+            if (descriptor.role == PluginRole.INSTRUMENT && descriptor.homeModule != "SCALE") {
                 addView(buildKeyboard())
                 addView(
                     HorizontalScrollView(context).apply {
@@ -83,12 +84,20 @@ class PluginPanelView @JvmOverloads constructor(
                     },
                 )
             } else {
-                addView(
-                    HorizontalScrollView(context).apply {
-                        isNestedScrollingEnabled = false
-                        addView(buildEffectButtons(descriptor))
-                    },
-                )
+                if (descriptor.canInsertOnMixer) {
+                    addView(
+                        HorizontalScrollView(context).apply {
+                            isNestedScrollingEnabled = false
+                            addView(buildEffectButtons(descriptor))
+                        },
+                    )
+                } else {
+                    addView(TextView(context).apply {
+                        text = "Scale reference only — no audio engine. Delay before Reverb; Tune before EQ on mixer chains."
+                        setTextColor(Color.rgb(140, 150, 165))
+                        textSize = 11f
+                    })
+                }
             }
         }
     }
@@ -103,6 +112,11 @@ class PluginPanelView @JvmOverloads constructor(
     }
 
     private fun seedInstrumentDefaults(descriptor: PluginDescriptor) {
+        if (descriptor.homeModule == "SCALE") {
+            if (!params.containsKey("root")) params["root"] = 0.0
+            if (!params.containsKey("mode")) params["mode"] = 0.0
+            return
+        }
         val kind = InstrumentVoice.kindForHomeModule(descriptor.homeModule ?: "") ?: return
         val sample = InstrumentVoice.render(kind, 60)
         if (!params.containsKey("cutoff")) params["cutoff"] = 4000.0
@@ -120,7 +134,7 @@ class PluginPanelView @JvmOverloads constructor(
 
     private fun buildKnobs(descriptor: PluginDescriptor): LinearLayout {
         val knobs = LinearLayout(context).apply { orientation = HORIZONTAL }
-        if (descriptor.role == PluginRole.INSTRUMENT) {
+        if (descriptor.role == PluginRole.INSTRUMENT && descriptor.homeModule != "SCALE") {
             knobs.addView(knob("CUTOFF", 200f, 12000f, "cutoff") { "%.0fHz".format(it) })
             knobs.addView(knob("RES", 0f, 1f, "resonance") { "%.2f".format(it) })
             knobs.addView(knob("CRUNCH", 0f, 1f, "drive") { "%.2f".format(it) })
@@ -148,7 +162,51 @@ class PluginPanelView @JvmOverloads constructor(
                 knobs.addView(knob("THRES", -18f, 0f, "threshold") { "%.0fdB".format(it) })
                 knobs.addView(knob("REL", 10f, 400f, "release") { "%.0fms".format(it) })
             }
-            else -> Unit
+            InsertKind.REVERB -> {
+                knobs.addView(knob("SIZE", 0f, 1f, "size") { "%.2f".format(it) })
+                knobs.addView(knob("DAMP", 0f, 1f, "damp") { "%.2f".format(it) })
+                knobs.addView(knob("MIX", 0f, 1f, "mix") { "%.2f".format(it) })
+                knobs.addView(knob("DUCK", 0f, 1f, "duck") { "%.2f".format(it) })
+            }
+            InsertKind.PHASER -> {
+                knobs.addView(knob("RATE", 0.05f, 8f, "rate") { "%.2fHz".format(it) })
+                knobs.addView(knob("DEPTH", 0f, 1f, "depth") { "%.2f".format(it) })
+                knobs.addView(knob("MIX", 0f, 1f, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.CRUSH -> {
+                knobs.addView(knob("BITS", 4f, 16f, "bits") { "%.0f".format(it) })
+                knobs.addView(knob("RATE", 0.05f, 1f, "rate") { "%.2f".format(it) })
+                knobs.addView(knob("MIX", 0f, 1f, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.TAPE -> {
+                knobs.addView(knob("DRIVE", 0f, 1f, "drive") { "%.2f".format(it) })
+                knobs.addView(knob("WOW", 0f, 1f, "wow") { "%.2f".format(it) })
+                knobs.addView(knob("MIX", 0f, 1f, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.GATE -> {
+                knobs.addView(knob("THRES", 0.001f, 0.5f, "threshold") { "%.3f".format(it) })
+                knobs.addView(knob("ATT", 0.5f, 40f, "attack") { "%.0fms".format(it) })
+                knobs.addView(knob("REL", 10f, 400f, "release") { "%.0fms".format(it) })
+            }
+            InsertKind.DEESS -> {
+                knobs.addView(knob("AMT", 0f, 1f, "amount") { "%.2f".format(it) })
+                knobs.addView(knob("FREQ", 4000f, 12000f, "frequency") { "%.0fHz".format(it) })
+            }
+            InsertKind.AMP -> {
+                knobs.addView(knob("DRIVE", 0f, 1f, "drive") { "%.2f".format(it) })
+                knobs.addView(knob("TONE", 0f, 1f, "tone") { "%.2f".format(it) })
+                knobs.addView(knob("MIX", 0f, 1f, "mix") { "%.2f".format(it) })
+            }
+            InsertKind.TUNE -> {
+                knobs.addView(knob("AMT", 0f, 1f, "amount") { "%.2f".format(it) })
+                knobs.addView(knob("NOTE", 48f, 72f, "note") { "%.0f".format(it) })
+            }
+            else -> {
+                if (descriptor.homeModule == "SCALE") {
+                    knobs.addView(knob("ROOT", 0f, 11f, "root") { scaleNoteName(it.toInt()) })
+                    knobs.addView(knob("MODE", 0f, 6f, "mode") { scaleModeName(it.toInt()) })
+                }
+            }
         }
         return knobs
     }
@@ -260,30 +318,42 @@ class PluginPanelView @JvmOverloads constructor(
     )
 
     private fun previewEffect() {
+        if (ModuleLayoutStore.isBypassEnabled(context, moduleType)) {
+            AudioPlayback.playOneShot(toneForPreview(), context = context)
+            return
+        }
         val kind = insertKind() ?: return
-        val slot = InsertSlot(kind = kind, params = params.toMap())
+        val slot = InsertSlot(kind = kind, params = params.toMap(), engineId = plugin?.engineId.orEmpty())
         AudioPlayback.playOneShot(InsertFx.apply(toneForPreview(), slot), context = context)
     }
 
     private fun pickMixerStrip(descriptor: PluginDescriptor) {
-        val kind = insertKind() ?: return
         val labels = (1..MixerStore.STRIP_COUNT).map { "Insert $it" } + "Master"
         AlertDialog.Builder(context)
-            .setTitle("Insert ${descriptor.name}")
+            .setTitle("Append ${descriptor.name}")
             .setItems(labels.toTypedArray()) { _, which ->
-                val slot = InsertSlot(kind = kind, params = params.toMap())
-                if (which >= MixerStore.STRIP_COUNT) {
-                    MixerStore.setMasterInsert(context, slot)
-                    Toast.makeText(context, "${descriptor.name} on master", Toast.LENGTH_SHORT).show()
-                } else {
-                    val strips = MixerStore.loadStrips(context)
-                    strips[which] = strips[which].withInsert(slot)
-                    MixerStore.saveStrips(context, strips)
-                    Toast.makeText(context, "${descriptor.name} on insert ${which + 1}", Toast.LENGTH_SHORT).show()
-                }
+                val slot = InsertSlot(
+                    kind = insertKind() ?: return@setItems,
+                    params = params.toMap(),
+                    engineId = descriptor.engineId.ifBlank { descriptor.id },
+                )
+                val stripIndex = if (which >= MixerStore.STRIP_COUNT) null else which
+                MixerStore.appendInsert(context, stripIndex, slot)
+                val where = if (stripIndex == null) "master" else "insert ${stripIndex + 1}"
+                Toast.makeText(context, "${descriptor.name} appended on $where", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun scaleNoteName(value: Int): String {
+        val names = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        return names[value.coerceIn(0, 11)]
+    }
+
+    private fun scaleModeName(value: Int): String {
+        val names = arrayOf("Major", "Dorian", "Phrygian", "Lydian", "Mixolydian", "Minor", "Locrian")
+        return names[value.coerceIn(0, 6)]
     }
 
     private fun saveToLibrary() {

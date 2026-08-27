@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
     private var lastLiveStep = 0
     private val songRowViews = mutableListOf<LinearLayout>()
     private val chokeButtons = mutableMapOf<ModuleType, TextView>()
+    private val bypassButtons = mutableMapOf<ModuleType, TextView>()
 
     private val audioRecorder = AudioRecorder()
     private lateinit var routeLabel: TextView
@@ -648,6 +649,7 @@ class MainActivity : ComponentActivity() {
 
         modulesColumn.removeAllViews()
         chokeButtons.clear()
+        bypassButtons.clear()
         val density = resources.displayMetrics.density
 
         if (fullscreen) {
@@ -761,6 +763,7 @@ class MainActivity : ComponentActivity() {
 
     private fun rebuildBoxesCanvas() {
         chokeButtons.clear()
+        bypassButtons.clear()
         val stored = ModuleLayoutStore.loadBoxes(this)
         boxesCanvas.setModules(moduleEntries.map { it.type }, stored) { type ->
             buildBoxCard(type)
@@ -925,6 +928,7 @@ class MainActivity : ComponentActivity() {
                 row.addView(chromeButton("+") { openSamples.launch(arrayOf("audio/*")) })
             else -> Unit
         }
+        if (type.isEffectPlugin) row.addView(buildBypassButton(type))
         row.addView(buildChokeButton(type))
     }
 
@@ -1015,6 +1019,25 @@ class MainActivity : ComponentActivity() {
         button.text = if (enabled) "MONO" else "POLY"
         button.setTextColor(if (enabled) Color.BLACK else Color.WHITE)
         button.setBackgroundColor(if (enabled) AppTheme.accentColor(this) else Color.rgb(50, 52, 58))
+    }
+
+    private fun buildBypassButton(type: ModuleType): TextView {
+        val button = chromeButton("IN") {}
+        styleBypassButton(button, ModuleLayoutStore.isBypassEnabled(this, type))
+        button.setOnClickListener {
+            val next = !ModuleLayoutStore.isBypassEnabled(this, type)
+            ModuleLayoutStore.setBypassEnabled(this, type, next)
+            bypassButtons[type]?.let { styleBypassButton(it, next) }
+            styleBypassButton(button, next)
+        }
+        bypassButtons[type] = button
+        return button
+    }
+
+    private fun styleBypassButton(button: TextView, bypassed: Boolean) {
+        button.text = if (bypassed) "BYP" else "IN"
+        button.setTextColor(if (bypassed) Color.BLACK else Color.WHITE)
+        button.setBackgroundColor(if (bypassed) Color.rgb(180, 140, 50) else Color.rgb(50, 52, 58))
     }
 
     private fun moveModule(type: ModuleType, delta: Int) {

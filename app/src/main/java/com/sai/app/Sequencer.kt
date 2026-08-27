@@ -189,9 +189,9 @@ class Sequencer(
         } else {
             null
         }
-        val stripInsert = MixerMath.stripInsert(channel, strips)
-        val masterInsert = MixerStore.masterInsert(context)
-        val cacheKey = "${step.instrument}|$pitched|$note|${gateFrames ?: 0}|${stripInsert.fingerprint()}"
+        val stripChain = MixerMath.stripChain(channel, strips)
+        val masterChain = MixerStore.masterChain(context)
+        val cacheKey = "${step.instrument}|$pitched|$note|${gateFrames ?: 0}|${stripChain.fingerprint()}"
         var processed = insertCache.getOrPut(cacheKey) {
             var shaped = wav
             if (kotlin.math.abs(rate - 1.0f) > 0.0001f) {
@@ -200,7 +200,7 @@ class Sequencer(
             if (gateFrames != null) {
                 shaped = Envelope.gate(shaped, gateFrames)
             }
-            InsertFx.apply(shaped, stripInsert)
+            InsertFx.apply(shaped, stripChain)
         }
         processed = SampleEditor.gain(processed, MixerMath.gainDb(linear))
 
@@ -208,7 +208,7 @@ class Sequencer(
         if (abs(pan) > 0.02) {
             processed = StereoShaper.apply(processed, pan, 1.0, 0.0)
         }
-        processed = InsertFx.apply(processed, masterInsert)
+        processed = InsertFx.apply(processed, masterChain)
 
         MixerStore.hit(MixerMath.stripIndex(channel.mixerTrack), linear)
         val chokeGroup = if (chokeSameTrack) "tracker-track-$track" else null

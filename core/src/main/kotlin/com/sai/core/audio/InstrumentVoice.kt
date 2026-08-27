@@ -12,6 +12,9 @@ enum class VoiceKind {
     PLUCK,
     WARM_PAD,
     CLICK_KIT,
+    BASSLINE,
+    SUPERSAW,
+    ARP,
 }
 
 object InstrumentVoice {
@@ -50,12 +53,31 @@ object InstrumentVoice {
                 Oscillator.generate(Waveform.TRIANGLE, sampleRate, 1, duration, freq * 1.005, amplitude * 0.45),
             )
             VoiceKind.CLICK_KIT -> clickKit(sampleRate, freq, duration, amplitude)
+            VoiceKind.BASSLINE -> Oscillator.generate(
+                Waveform.SAW, sampleRate, 1, duration, freq, amplitude,
+            )
+            VoiceKind.SUPERSAW -> mix(
+                Oscillator.generate(Waveform.SAW, sampleRate, 1, duration, freq * 0.993, amplitude * 0.45),
+                mix(
+                    Oscillator.generate(Waveform.SAW, sampleRate, 1, duration, freq, amplitude * 0.7),
+                    Oscillator.generate(Waveform.SAW, sampleRate, 1, duration, freq * 1.007, amplitude * 0.45),
+                ),
+            )
+            VoiceKind.ARP -> arp(sampleRate, midiNote, duration, amplitude)
         }
-        val shaped = Filter.apply(raw, 20.0, 20000.0, cutoff, resonance, drive, 0.0)
+        val cutoffEnv = when (kind) {
+            VoiceKind.BASSLINE -> (params["cutoff"] ?: 900.0)
+            else -> cutoff
+        }
+        val resEnv = when (kind) {
+            VoiceKind.BASSLINE -> (params["resonance"] ?: 0.72)
+            else -> resonance
+        }
+        val shaped = Filter.apply(raw, 20.0, 20000.0, cutoffEnv, resEnv, drive, 0.0)
         val sustain = when (kind) {
-            VoiceKind.PLUCK, VoiceKind.CLICK_KIT -> 0.15
-            VoiceKind.WARM_PAD -> 0.8
-            VoiceKind.SUB_BASS -> 0.9
+            VoiceKind.PLUCK, VoiceKind.CLICK_KIT, VoiceKind.ARP -> 0.15
+            VoiceKind.WARM_PAD, VoiceKind.SUPERSAW -> 0.8
+            VoiceKind.SUB_BASS, VoiceKind.BASSLINE -> 0.9
             else -> 0.7
         }
         return Envelope.apply(shaped, attack, defaultDecay(kind), sustain, release)
@@ -68,6 +90,9 @@ object InstrumentVoice {
         "PLUCK" -> VoiceKind.PLUCK
         "WARM_PAD" -> VoiceKind.WARM_PAD
         "CLICK_KIT" -> VoiceKind.CLICK_KIT
+        "BASSLINE" -> VoiceKind.BASSLINE
+        "SUPERSAW" -> VoiceKind.SUPERSAW
+        "ARP" -> VoiceKind.ARP
         else -> null
     }
 
@@ -78,8 +103,9 @@ object InstrumentVoice {
 
     private fun defaultDuration(kind: VoiceKind): Double = when (kind) {
         VoiceKind.PLUCK, VoiceKind.CLICK_KIT -> 0.45
-        VoiceKind.WARM_PAD -> 1.6
-        VoiceKind.SUB_BASS -> 1.1
+        VoiceKind.ARP -> 1.2
+        VoiceKind.WARM_PAD, VoiceKind.SUPERSAW -> 1.6
+        VoiceKind.SUB_BASS, VoiceKind.BASSLINE -> 1.1
         else -> 0.7
     }
 
@@ -87,6 +113,7 @@ object InstrumentVoice {
         VoiceKind.PLUCK, VoiceKind.CLICK_KIT, VoiceKind.SAW_LEAD -> 0.005
         VoiceKind.WARM_PAD -> 0.18
         VoiceKind.SUB_BASS -> 0.03
+        VoiceKind.BASSLINE -> 0.02
         else -> 0.01
     }
 
@@ -108,6 +135,9 @@ object InstrumentVoice {
         VoiceKind.PLUCK -> 3800.0
         VoiceKind.WARM_PAD -> 1800.0
         VoiceKind.CLICK_KIT -> 8000.0
+        VoiceKind.BASSLINE -> 900.0
+        VoiceKind.SUPERSAW -> 5400.0
+        VoiceKind.ARP -> 4200.0
     }
 
     private fun mix(a: Wav, b: Wav): Wav {
@@ -137,6 +167,30 @@ object InstrumentVoice {
             samples[frame] = (value * Short.MAX_VALUE).toInt().coerceIn(-32768, 32767).toShort()
         }
         return Wav(sampleRate, 1, samples)
+    }
+
+    private fun arp(sampleRate: Int, midiNote: Int, duration: Double, amplitude: Double): Wav {
+        val steps = intArrayOf(0, 4, 7, 12, 7, 4)
+        val slice = (duration / steps.size).coerceAtLeast(0.08)
+        var combined: Wav? = null
+        for (offset in steps) {
+            val tone = Oscillator.generate(
+                Waveform.SQUARE,
+                sampleRate,
+                1,
+                slice,
+                midiToHz(midiNote + offset),
+                amplitude,
+            )
+            val gated = Envelope.apply(tone, 0.005, 0.04, 0.2, 0.04)
+            combined = if (combined == null) gated else concat(combined, gated)
+        }
+        return combined ?: Oscillator.generate(Waveform.SQUARE, sampleRate, 1, duration, midiToHz(midiNote), amplitude)
+    }
+
+    private fun concat(a: Wav, b: Wav): Wav {
+        val channels = a.channels
+        return Wav(a.sampleRate, channels, a.samples + b.samples)
     }
 
     private fun expDecay(t: Double, speed: Double): Double = kotlin.math.exp(-speed * t)

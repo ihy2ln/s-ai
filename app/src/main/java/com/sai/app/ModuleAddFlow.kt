@@ -3,12 +3,13 @@ package com.sai.app
 import android.app.AlertDialog
 import android.content.Context
 import android.widget.Toast
-import com.sai.core.audio.InsertKind
 import com.sai.core.audio.InstrumentVoice
+import com.sai.core.plugin.OneKnobs
 import com.sai.core.plugin.PluginDescriptor
+import com.sai.core.plugin.PluginInsert
 import com.sai.core.plugin.PluginRole
 
-/** Shared add/replace flow for the module browser: Home stack, Channel Rack, mixer insert. */
+/** Shared add/replace flow for the module browser: Home stack, Channel Rack, mixer insert chain. */
 object ModuleAddFlow {
 
     fun showBrowser(
@@ -32,6 +33,11 @@ object ModuleAddFlow {
         when (plugin.role) {
             PluginRole.HOME -> addHome(context, plugin, onHomeChanged)
             PluginRole.INSTRUMENT -> {
+                val hasVoice = InstrumentVoice.kindForHomeModule(plugin.homeModule ?: "") != null && plugin.aliasOf == null
+                if (!hasVoice) {
+                    addHome(context, plugin, onHomeChanged)
+                    return
+                }
                 AlertDialog.Builder(context)
                     .setTitle(plugin.name)
                     .setItems(arrayOf("Add to Home", "Add to Channel Rack")) { _, which ->
@@ -44,7 +50,8 @@ object ModuleAddFlow {
             PluginRole.EFFECT -> {
                 val options = mutableListOf<String>()
                 if (plugin.canAddToHome) options.add("Add to Home")
-                options.add("Insert on Mixer")
+                if (plugin.canInsertOnMixer) options.add("Insert on Mixer")
+                if (options.isEmpty()) return
                 AlertDialog.Builder(context)
                     .setTitle(plugin.name)
                     .setItems(options.toTypedArray()) { _, which ->
@@ -82,30 +89,25 @@ object ModuleAddFlow {
     }
 
     fun insertEffectOnMixer(context: Context, plugin: PluginDescriptor) {
-        val kind = try {
-            InsertKind.valueOf(plugin.insertKind ?: return)
-        } catch (e: Exception) {
-            return
-        }
         val labels = (1..MixerStore.STRIP_COUNT).map { "Insert $it" } + "Master"
         AlertDialog.Builder(context)
             .setTitle("Insert ${plugin.name}")
             .setItems(labels.toTypedArray()) { _, which ->
-                val current = if (which >= MixerStore.STRIP_COUNT) {
-                    MixerStore.masterInsert(context)
-                } else {
-                    MixerStore.loadStrips(context)[which].insert
+                val stripIndex = if (which >= MixerStore.STRIP_COUNT) null else which
+                fun append(slot: com.sai.core.audio.InsertSlot) {
+                    MixerStore.appendInsert(context, stripIndex, slot)
+                    Toast.makeText(context, "${plugin.name} appended", Toast.LENGTH_SHORT).show()
                 }
-                val title = if (which >= MixerStore.STRIP_COUNT) "Master insert" else "Insert ${which + 1}"
-                InsertFxMenu.showKnobsForKind(context, "$title · ${plugin.name}", kind, current) { slot ->
-                    if (which >= MixerStore.STRIP_COUNT) {
-                        MixerStore.setMasterInsert(context, slot)
-                    } else {
-                        val strips = MixerStore.loadStrips(context)
-                        strips[which] = strips[which].withInsert(slot)
-                        MixerStore.saveStrips(context, strips)
+                if (OneKnobs.byId(plugin.id) != null) {
+                    InsertFxMenu.showAmount(context, plugin.name) { amount ->
+                        val slot = OneKnobs.slot(plugin.id, amount) ?: return@showAmount
+                        append(slot)
                     }
-                    Toast.makeText(context, "${plugin.name} inserted", Toast.LENGTH_SHORT).show()
+                    return@setItems
+                }
+                val draft = PluginInsert.slotFor(plugin) ?: return@setItems
+                InsertFxMenu.showKnobsForKind(context, plugin.name, draft.kind, draft) { slot ->
+                    append(slot.copy(engineId = slot.engineId.ifBlank { plugin.engineId.ifBlank { plugin.id } }))
                 }
             }
             .setNegativeButton("Cancel", null)

@@ -25,6 +25,10 @@ class InstrumentVoiceTest {
     @Test
     fun `home module names map to voices`() {
         assertTrue(InstrumentVoice.kindForHomeModule("PULSE_KEYS") == VoiceKind.PULSE_KEYS)
+        assertTrue(InstrumentVoice.kindForHomeModule("BASSLINE") == VoiceKind.BASSLINE)
+        assertTrue(InstrumentVoice.kindForHomeModule("SUPERSAW") == VoiceKind.SUPERSAW)
+        assertTrue(InstrumentVoice.kindForHomeModule("ARP") == VoiceKind.ARP)
         assertTrue(InstrumentVoice.kindForHomeModule("SAMPLER") == null)
+        assertTrue(InstrumentVoice.kindForHomeModule("SCALE") == null)
     }
 }

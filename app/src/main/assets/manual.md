@@ -132,20 +132,21 @@ See also: [Sampler Module](#sampler-module), [Channel Rack](#channel-rack), [Pad
 
 S.Ai cannot load desktop `.dll` / `.vst3` binaries. Instead it ships a first-class **in-app plugin catalog** with VST2- and VST3-style instruments and effects that use the same audio engine as the rest of the app.
 
-**M → Add Module** opens the module browser (compact tiles, category chips, search — the same idea as FL Studio Mobile’s plugin list and BandLab’s effect picker):
+**M → Add Module** opens the module browser (compact tiles, job chips, category chips, search — FL Studio Mobile’s plugin list plus BandLab’s job picker):
 
 | Control | What it does |
 | --- | --- |
-| **Search** | Filters name, vendor, category, and VST2/VST3 |
+| **Search** | Filters name, vendor, purpose, jobs, and VST2/VST3 |
+| **All / Vocals / Guitar / Drums / Mix / MIDI / Instruments** | Job chips (starting-catalog language) |
 | **Instruments / Effects / Home** | Role tabs |
 | **Built-in / VST2 / VST3** | Format chips |
 | **Category chips** | Keys, Bass, Leads, Pads, Percussion, Dynamics, Space, Tone, Modulation, Utility |
 
-Tiles for **Sampler, Synth, Pads, Tracker, Channel Rack** stay in the Home tab. Adding them never removes the modules already on screen.
+Tiles for **Sampler, Synth, Pads, Tracker, Channel Rack** stay in the Home tab. Adding them never removes the modules already on screen. Layout → Reset still restores those four.
 
 ### Instruments
 
-Pulse Keys, Saw Lead, Sub Bass, Pluck, Warm Pad, Click Kit.
+Pulse Keys, Saw Lead, Sub Bass, Pluck, Warm Pad, Click Kit, plus **Bassline** (303-style), **SuperSaw**, **Arp**, and **Keys** (alias of Synth — user WAVs only, no bundled bank).
 
 Tap a tile, then:
 
@@ -156,16 +157,18 @@ Channel Rack **Plug** (and **… → Add plugin**) opens the same browser, filte
 
 ### Effects
 
-Filter, Compressor, Reverb, Equalizer, Stereo Shaper, plus Delay, Distort, Chorus, and Limiter.
+Filter, Compressor, Reverb, Equalizer, Stereo Shaper, Delay, Distort, Chorus, Limiter, plus Slapback, Drive (Distort alias), Tape, Phaser, Crush, Tune, DeEss, Amp, Gate, Punch, Duck, and Vocal Verb (ducked Reverb). **One-Knobs** (Brighter, Echo, Punchy, Room, Toasty, Bassy, Leveller, Dirty) are data over those engines — one Amount, then append.
 
 Tap a tile, then:
 
-- **Insert on Mixer** — pick strip `1`–`8` or Master, then set knobs (same live insert as **MX → Mixer → FX**)
-- **Add to Home** (Delay / Distort / Chorus / Limiter) — a compact editor; **Insert on Mixer** from the panel copies those knobs onto a strip
+- **Insert on Mixer** — pick strip `1`–`8` or Master; the effect is **appended** to that strip’s ordered chain
+- **Add to Home** (Delay / Distort / Chorus / Limiter / Tuner) — a compact editor; **Insert on Mixer** from the panel appends those knobs
 
-Mixer **FX** also opens this browser (includes **Off** to clear the slot).
+Mixer **FX** opens the **chain editor**: add, bypass per slot, reorder, remove, apply starter presets (**Lead Vocal**, **Vocal Double**, **Guitar Crunch**, **Drum Punch**, **Master polish**). Order hints: Delay before Reverb, Tune before EQ. Mix defaults stay conservative (~0.28).
 
-**M → Plugins** enables or disables individual VST2/VST3 entries. Built-in Home modules cannot be turned off.
+**Scale** is a Home reference (root / mode) with no audio engine.
+
+**M → Plugins** enables or disables individual VST2/VST3 entries. Built-in Home modules cannot be turned off. Effect Home modules show **IN / BYP** on the header.
 
 See also: [Mixer](#mixer), [Effects (MX)](#effects-mx).
 
@@ -298,7 +301,7 @@ Eight insert strips plus **MST** (master):
 
 | Control | Function |
 | --- | --- |
-| **FX** | Live insert via the module browser: Filter, Compressor, Reverb, Equalizer, Stereo Shaper, Delay, Distort, Chorus, Limiter (or Off). Lit when active. Bypass keeps the slot without processing. |
+| **FX** | Ordered insert **chain**: add / bypass / reorder / presets (or Clear). Lit when any slot is active. Delay before Reverb; Tune before EQ. |
 | **Meter** | Peak from sounds routed to this strip |
 | **Fader** | Strip (or master) level |
 | **M** | Mute |
@@ -406,7 +409,7 @@ Open via long-press on a library sample → **Edit**.
 
 Each dialog has **Preview** (one-shot), **Apply** (writes back), and **Close**. Apply on a library sound **replaces that entry** (same ID); it does not add a second copy.
 
-For FX you want on a mixer strip (or master) without changing the sample, use the mixer **FX** button or **M → Add Module** (Effects tab) instead.
+For FX you want on a mixer strip (or master) without changing the sample, use the mixer **FX** chain (including Tape, Phaser, Crush, Tune, DeEss, Amp, Gate, One-Knobs, and Reverb **DUCK**) or **M → Add Module** (Effects tab) instead.
 
 See also: [Mixer](#mixer), [Synth Module](#synth-module).
 

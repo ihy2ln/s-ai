@@ -57,6 +57,7 @@ object MixdownExporter {
             projectMaster = ProjectPlayback.masterVolume(context) / 127f,
             pitchSemitones = ProjectPlayback.pitchSemitones(context),
             masterInsert = MixerStore.masterInsert(context),
+            masterChain = MixerStore.masterChain(context),
             chokeSameTrack = ModuleLayoutStore.isChokeEnabled(context, ModuleType.TRACKER),
             patternLengthAt = { project.patternLength(it) },
             swingPercent = project.swing,
