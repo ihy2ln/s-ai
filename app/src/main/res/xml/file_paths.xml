@@ -2,4 +2,5 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <files-path name="slices" path="slices/" />
     <files-path name="bundle" path="bundle/" />
+    <cache-path name="cache" path="." />
 </paths>

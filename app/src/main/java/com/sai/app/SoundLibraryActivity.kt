@@ -133,11 +133,12 @@ class SoundLibraryActivity : ComponentActivity() {
         setOnLongClickListener {
             AlertDialog.Builder(this@SoundLibraryActivity)
                 .setTitle(entry.displayName)
-                .setItems(arrayOf("Move to Category", "Mixer", "Tags")) { _, which ->
+                .setItems(arrayOf("Move to Category", "Mixer", "Tags", "Split Stems")) { _, which ->
                     when (which) {
                         0 -> showRecategorizeDialog(entry)
                         1 -> EffectsMenu.show(this@SoundLibraryActivity, libraryEffectsTarget(entry))
                         2 -> editTags(entry)
+                        3 -> StemSplitterActivity.open(this@SoundLibraryActivity, entry)
                     }
                 }
                 .show()

@@ -1,0 +1,97 @@
+{
+  "__meta": {
+    "description": "4-stem Demucs workflow for S.Ai. Requires ComfyUI-Demucs custom nodes on your PC.",
+    "outputs": {
+      "vocals": "20",
+      "drums": "21",
+      "bass": "22",
+      "other": "23",
+      "instrumental": "24"
+    }
+  },
+  "prompt": {
+    "1": {
+      "inputs": {
+        "audio": "placeholder.wav"
+      },
+      "class_type": "LoadAudio"
+    },
+    "2": {
+      "inputs": {
+        "audio": ["1", 0],
+        "model": "htdemucs"
+      },
+      "class_type": "DemucsSeparate"
+    },
+    "10": {
+      "inputs": {
+        "audio": ["2", 0],
+        "stem": "vocals"
+      },
+      "class_type": "DemucsStem"
+    },
+    "11": {
+      "inputs": {
+        "audio": ["2", 0],
+        "stem": "drums"
+      },
+      "class_type": "DemucsStem"
+    },
+    "12": {
+      "inputs": {
+        "audio": ["2", 0],
+        "stem": "bass"
+      },
+      "class_type": "DemucsStem"
+    },
+    "13": {
+      "inputs": {
+        "audio": ["2", 0],
+        "stem": "other"
+      },
+      "class_type": "DemucsStem"
+    },
+    "14": {
+      "inputs": {
+        "audio": ["2", 0],
+        "stem": "no_vocals"
+      },
+      "class_type": "DemucsStem"
+    },
+    "20": {
+      "inputs": {
+        "audio": ["10", 0],
+        "filename_prefix": "sai_vocals"
+      },
+      "class_type": "SaveAudio"
+    },
+    "21": {
+      "inputs": {
+        "audio": ["11", 0],
+        "filename_prefix": "sai_drums"
+      },
+      "class_type": "SaveAudio"
+    },
+    "22": {
+      "inputs": {
+        "audio": ["12", 0],
+        "filename_prefix": "sai_bass"
+      },
+      "class_type": "SaveAudio"
+    },
+    "23": {
+      "inputs": {
+        "audio": ["13", 0],
+        "filename_prefix": "sai_other"
+      },
+      "class_type": "SaveAudio"
+    },
+    "24": {
+      "inputs": {
+        "audio": ["14", 0],
+        "filename_prefix": "sai_instrumental"
+      },
+      "class_type": "SaveAudio"
+    }
+  }
+}
